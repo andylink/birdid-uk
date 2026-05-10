@@ -59,11 +59,11 @@ def _render_spectrogram(filepath: str) -> bytes:
 
 @router.get("/audio/{filename}")
 async def serve_audio(filename: str):
-    """Serve a raw WAV clip from the detections directory."""
+    """Serve a FLAC clip from the detections directory."""
     path = DETECTIONS_DIR / filename
-    if not path.is_file() or path.suffix.lower() != ".wav":
+    if not path.is_file() or path.suffix.lower() != ".flac":
         raise HTTPException(status_code=404, detail="Audio file not found")
-    return FileResponse(str(path), media_type="audio/wav")
+    return FileResponse(str(path), media_type="audio/flac")
 
 
 @router.get("/spectrogram/{filename}")

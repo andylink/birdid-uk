@@ -1,5 +1,6 @@
 birdnet-analyzer
 sounddevice
+soundfile
 scipy
 sqlalchemy
 # psycopg2-binary  # uncomment when using type = "postgresql" in [database]

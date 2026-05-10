@@ -13,7 +13,7 @@ section.  The thread started by ``start_retention_thread()`` runs the policy on
 startup and then every ``run_interval_seconds`` seconds.
 
 Filename convention (produced by audio.save_clip):
-    YYYYMMDD_HHMMSS_<safe_species>.wav
+    YYYYMMDD_HHMMSS_<safe_species>.flac
 
 The species key is extracted by splitting on ``_`` at most twice, taking the
 third part.  This groups clips by species without needing to reverse
@@ -38,14 +38,14 @@ logger = logging.getLogger(__name__)
 
 def _clips_by_species(detections_dir: Path) -> dict[str, list[Path]]:
     """
-    Return ``{species_key: [path, ...]}`` for every ``*.wav`` in
+    Return ``{species_key: [path, ...]}`` for every ``*.flac`` in
     *detections_dir*, sorted oldest-first within each species group.
 
-    Files whose names don't match the expected ``YYYYMMDD_HHMMSS_<species>.wav``
+    Files whose names don't match the expected ``YYYYMMDD_HHMMSS_<species>.flac``
     pattern are silently skipped.
     """
     groups: dict[str, list[Path]] = {}
-    for p in detections_dir.glob("*.wav"):
+    for p in detections_dir.glob("*.flac"):
         parts = p.stem.split("_", 2)
         if len(parts) < 3:
             continue

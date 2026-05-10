@@ -53,7 +53,7 @@ def post_detection(
         ts:         Timestamp of the detection (naive or aware datetime).
         species:    Detected species common name.
         confidence: Detection confidence in the range 0.0–1.0.
-        clip_path:  Path to the saved WAV clip, or None if not saved.
+        clip_path:  Path to the saved FLAC clip, or None if not saved.
     """
     if not cfg.birdmap.enabled:
         return
