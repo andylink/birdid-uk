@@ -4,6 +4,9 @@
 	import TopSpeciesChart from '../../components/analytics/TopSpeciesChart.svelte';
 	import TimeOfDayChart from '../../components/analytics/TimeOfDayChart.svelte';
 	import NewSpeciesChart from '../../components/analytics/NewSpeciesChart.svelte';
+	import BoccBreakdownChart from '../../components/analytics/BoccBreakdownChart.svelte';
+	import GroupBreakdownChart from '../../components/analytics/GroupBreakdownChart.svelte';
+	import BoccTrendChart from '../../components/analytics/BoccTrendChart.svelte';
 
 	let period = $state<Period>('today');
 	let summary = $state<AnalyticsSummary | null>(null);
@@ -43,7 +46,7 @@
 			</div>
 		</div>
 
-		<!-- Stat cards -->
+		<!-- General stat cards -->
 		<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
 			<StatCard
 				title="Total Detections"
@@ -68,11 +71,53 @@
 			/>
 		</div>
 
+		<!-- Conservation stat cards -->
+		<div>
+			<h2 class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">
+				Conservation
+			</h2>
+			<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+				<StatCard
+					title="Red List Species"
+					value={summary?.red_list_species}
+					subtitle="UK BoCC Red"
+					loading={summaryLoading}
+				/>
+				<StatCard
+					title="Scarce / Rare"
+					value={summary?.scarce_rare_species}
+					subtitle="Scarce, Rare or Very rare"
+					loading={summaryLoading}
+				/>
+				<StatCard
+					title="Groups Represented"
+					value={summary?.groups_represented}
+					subtitle="Distinct taxonomic groups"
+					loading={summaryLoading}
+				/>
+				<StatCard
+					title="Garden Score"
+					value={summary?.conservation_score}
+					subtitle="Red×3 + Amber×2 + Green×1"
+					loading={summaryLoading}
+				/>
+			</div>
+		</div>
+
 		<!-- Charts row: top species + time of day -->
 		<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 			<TopSpeciesChart {period} />
 			<TimeOfDayChart {period} />
 		</div>
+
+		<!-- Conservation charts row: BoCC breakdown + group breakdown -->
+		<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+			<BoccBreakdownChart {period} />
+			<GroupBreakdownChart {period} />
+		</div>
+
+		<!-- BoCC trend over time (full width) -->
+		<BoccTrendChart {period} />
 
 		<!-- New species chart -->
 		<NewSpeciesChart {period} />

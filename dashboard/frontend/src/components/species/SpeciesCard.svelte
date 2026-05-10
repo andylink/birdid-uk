@@ -19,6 +19,11 @@
 	class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden flex flex-col
 	       hover:border-slate-700 transition-colors"
 >
+	<a
+		href="/species/{encodeURIComponent(species.species)}?from=species"
+		class="flex flex-col flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+		aria-label="View recordings for {species.species}"
+	>
 	<!-- Species image -->
 	<div class="aspect-video bg-slate-800 relative overflow-hidden">
 		{#if imgError}
@@ -109,4 +114,5 @@
 			{/if}
 		</dl>
 	</div>
+	</a>
 </article>

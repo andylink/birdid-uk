@@ -15,9 +15,12 @@
 	);
 </script>
 
-<article
+<a
+	href="/species/{encodeURIComponent(species.species)}?from=species"
 	class="flex items-center gap-3 px-3 py-2.5 border-b border-slate-800
-	       hover:bg-slate-900/60 transition-colors"
+	       hover:bg-slate-900/60 transition-colors focus:outline-none
+	       focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
+	aria-label="View recordings for {species.species}"
 >
 	<!-- Thumbnail with group badge overlay -->
 	<div class="w-11 h-11 rounded bg-slate-800 overflow-hidden shrink-0 relative">
@@ -99,4 +102,4 @@
 	<div class="w-28 text-right text-xs text-slate-500 hidden md:block">
 		{formatFullDate(species.last_detected)}
 	</div>
-</article>
+</a>

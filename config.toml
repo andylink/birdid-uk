@@ -181,3 +181,8 @@ label_locale = "en-uk"
 min_confidence   = 0.80
 cooldown_seconds = 60
 
+[species."Tawny Owl"]
+min_detections = 1
+
+[species."Barn Owl"]
+min_detections = 1

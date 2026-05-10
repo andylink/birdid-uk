@@ -155,7 +155,8 @@ async def analytics_summary(
     period: str = Query("today"),
     db: aiosqlite.Connection = Depends(get_db),
 ):
-    """Headline stats: total detections, unique species, avg confidence, top species."""
+    """Headline stats: total detections, unique species, avg confidence, top species,
+    plus conservation stats derived from the species_info join."""
     where, params = _period_clause(period)
 
     totals = (await db.execute_fetchall(
@@ -181,12 +182,41 @@ async def analytics_summary(
         params,
     )
 
+    # Conservation stats — join with species_info via bto_name
+    conservation = (await db.execute_fetchall(
+        f"""
+        SELECT
+            COUNT(DISTINCT CASE WHEN si.uk_bocc = 'Red'
+                                THEN d.species END)                                       AS red_list,
+            COUNT(DISTINCT CASE WHEN si.uk_bocc = 'Amber'
+                                THEN d.species END)                                       AS amber_list,
+            COUNT(DISTINCT CASE WHEN si.uk_bocc = 'Green'
+                                THEN d.species END)                                       AS green_list,
+            COUNT(DISTINCT CASE WHEN si.species_status IN ('Scarce', 'Rare', 'Very rare')
+                                THEN d.species END)                                       AS scarce_rare,
+            COUNT(DISTINCT si.group_name)                                                 AS groups_represented
+        FROM detections d
+        LEFT JOIN species_info si ON si.name = d.bto_name
+        WHERE {where}
+        """,
+        params,
+    ))[0]
+
+    red   = conservation["red_list"]   or 0
+    amber = conservation["amber_list"] or 0
+    green = conservation["green_list"] or 0
+
     return {
-        "total_detections": totals["total"] or 0,
-        "unique_species": totals["unique_spp"] or 0,
-        "avg_confidence": round(totals["avg_conf"] or 0.0, 4),
+        "total_detections":    totals["total"]    or 0,
+        "unique_species":      totals["unique_spp"] or 0,
+        "avg_confidence":      round(totals["avg_conf"] or 0.0, 4),
         "most_common_species": top[0]["species"] if top else None,
-        "most_common_count": top[0]["cnt"] if top else 0,
+        "most_common_count":   top[0]["cnt"]     if top else 0,
+        # Conservation fields
+        "red_list_species":    red,
+        "scarce_rare_species": conservation["scarce_rare"] or 0,
+        "groups_represented":  conservation["groups_represented"] or 0,
+        "conservation_score":  red * 3 + amber * 2 + green,
     }
 
 
@@ -196,22 +226,23 @@ async def top_species(
     limit: int = Query(10, ge=1, le=50),
     db: aiosqlite.Connection = Depends(get_db),
 ):
-    """Top N species by detection count for the given period."""
+    """Top N species by detection count for the given period, including group_name for colouring."""
     where, params = _period_clause(period)
 
     rows = await db.execute_fetchall(
         f"""
-        SELECT species, COUNT(*) AS count
-        FROM detections
+        SELECT d.species, COUNT(*) AS count, si.group_name
+        FROM detections d
+        LEFT JOIN species_info si ON si.name = d.bto_name
         WHERE {where}
-        GROUP BY species
+        GROUP BY d.species
         ORDER BY count DESC
         LIMIT ?
         """,
         params + [limit],
     )
 
-    return [{"species": r["species"], "count": r["count"]} for r in rows]
+    return [{"species": r["species"], "count": r["count"], "group_name": r["group_name"]} for r in rows]
 
 
 @router.get("/api/v1/analytics/new-species")
@@ -245,3 +276,125 @@ async def new_species_timeline(
     )
 
     return [{"day": r["day"], "count": r["new_count"]} for r in rows]
+
+
+@router.get("/api/v1/analytics/bocc-breakdown")
+async def bocc_breakdown(
+    period: str = Query("today"),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Unique species count and total detection count broken down by UK BoCC status.
+
+    Returns entries ordered Red → Amber → Green → Unknown so the caller can
+    render them in a consistent conservation-priority order.
+    """
+    where, params = _period_clause(period)
+
+    rows = await db.execute_fetchall(
+        f"""
+        SELECT
+            COALESCE(si.uk_bocc, 'Unknown') AS bocc,
+            COUNT(DISTINCT d.species)        AS species_count,
+            COUNT(*)                         AS detection_count
+        FROM detections d
+        LEFT JOIN species_info si ON si.name = d.bto_name
+        WHERE {where}
+        GROUP BY si.uk_bocc
+        ORDER BY CASE COALESCE(si.uk_bocc, 'Unknown')
+                     WHEN 'Red'    THEN 1
+                     WHEN 'Amber'  THEN 2
+                     WHEN 'Green'  THEN 3
+                     ELSE 4
+                 END
+        """,
+        params,
+    )
+
+    return [
+        {
+            "bocc":            r["bocc"],
+            "species_count":   r["species_count"],
+            "detection_count": r["detection_count"],
+        }
+        for r in rows
+    ]
+
+
+@router.get("/api/v1/analytics/group-breakdown")
+async def group_breakdown(
+    period: str = Query("today"),
+    limit: int = Query(15, ge=1, le=50),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Detection count and unique species count per taxonomic group, top-N by detections."""
+    where, params = _period_clause(period)
+
+    rows = await db.execute_fetchall(
+        f"""
+        SELECT
+            COALESCE(si.group_name, 'Unknown') AS group_name,
+            COUNT(DISTINCT d.species)           AS species_count,
+            COUNT(*)                            AS detection_count
+        FROM detections d
+        LEFT JOIN species_info si ON si.name = d.bto_name
+        WHERE {where}
+        GROUP BY si.group_name
+        ORDER BY detection_count DESC
+        LIMIT ?
+        """,
+        params + [limit],
+    )
+
+    return [
+        {
+            "group_name":      r["group_name"],
+            "species_count":   r["species_count"],
+            "detection_count": r["detection_count"],
+        }
+        for r in rows
+    ]
+
+
+@router.get("/api/v1/analytics/bocc-trend")
+async def bocc_trend(
+    period: str = Query("30d"),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Daily detection counts broken down by UK BoCC status.
+
+    Returns one row per (local calendar day, bocc status) combination, ordered
+    by day then conservation priority (Red first).  The frontend pivots this
+    into a stacked bar chart.
+    """
+    where, params = _period_clause(period)
+    ofs = utc_offset_str()
+
+    rows = await db.execute_fetchall(
+        f"""
+        SELECT
+            DATE(datetime(d.timestamp, {ofs}))    AS day,
+            COALESCE(si.uk_bocc, 'Unknown')        AS bocc,
+            COUNT(*)                               AS detection_count
+        FROM detections d
+        LEFT JOIN species_info si ON si.name = d.bto_name
+        WHERE {where}
+        GROUP BY day, si.uk_bocc
+        ORDER BY day,
+                 CASE COALESCE(si.uk_bocc, 'Unknown')
+                     WHEN 'Red'    THEN 1
+                     WHEN 'Amber'  THEN 2
+                     WHEN 'Green'  THEN 3
+                     ELSE 4
+                 END
+        """,
+        params,
+    )
+
+    return [
+        {
+            "day":             r["day"],
+            "bocc":            r["bocc"],
+            "detection_count": r["detection_count"],
+        }
+        for r in rows
+    ]

@@ -118,16 +118,40 @@ export interface AnalyticsSummary {
 	avg_confidence: number;
 	most_common_species: string | null;
 	most_common_count: number;
+	// Conservation fields (from species_info join)
+	red_list_species: number;
+	scarce_rare_species: number;
+	groups_represented: number;
+	conservation_score: number;
 }
 
 export interface TopSpeciesEntry {
 	species: string;
 	count: number;
+	group_name: string | null;
 }
 
 export interface NewSpeciesEntry {
 	day: string;   // YYYY-MM-DD
 	count: number;
+}
+
+export interface BoccBreakdownEntry {
+	bocc: string;          // "Red" | "Amber" | "Green" | "Unknown"
+	species_count: number;
+	detection_count: number;
+}
+
+export interface GroupBreakdownEntry {
+	group_name: string;
+	species_count: number;
+	detection_count: number;
+}
+
+export interface BoccTrendEntry {
+	day: string;            // YYYY-MM-DD
+	bocc: string;           // "Red" | "Amber" | "Green" | "Unknown"
+	detection_count: number;
 }
 
 // ── Species types ──────────────────────────────────────────────────────────
@@ -144,6 +168,11 @@ export interface SpeciesStats extends SpeciesInfo {
 export interface SpeciesListResponse {
 	total: number;
 	species: SpeciesStats[];
+}
+
+export interface SpeciesDetectionsResponse {
+	total: number;
+	detections: Detection[];
 }
 
 // ── Detections ─────────────────────────────────────────────────────────────
@@ -194,6 +223,24 @@ export function getNewSpeciesTimeline(period: Period): Promise<NewSpeciesEntry[]
 
 // ── Species ────────────────────────────────────────────────────────────────
 
+/** Fetch aggregate stats + metadata for one species. */
+export function getSpeciesDetail(name: string): Promise<SpeciesStats> {
+	return apiFetch<SpeciesStats>(`/api/v1/species/${encodeURIComponent(name)}`);
+}
+
+/** Fetch paginated detection recordings for one species, newest first. */
+export function getSpeciesDetections(
+	name: string,
+	params: { limit?: number; offset?: number } = {}
+): Promise<SpeciesDetectionsResponse> {
+	const q = new URLSearchParams();
+	if (params.limit  !== undefined) q.set('limit',  String(params.limit));
+	if (params.offset !== undefined) q.set('offset', String(params.offset));
+	return apiFetch<SpeciesDetectionsResponse>(
+		`/api/v1/species/${encodeURIComponent(name)}/detections?${q}`
+	);
+}
+
 export function getSpeciesList(params: {
 	period: SpeciesPeriod;
 	sort: SortOption;
@@ -201,16 +248,38 @@ export function getSpeciesList(params: {
 	date_to?: string;
 	limit?: number;
 	offset?: number;
+	bocc?: string;    // "Red" | "Amber" | "Green"
+	status?: string;  // "Common" | "Scarce" | "Rare" | "Very rare"
+	group?: string;   // group_name from species_info
 }): Promise<SpeciesListResponse> {
 	const q = new URLSearchParams({ period: params.period, sort: params.sort });
 	if (params.date_from) q.set('date_from', params.date_from);
 	if (params.date_to)   q.set('date_to',   params.date_to);
 	if (params.limit)     q.set('limit',      String(params.limit));
 	if (params.offset)    q.set('offset',     String(params.offset));
+	if (params.bocc)      q.set('bocc',       params.bocc);
+	if (params.status)    q.set('status',     params.status);
+	if (params.group)     q.set('group',      params.group);
 	return apiFetch<SpeciesListResponse>(`/api/v1/species?${q}`);
 }
 
 /** URL for the cached species image endpoint. Returns null if no image is available. */
 export function speciesImageUrl(species: string): string {
 	return `/api/v1/species/image?name=${encodeURIComponent(species)}`;
+}
+
+// ── Conservation analytics ─────────────────────────────────────────────────
+
+export function getBoccBreakdown(period: Period): Promise<BoccBreakdownEntry[]> {
+	return apiFetch<BoccBreakdownEntry[]>(`/api/v1/analytics/bocc-breakdown?period=${period}`);
+}
+
+export function getGroupBreakdown(period: Period, limit = 15): Promise<GroupBreakdownEntry[]> {
+	return apiFetch<GroupBreakdownEntry[]>(
+		`/api/v1/analytics/group-breakdown?period=${period}&limit=${limit}`
+	);
+}
+
+export function getBoccTrend(period: Period): Promise<BoccTrendEntry[]> {
+	return apiFetch<BoccTrendEntry[]>(`/api/v1/analytics/bocc-trend?period=${period}`);
 }

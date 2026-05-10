@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { createSSE } from '$lib/sse';
 	import type { Detection } from '$lib/api';
+	import { BOCC_COLOR } from '$lib/bto';
 	import DetectionCard from './DetectionCard.svelte';
 
 	let { maxItems = 100 }: { maxItems?: number } = $props();
@@ -10,12 +11,27 @@
 	let sse: ReturnType<typeof createSSE> | null = null;
 	let connected = $state(false);
 
+	// Track unique notable species (Red-list / Rare / Very rare) seen this session
+	let notableMap = $state<Map<string, Detection>>(new Map());
+
+	const notableList = $derived([...notableMap.values()]);
+
+	function isNotable(d: Detection): boolean {
+		return d.uk_bocc === 'Red' || d.species_status === 'Rare' || d.species_status === 'Very rare';
+	}
+
 	onMount(() => {
 		sse = createSSE('/stream/detections');
 		sse.on('detection', (raw) => {
 			const d = raw as Detection;
 			detections = [d, ...detections].slice(0, maxItems);
 			connected = true;
+			if (isNotable(d) && !notableMap.has(d.species)) {
+				// Svelte 5: reassign the map to trigger reactivity
+				const next = new Map(notableMap);
+				next.set(d.species, d);
+				notableMap = next;
+			}
 		});
 	});
 
@@ -35,6 +51,30 @@
 			</span>
 		{/if}
 	</header>
+
+	<!-- Notable species section (only visible when at least one has been seen) -->
+	{#if notableList.length > 0}
+		<div class="border-b border-red-900/40 bg-red-950/20 px-3 py-2 shrink-0">
+			<p class="text-[9px] font-bold text-red-500 uppercase tracking-widest mb-1.5">
+				Notable this session
+			</p>
+			<div class="flex flex-wrap gap-1.5">
+				{#each notableList as d (d.species)}
+					{@const label = d.uk_bocc === 'Red' ? 'Red List'
+						: d.species_status === 'Very rare' ? 'Very rare' : 'Rare'}
+					{@const color = BOCC_COLOR[d.uk_bocc ?? ''] ?? BOCC_COLOR.Red}
+					<span
+						class="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-medium"
+						style="border-color: {color}44; color: {color}; background-color: {color}11"
+						title="{d.species} — {label}"
+					>
+						<span class="w-1.5 h-1.5 rounded-full inline-block shrink-0" style="background-color: {color}"></span>
+						{d.species}
+					</span>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	<div class="flex-1 overflow-y-auto" role="feed" aria-live="polite" aria-label="Bird detections">
 		{#if detections.length === 0}

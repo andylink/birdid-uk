@@ -23,6 +23,7 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let sse: ReturnType<typeof createSSE> | null = null;
+	let boccFilter = $state<string>('all'); // 'all' | 'Red' | 'Amber' | 'Green'
 
 	// ── Constants ─────────────────────────────────────────────────────────────
 
@@ -51,6 +52,13 @@
 			if (b.count !== a.count) return b.count - a.count;
 			return (b.latest_heard ?? '').localeCompare(a.latest_heard ?? '');
 		})
+	);
+
+	// Apply BoCC filter on top of the sort
+	const filteredSummaries = $derived(
+		boccFilter === 'all'
+			? sortedSummaries
+			: sortedSummaries.filter(s => s.uk_bocc === boccFilter)
 	);
 
 	const maxHourlyCount = $derived(
@@ -174,9 +182,32 @@
 			</span>
 			{#if summaries.length > 0}
 				<span class="text-xs text-slate-600">
-					{summaries.length} species · {summaries.reduce((t, s) => t + s.count, 0)} detections
+					{filteredSummaries.length}{boccFilter !== 'all' ? `/${summaries.length}` : ''} species
+					· {filteredSummaries.reduce((t, s) => t + s.count, 0)} detections
 				</span>
 			{/if}
+		{/if}
+
+		<!-- BoCC filter toggle -->
+		{#if !loading && !error && summaries.length > 0}
+			<div class="flex items-center gap-1 ml-2">
+				{#each [['all', 'All', ''], ['Red', 'Red', '#ef4444'], ['Amber', 'Amber', '#f59e0b'], ['Green', 'Green', '#22c55e']] as [val, label, color]}
+					<button
+						class="text-[10px] px-2 py-0.5 rounded border transition-colors font-medium
+						       {boccFilter === val
+						         ? 'bg-slate-700 border-slate-500 text-slate-100'
+						         : 'border-slate-700 text-slate-500 hover:text-slate-300'}"
+						style={boccFilter === val && color ? `border-color: ${color}; color: ${color}` : ''}
+						onclick={() => boccFilter = val}
+						aria-pressed={boccFilter === val}
+					>
+						{#if color}
+							<span class="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle"
+							      style="background-color: {color}"></span>
+						{/if}{label}
+					</button>
+				{/each}
+			</div>
 		{/if}
 
 		<div class="ml-auto flex items-center gap-1.5">
@@ -256,6 +287,15 @@
 				<p class="text-sm">No detections for {formatDisplayDate(selectedDate)}</p>
 			</div>
 
+		{:else if filteredSummaries.length === 0}
+			<div class="flex flex-col items-center justify-center h-40 gap-2 text-slate-600">
+				<p class="text-sm">No {boccFilter} list species detected today.</p>
+				<button
+					class="text-xs text-emerald-500 hover:text-emerald-400 underline"
+					onclick={() => boccFilter = 'all'}
+				>Show all species</button>
+			</div>
+
 		{:else}
 			<table class="border-collapse min-w-max w-full" role="grid" aria-label="Species detection heatmap">
 				<thead class="sticky top-0 z-10">
@@ -286,8 +326,8 @@
 					</tr>
 				</thead>
 
-				<tbody>
-				{#each sortedSummaries as item (item.species)}
+			<tbody>
+				{#each filteredSummaries as item (item.species)}
 					{@const statusStyle = item.species_status ? SPECIES_STATUS_STYLE[item.species_status] : null}
 					<tr class="group hover:bg-slate-800/20 transition-colors">
 						<td
@@ -312,7 +352,13 @@
 								></span>
 							{/if}
 							<span class="truncate text-xs text-slate-200" title={item.species}>
-								{item.species}
+								<a
+									href="/species/{encodeURIComponent(item.species)}?from=dashboard"
+									class="hover:text-emerald-400 hover:underline transition-colors focus:outline-none
+									       focus-visible:text-emerald-400 focus-visible:underline"
+								>
+									{item.species}
+								</a>
 							</span>
 							{#if statusStyle}
 								<span
