@@ -1,0 +1,174 @@
+# ── Bird Detector Configuration ───────────────────────────────────────────────
+
+[general]
+# IANA timezone name for the detector's location.
+# Timestamps are always stored in UTC; this setting controls how dates and
+# times are displayed in the dashboard and how "today" / period filters work.
+# UK users: "Europe/London" handles GMT (winter, UTC+0) and BST (summer, UTC+1)
+# automatically — no manual adjustment needed when the clocks change.
+timezone = "Europe/London"
+
+
+[paths]
+# Directory where detected audio clips are saved
+detections_dir = "data/detections"
+
+# SQLite database file
+db_path = "data/birds.db"
+
+
+[audio]
+sample_rate    = 48000
+hop_seconds    = 1      # advance the rolling window by this many seconds each step
+window_seconds = 3      # analysis window length (must match BirdNET training)
+
+# Dual-buffer clip settings.
+# Saved clips are longer than the 3-second analysis window, mirroring the
+# BirdNET-Go dual-buffer design.  The capture buffer (ring) records audio
+# continuously; when a detection fires, a deferred task reads a full-length
+# segment after sleeping for the post-capture period.
+#
+#   clip layout:  |-- pre_capture --|-- window (3 s) --|-- post_capture --|
+#                 <------------ clip_seconds -------------------------------->
+#
+# post_capture_seconds is derived: clip_seconds - window_seconds - pre_capture_seconds
+# (must be >= 0).
+clip_seconds            = 15   # total saved clip length in seconds
+pre_capture_seconds     = 0    # extra audio before the analysis window
+capture_buffer_seconds  = 30   # ring buffer size; must be > clip_seconds + margin
+
+# Microphone device index (from `python -m sounddevice`).
+# Device 0 = HDA Intel PCH: CX8200 Analog (hw:0,0) — physical mic/line-in jack.
+# Set to 10 to use PipeWire instead if you need PipeWire routing.
+device = 0
+
+
+[defaults]
+# Detections with confidence below this value are suppressed
+min_confidence = 0.6
+
+# Minimum gap (seconds) between saved clips for the same species
+cooldown_seconds = 15
+
+# Maximum number of species to log / show per analysis window
+top_n = 3
+
+# Labels that are never surfaced as detections (case-insensitive)
+noise_labels = ["background", "noise", "silence", "other", "engine", "Power tools", "Human non-vocal"]
+
+# Species to permanently suppress, regardless of confidence.
+# Distinct from noise_labels — use this for real species you simply don't want
+# recorded (e.g. abundant garden birds that flood the log).
+# Note: use the exact IOC common names returned by BirdNET (run the detector
+# and check terminal output to confirm names).
+# e.g. exclude = ["Common Wood-Pigeon", "Carrion Crow"]
+exclude = ["Northern Mockingbird", "Mourning Dove", "Eastern Kingbird"]
+
+
+[filter]
+# Set enabled = true to apply a high-pass filter to audio before inference.
+# Helps remove low-frequency noise (wind, traffic, HVAC) without affecting
+# saved clips — the raw unfiltered audio is always written to disk.
+enabled   = true
+cutoff_hz = 150    # Hz — bird calls typically start well above this
+order     = 5      # Butterworth filter order; higher = steeper rolloff
+
+
+[retention]
+# Clip retention / disk cleanup policy for data/detections/.
+# The cleanup thread runs on startup and then every run_interval_seconds.
+enabled               = true
+max_age_days          = 30     # delete clips older than this (0 = disable age check)
+max_usage_percent     = 90.0   # also delete oldest clips when disk is this full
+min_clips_per_species = 5      # always keep at least this many clips per species
+run_interval_seconds  = 3600   # how often the cleanup thread checks (seconds)
+
+
+[log]
+# Set enabled = true to write output to a rotating log file in addition to stdout.
+enabled  = true
+path     = "data/bird_detector.log"
+
+# rotation = "daily"  — new file each midnight; keeps backup_count previous files
+# rotation = "size"   — rotate when the file exceeds max_size_bytes
+rotation       = "daily"
+max_size_bytes = 10485760   # 10 MB — only used when rotation = "size"
+backup_count   = 7          # number of old log files to keep
+
+
+[database]
+# Backend type: "sqlite" (default, zero config) or "postgresql".
+# For TimescaleDB, keep type = "postgresql" and set timescaledb = true —
+# this runs create_hypertable on detections.timestamp at init time.
+# psycopg2-binary must be installed when using postgresql:
+#   pip install psycopg2-binary
+type        = "sqlite"
+host        = "localhost"
+port        = 5432
+name        = "birds"
+username    = ""
+password    = ""
+timescaledb = false
+
+
+[mqtt]
+# Set enabled = true to publish each detection as JSON to an MQTT broker.
+# paho-mqtt must be installed: pip install paho-mqtt
+enabled  = false
+broker   = "localhost"
+port     = 1883
+topic    = "birds/detections"
+username = ""
+password = ""
+retain   = false
+
+
+[birdmap]
+# Set enabled = true to forward detections to birdmap.co.uk.
+# Register an account at birdmap.co.uk, create a station, and paste the
+# returned API key and station ID here.
+enabled      = false
+api_url      = "http://localhost:8000"
+api_key      = "bm_Q6ZS4pH2AJDb3kKxIUSWn81sqNX1dirRHybRUlp6Tyd3iKCT"
+station_id   = 3                # assigned by server on registration
+upload_audio = true         # include base64-encoded WAV clip in each POST (max 2 MB)
+
+
+[bou_filter]
+# Set enabled = true to restrict detections to species on the BTO
+# UK checklist (species_bto_FINAL_filtered.json).
+#
+# Species are matched to BirdNET labels via the explicit international_english_name
+# field in the JSON, with scientific-name and common-name fallbacks.  Any
+# detection whose BirdNET common name cannot be mapped to a listed species is
+# silently discarded.  On startup the number of matched species is logged so
+# you can verify coverage.
+#
+enabled = true
+
+
+[inference]
+# label_locale controls which BirdNET common-name convention is used.
+#
+#"en"    — default global English labels (US/international conventions, e.g.
+#           "Common Blackbird", "Eurasian Blue Tit").
+#"en_uk" — British English labels with UK-standard names (e.g. "Blackbird",
+#           "Blue Tit").  Recommended when bou_filter is enabled, since
+#           species_bto_FINAL_filtered.json uses UK common names.
+#
+# The locale is passed to BirdNET's analyze() so inference results and the
+# label map both use the same name convention.  Available locales are the
+# file suffixes in the birdnet_analyzer/labels/V2.4/ directory.
+label_locale = "en-uk"
+
+
+# ── Per-species overrides ──────────────────────────────────────────────────────
+# Any key from [defaults] can be overridden here for a specific species.
+# The species name must match the cleaned common name produced by the classifier
+# (i.e. what you see printed in the terminal).
+# Keys not listed here fall back to [defaults].
+
+[species."House Sparrow"]
+min_confidence   = 0.80
+cooldown_seconds = 60
+

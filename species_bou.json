@@ -1,0 +1,5726 @@
+[
+  {
+    "name": "Ruddy Duck",
+    "scientific_name": "Oxyura jamaicensis",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Ruddy Duck"
+  },
+  {
+    "name": "Mute Swan",
+    "scientific_name": "Cygnus olor",
+    "family": "Anatidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Mute Swan"
+  },
+  {
+    "name": "Bewick's Swan",
+    "scientific_name": "Cygnus columbianus",
+    "family": "Anatidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Tundra Swan"
+  },
+  {
+    "name": "Whooper Swan",
+    "scientific_name": "Cygnus cygnus",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Whooper Swan"
+  },
+  {
+    "name": "Brent Goose",
+    "scientific_name": "Branta bernicla",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Brant"
+  },
+  {
+    "name": "Red-breasted Goose",
+    "scientific_name": "Branta ruficollis",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": null
+  },
+  {
+    "name": "Canada Goose",
+    "scientific_name": "Branta canadensis",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Canada Goose"
+  },
+  {
+    "name": "Barnacle Goose",
+    "scientific_name": "Branta leucopsis",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Barnacle Goose"
+  },
+  {
+    "name": "Cackling Goose",
+    "scientific_name": "Branta hutchinsii",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Cackling Goose"
+  },
+  {
+    "name": "Ross's Goose",
+    "scientific_name": "Anser rossii",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Ross's Goose"
+  },
+  {
+    "name": "Snow Goose",
+    "scientific_name": "Anser caerulescens",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Snow Goose"
+  },
+  {
+    "name": "Greylag Goose",
+    "scientific_name": "Anser anser",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Graylag Goose"
+  },
+  {
+    "name": "Lesser White-fronted Goose",
+    "scientific_name": "Anser erythropus",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Lesser White-fronted Goose"
+  },
+  {
+    "name": "White-fronted Goose",
+    "scientific_name": "Anser albifrons",
+    "family": "Anatidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Greater White-fronted Goose"
+  },
+  {
+    "name": "Tundra Bean Goose",
+    "scientific_name": "Anser serrirostris",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Tundra Bean-Goose"
+  },
+  {
+    "name": "Pink-footed Goose",
+    "scientific_name": "Anser brachyrhynchus",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Pink-footed Goose"
+  },
+  {
+    "name": "Taiga Bean Goose",
+    "scientific_name": "Anser fabalis",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Taiga Bean-Goose"
+  },
+  {
+    "name": "Mandarin Duck",
+    "scientific_name": "Aix galericulata",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Mandarin Duck"
+  },
+  {
+    "name": "Egyptian Goose",
+    "scientific_name": "Alopochen aegyptiaca",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Egyptian Goose"
+  },
+  {
+    "name": "Shelduck",
+    "scientific_name": "Tadorna tadorna",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Common Shelduck"
+  },
+  {
+    "name": "Ruddy Shelduck",
+    "scientific_name": "Tadorna ferruginea",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Ruddy Shelduck"
+  },
+  {
+    "name": "Long-tailed Duck",
+    "scientific_name": "Clangula hyemalis",
+    "family": "Anatidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Long-tailed Duck"
+  },
+  {
+    "name": "Steller's Eider",
+    "scientific_name": "Polysticta stelleri",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": null
+  },
+  {
+    "name": "King Eider",
+    "scientific_name": "Somateria spectabilis",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "King Eider"
+  },
+  {
+    "name": "Eider",
+    "scientific_name": "Somateria mollissima",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Common Eider"
+  },
+  {
+    "name": "Harlequin Duck",
+    "scientific_name": "Histrionicus histrionicus",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Harlequin Duck"
+  },
+  {
+    "name": "Common Scoter",
+    "scientific_name": "Melanitta nigra",
+    "family": "Anatidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Common Scoter"
+  },
+  {
+    "name": "Black Scoter",
+    "scientific_name": "Melanitta americana",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Black Scoter"
+  },
+  {
+    "name": "Surf Scoter",
+    "scientific_name": "Melanitta perspicillata",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Surf Scoter"
+  },
+  {
+    "name": "Velvet Scoter",
+    "scientific_name": "Melanitta fusca",
+    "family": "Anatidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Velvet Scoter"
+  },
+  {
+    "name": "White-winged Scoter",
+    "scientific_name": "Melanitta deglandi",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": null
+  },
+  {
+    "name": "Stejneger's Scoter",
+    "scientific_name": "Melanitta stejnegeri",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": null
+  },
+  {
+    "name": "Bufflehead",
+    "scientific_name": "Bucephala albeola",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Bufflehead"
+  },
+  {
+    "name": "Barrow's Goldeneye",
+    "scientific_name": "Bucephala islandica",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Barrow's Goldeneye"
+  },
+  {
+    "name": "Goldeneye",
+    "scientific_name": "Bucephala clangula",
+    "family": "Anatidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Common Goldeneye"
+  },
+  {
+    "name": "Smew",
+    "scientific_name": "Mergellus albellus",
+    "family": "Anatidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Smew"
+  },
+  {
+    "name": "Hooded Merganser",
+    "scientific_name": "Lophodytes cucullatus",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Hooded Merganser"
+  },
+  {
+    "name": "Red-breasted Merganser",
+    "scientific_name": "Mergus serrator",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Red-breasted Merganser"
+  },
+  {
+    "name": "Goosander",
+    "scientific_name": "Mergus merganser",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Common Merganser"
+  },
+  {
+    "name": "Red-crested Pochard",
+    "scientific_name": "Netta rufina",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Red-crested Pochard"
+  },
+  {
+    "name": "Ferruginous Duck",
+    "scientific_name": "Aythya nyroca",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Ferruginous Duck"
+  },
+  {
+    "name": "Pochard",
+    "scientific_name": "Aythya ferina",
+    "family": "Anatidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Common Pochard"
+  },
+  {
+    "name": "Canvasback",
+    "scientific_name": "Aythya valisineria",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Canvasback"
+  },
+  {
+    "name": "Ring-necked Duck",
+    "scientific_name": "Aythya collaris",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Ring-necked Duck"
+  },
+  {
+    "name": "Redhead",
+    "scientific_name": "Aythya americana",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Redhead"
+  },
+  {
+    "name": "Tufted Duck",
+    "scientific_name": "Aythya fuligula",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Tufted Duck"
+  },
+  {
+    "name": "Lesser Scaup",
+    "scientific_name": "Aythya affinis",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Lesser Scaup"
+  },
+  {
+    "name": "Scaup",
+    "scientific_name": "Aythya marila",
+    "family": "Anatidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Greater Scaup"
+  },
+  {
+    "name": "Baikal Teal",
+    "scientific_name": "Sibirionetta formosa",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": null
+  },
+  {
+    "name": "Garganey",
+    "scientific_name": "Spatula querquedula",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Garganey"
+  },
+  {
+    "name": "Blue-winged Teal",
+    "scientific_name": "Spatula discors",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Blue-winged Teal"
+  },
+  {
+    "name": "Shoveler",
+    "scientific_name": "Spatula clypeata",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Northern Shoveler"
+  },
+  {
+    "name": "Falcated Duck",
+    "scientific_name": "Mareca falcata",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Falcated Duck"
+  },
+  {
+    "name": "Gadwall",
+    "scientific_name": "Mareca strepera",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Gadwall"
+  },
+  {
+    "name": "Wigeon",
+    "scientific_name": "Mareca penelope",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Eurasian Wigeon"
+  },
+  {
+    "name": "American Wigeon",
+    "scientific_name": "Mareca americana",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "American Wigeon"
+  },
+  {
+    "name": "Mallard",
+    "scientific_name": "Anas platyrhynchos",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Mallard"
+  },
+  {
+    "name": "Black Duck",
+    "scientific_name": "Anas rubripes",
+    "family": "Anatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "American Black Duck"
+  },
+  {
+    "name": "Pintail",
+    "scientific_name": "Anas acuta",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Northern Pintail"
+  },
+  {
+    "name": "Teal",
+    "scientific_name": "Anas crecca",
+    "family": "Anatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wildfowl",
+    "birdnet_name": "Green-winged Teal"
+  },
+  {
+    "name": "Ptarmigan",
+    "scientific_name": "Lagopus muta",
+    "family": "Phasianidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Game Birds",
+    "birdnet_name": "Rock Ptarmigan"
+  },
+  {
+    "name": "Red Grouse",
+    "scientific_name": "Lagopus scotica",
+    "family": "Phasianidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Game Birds",
+    "birdnet_name": null
+  },
+  {
+    "name": "Capercaillie",
+    "scientific_name": "Tetrao urogallus",
+    "family": "Phasianidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Game Birds",
+    "birdnet_name": "Western Capercaillie"
+  },
+  {
+    "name": "Black Grouse",
+    "scientific_name": "Lyrurus tetrix",
+    "family": "Phasianidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Game Birds",
+    "birdnet_name": "Black Grouse"
+  },
+  {
+    "name": "Grey Partridge",
+    "scientific_name": "Perdix perdix",
+    "family": "Phasianidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Game Birds",
+    "birdnet_name": "Gray Partridge"
+  },
+  {
+    "name": "Golden Pheasant",
+    "scientific_name": "Chrysolophus pictus",
+    "family": "Phasianidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Game Birds",
+    "birdnet_name": "Golden Pheasant"
+  },
+  {
+    "name": "Lady Amherst's Pheasant",
+    "scientific_name": "Chrysolophus amherstiae",
+    "family": "Phasianidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Game Birds",
+    "birdnet_name": "Lady Amherst's Pheasant"
+  },
+  {
+    "name": "Pheasant",
+    "scientific_name": "Phasianus colchicus",
+    "family": "Phasianidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Game Birds",
+    "birdnet_name": "Ring-necked Pheasant"
+  },
+  {
+    "name": "Quail",
+    "scientific_name": "Coturnix coturnix",
+    "family": "Phasianidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Game Birds",
+    "birdnet_name": "Common Quail"
+  },
+  {
+    "name": "Red-legged Partridge",
+    "scientific_name": "Alectoris rufa",
+    "family": "Phasianidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Game Birds",
+    "birdnet_name": "Red-legged Partridge"
+  },
+  {
+    "name": "Little Grebe",
+    "scientific_name": "Tachybaptus ruficollis",
+    "family": "Podicipedidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Grebes",
+    "birdnet_name": "Little Grebe"
+  },
+  {
+    "name": "Pied-billed Grebe",
+    "scientific_name": "Podilymbus podiceps",
+    "family": "Podicipedidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Grebes",
+    "birdnet_name": "Pied-billed Grebe"
+  },
+  {
+    "name": "Slavonian Grebe",
+    "scientific_name": "Podiceps auritus",
+    "family": "Podicipedidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Grebes",
+    "birdnet_name": "Horned Grebe"
+  },
+  {
+    "name": "Red-necked Grebe",
+    "scientific_name": "Podiceps grisegena",
+    "family": "Podicipedidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Grebes",
+    "birdnet_name": "Red-necked Grebe"
+  },
+  {
+    "name": "Great Crested Grebe",
+    "scientific_name": "Podiceps cristatus",
+    "family": "Podicipedidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Grebes",
+    "birdnet_name": "Great Crested Grebe"
+  },
+  {
+    "name": "Black-necked Grebe",
+    "scientific_name": "Podiceps nigricollis",
+    "family": "Podicipedidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Grebes",
+    "birdnet_name": "Eared Grebe"
+  },
+  {
+    "name": "Great Bustard",
+    "scientific_name": "Otis tarda",
+    "family": "Otididae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Bustards",
+    "birdnet_name": null
+  },
+  {
+    "name": "Asian Houbara",
+    "scientific_name": "Chlamydotis macqueenii",
+    "family": "Otididae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Bustards",
+    "birdnet_name": null
+  },
+  {
+    "name": "Little Bustard",
+    "scientific_name": "Tetrax tetrax",
+    "family": "Otididae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Bustards",
+    "birdnet_name": "Little Bustard"
+  },
+  {
+    "name": "Great Spotted Cuckoo",
+    "scientific_name": "Clamator glandarius",
+    "family": "Cuculidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Cuckoos",
+    "birdnet_name": "Great Spotted Cuckoo"
+  },
+  {
+    "name": "Yellow-billed Cuckoo",
+    "scientific_name": "Coccyzus americanus",
+    "family": "Cuculidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Cuckoos",
+    "birdnet_name": "Yellow-billed Cuckoo"
+  },
+  {
+    "name": "Black-billed Cuckoo",
+    "scientific_name": "Coccyzus erythropthalmus",
+    "family": "Cuculidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Cuckoos",
+    "birdnet_name": "Black-billed Cuckoo"
+  },
+  {
+    "name": "Cuckoo",
+    "scientific_name": "Cuculus canorus",
+    "family": "Cuculidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Cuckoos",
+    "birdnet_name": "Common Cuckoo"
+  },
+  {
+    "name": "Pallas's Sandgrouse",
+    "scientific_name": "Syrrhaptes paradoxus",
+    "family": "Pteroclidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Sandgrouse",
+    "birdnet_name": "Pallas's Sandgrouse"
+  },
+  {
+    "name": "Mourning Dove",
+    "scientific_name": "Zenaida macroura",
+    "family": "Columbidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Pigeons & Doves",
+    "birdnet_name": "Mourning Dove"
+  },
+  {
+    "name": "Oriental Turtle Dove",
+    "scientific_name": "Streptopelia orientalis",
+    "family": "Columbidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Pigeons & Doves",
+    "birdnet_name": "Oriental Turtle-Dove"
+  },
+  {
+    "name": "Turtle Dove",
+    "scientific_name": "Streptopelia turtur",
+    "family": "Columbidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Pigeons & Doves",
+    "birdnet_name": "European Turtle-Dove"
+  },
+  {
+    "name": "Collared Dove",
+    "scientific_name": "Streptopelia decaocto",
+    "family": "Columbidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Pigeons & Doves",
+    "birdnet_name": "Eurasian Collared-Dove"
+  },
+  {
+    "name": "Woodpigeon",
+    "scientific_name": "Columba palumbus",
+    "family": "Columbidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Pigeons & Doves",
+    "birdnet_name": "Common Wood-Pigeon"
+  },
+  {
+    "name": "Rock Dove",
+    "scientific_name": "Columba livia",
+    "family": "Columbidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Pigeons & Doves",
+    "birdnet_name": "Rock Pigeon"
+  },
+  {
+    "name": "Stock Dove",
+    "scientific_name": "Columba oenas",
+    "family": "Columbidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Pigeons & Doves",
+    "birdnet_name": "Stock Dove"
+  },
+  {
+    "name": "Sandhill Crane",
+    "scientific_name": "Antigone canadensis",
+    "family": "Gruidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Cranes",
+    "birdnet_name": "Sandhill Crane"
+  },
+  {
+    "name": "Common Crane",
+    "scientific_name": "Grus grus",
+    "family": "Gruidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Cranes",
+    "birdnet_name": "Common Crane"
+  },
+  {
+    "name": "Water Rail",
+    "scientific_name": "Rallus aquaticus",
+    "family": "Rallidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Rails & Crakes",
+    "birdnet_name": "Water Rail"
+  },
+  {
+    "name": "Corncrake",
+    "scientific_name": "Crex crex",
+    "family": "Rallidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Rails & Crakes",
+    "birdnet_name": "Corn Crake"
+  },
+  {
+    "name": "Sora",
+    "scientific_name": "Porzana carolina",
+    "family": "Rallidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Rails & Crakes",
+    "birdnet_name": "Sora"
+  },
+  {
+    "name": "Spotted Crake",
+    "scientific_name": "Porzana porzana",
+    "family": "Rallidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Rails & Crakes",
+    "birdnet_name": "Spotted Crake"
+  },
+  {
+    "name": "Moorhen",
+    "scientific_name": "Gallinula chloropus",
+    "family": "Rallidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Rails & Crakes",
+    "birdnet_name": "Eurasian Moorhen"
+  },
+  {
+    "name": "Coot",
+    "scientific_name": "Fulica atra",
+    "family": "Rallidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Rails & Crakes",
+    "birdnet_name": "Eurasian Coot"
+  },
+  {
+    "name": "American Coot",
+    "scientific_name": "Fulica americana",
+    "family": "Rallidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Rails & Crakes",
+    "birdnet_name": "American Coot"
+  },
+  {
+    "name": "Allen's Gallinule",
+    "scientific_name": "Porphyrio alleni",
+    "family": "Rallidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Rails & Crakes",
+    "birdnet_name": null
+  },
+  {
+    "name": "American Purple Gallinule",
+    "scientific_name": "Porphyrio martinica",
+    "family": "Rallidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Rails & Crakes",
+    "birdnet_name": "Purple Gallinule"
+  },
+  {
+    "name": "Purple Swamphen",
+    "scientific_name": "Porphyrio porphyrio",
+    "family": "Rallidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Rails & Crakes",
+    "birdnet_name": "Western Swamphen"
+  },
+  {
+    "name": "Little Crake",
+    "scientific_name": "Zapornia parva",
+    "family": "Rallidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Rails & Crakes",
+    "birdnet_name": "Little Crake"
+  },
+  {
+    "name": "Baillon's Crake",
+    "scientific_name": "Zapornia pusilla",
+    "family": "Rallidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Rails & Crakes",
+    "birdnet_name": "Baillon's Crake"
+  },
+  {
+    "name": "Stone-curlew",
+    "scientific_name": "Burhinus oedicnemus",
+    "family": "Burhinidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Eurasian Thick-knee"
+  },
+  {
+    "name": "Avocet",
+    "scientific_name": "Recurvirostra avosetta",
+    "family": "Recurvirostridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Pied Avocet"
+  },
+  {
+    "name": "Black-winged Stilt",
+    "scientific_name": "Himantopus himantopus",
+    "family": "Recurvirostridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Black-winged Stilt"
+  },
+  {
+    "name": "Oystercatcher",
+    "scientific_name": "Haematopus ostralegus",
+    "family": "Haematopodidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Eurasian Oystercatcher"
+  },
+  {
+    "name": "Grey Plover",
+    "scientific_name": "Pluvialis squatarola",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Black-bellied Plover"
+  },
+  {
+    "name": "Golden Plover",
+    "scientific_name": "Pluvialis apricaria",
+    "family": "Charadriidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "European Golden-Plover"
+  },
+  {
+    "name": "American Golden Plover",
+    "scientific_name": "Pluvialis dominica",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "American Golden-Plover"
+  },
+  {
+    "name": "Pacific Golden Plover",
+    "scientific_name": "Pluvialis fulva",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Pacific Golden-Plover"
+  },
+  {
+    "name": "Dotterel",
+    "scientific_name": "Eudromias morinellus",
+    "family": "Charadriidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Eurasian Dotterel"
+  },
+  {
+    "name": "Killdeer",
+    "scientific_name": "Charadrius vociferus",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Killdeer"
+  },
+  {
+    "name": "Ringed Plover",
+    "scientific_name": "Charadrius hiaticula",
+    "family": "Charadriidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Common Ringed Plover"
+  },
+  {
+    "name": "Semipalmated Plover",
+    "scientific_name": "Charadrius semipalmatus",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Semipalmated Plover"
+  },
+  {
+    "name": "Little Ringed Plover",
+    "scientific_name": "Thinornis dubius",
+    "family": "Charadriidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Little Ringed Plover"
+  },
+  {
+    "name": "Lapwing",
+    "scientific_name": "Vanellus vanellus",
+    "family": "Charadriidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Northern Lapwing"
+  },
+  {
+    "name": "Grey-headed Lapwing",
+    "scientific_name": "Vanellus cinereus",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Gray-headed Lapwing"
+  },
+  {
+    "name": "Sociable Lapwing",
+    "scientific_name": "Vanellus gregarius",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": null
+  },
+  {
+    "name": "White-tailed Lapwing",
+    "scientific_name": "Vanellus leucurus",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "White-tailed Lapwing"
+  },
+  {
+    "name": "Caspian Plover",
+    "scientific_name": "Anarhynchus asiaticus",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": null
+  },
+  {
+    "name": "Tibetan Sand Plover",
+    "scientific_name": "Anarhynchus atrifrons",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": null
+  },
+  {
+    "name": "Siberian Sand Plover",
+    "scientific_name": "Anarhynchus mongolus",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Lesser Sand-Plover"
+  },
+  {
+    "name": "Greater Sand Plover",
+    "scientific_name": "Anarhynchus leschenaultii",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Greater Sand-Plover"
+  },
+  {
+    "name": "Kentish Plover",
+    "scientific_name": "Anarhynchus alexandrinus",
+    "family": "Charadriidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Kentish Plover"
+  },
+  {
+    "name": "Upland Sandpiper",
+    "scientific_name": "Bartramia longicauda",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Upland Sandpiper"
+  },
+  {
+    "name": "Eskimo Curlew",
+    "scientific_name": "Numenius borealis",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": null
+  },
+  {
+    "name": "Little Whimbrel",
+    "scientific_name": "Numenius minutus",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Little Curlew"
+  },
+  {
+    "name": "Hudsonian Whimbrel",
+    "scientific_name": "Numenius hudsonicus",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": null
+  },
+  {
+    "name": "Whimbrel",
+    "scientific_name": "Numenius phaeopus",
+    "family": "Scolopacidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Whimbrel"
+  },
+  {
+    "name": "Curlew",
+    "scientific_name": "Numenius arquata",
+    "family": "Scolopacidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Eurasian Curlew"
+  },
+  {
+    "name": "Bar-tailed Godwit",
+    "scientific_name": "Limosa lapponica",
+    "family": "Scolopacidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Bar-tailed Godwit"
+  },
+  {
+    "name": "Black-tailed Godwit",
+    "scientific_name": "Limosa limosa",
+    "family": "Scolopacidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Black-tailed Godwit"
+  },
+  {
+    "name": "Hudsonian Godwit",
+    "scientific_name": "Limosa haemastica",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Hudsonian Godwit"
+  },
+  {
+    "name": "Long-billed Dowitcher",
+    "scientific_name": "Limnodromus scolopaceus",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Long-billed Dowitcher"
+  },
+  {
+    "name": "Short-billed Dowitcher",
+    "scientific_name": "Limnodromus griseus",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Short-billed Dowitcher"
+  },
+  {
+    "name": "Jack Snipe",
+    "scientific_name": "Lymnocryptes minimus",
+    "family": "Scolopacidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Jack Snipe"
+  },
+  {
+    "name": "Woodcock",
+    "scientific_name": "Scolopax rusticola",
+    "family": "Scolopacidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Eurasian Woodcock"
+  },
+  {
+    "name": "Great Snipe",
+    "scientific_name": "Gallinago media",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Great Snipe"
+  },
+  {
+    "name": "Wilson's Snipe",
+    "scientific_name": "Gallinago delicata",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Wilson's Snipe"
+  },
+  {
+    "name": "Snipe",
+    "scientific_name": "Gallinago gallinago",
+    "family": "Scolopacidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Common Snipe"
+  },
+  {
+    "name": "Terek Sandpiper",
+    "scientific_name": "Xenus cinereus",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Terek Sandpiper"
+  },
+  {
+    "name": "Common Sandpiper",
+    "scientific_name": "Actitis hypoleucos",
+    "family": "Scolopacidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Common Sandpiper"
+  },
+  {
+    "name": "Spotted Sandpiper",
+    "scientific_name": "Actitis macularius",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Spotted Sandpiper"
+  },
+  {
+    "name": "Wilson's Phalarope",
+    "scientific_name": "Phalaropus tricolor",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Wilson's Phalarope"
+  },
+  {
+    "name": "Grey Phalarope",
+    "scientific_name": "Phalaropus fulicarius",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Red Phalarope"
+  },
+  {
+    "name": "Red-necked Phalarope",
+    "scientific_name": "Phalaropus lobatus",
+    "family": "Scolopacidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Red-necked Phalarope"
+  },
+  {
+    "name": "Green Sandpiper",
+    "scientific_name": "Tringa ochropus",
+    "family": "Scolopacidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Green Sandpiper"
+  },
+  {
+    "name": "Solitary Sandpiper",
+    "scientific_name": "Tringa solitaria",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Solitary Sandpiper"
+  },
+  {
+    "name": "Grey-tailed Tattler",
+    "scientific_name": "Tringa brevipes",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Gray-tailed Tattler"
+  },
+  {
+    "name": "Marsh Sandpiper",
+    "scientific_name": "Tringa stagnatilis",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Marsh Sandpiper"
+  },
+  {
+    "name": "Wood Sandpiper",
+    "scientific_name": "Tringa glareola",
+    "family": "Scolopacidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Wood Sandpiper"
+  },
+  {
+    "name": "Redshank",
+    "scientific_name": "Tringa totanus",
+    "family": "Scolopacidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Common Redshank"
+  },
+  {
+    "name": "Lesser Yellowlegs",
+    "scientific_name": "Tringa flavipes",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Lesser Yellowlegs"
+  },
+  {
+    "name": "Spotted Redshank",
+    "scientific_name": "Tringa erythropus",
+    "family": "Scolopacidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Spotted Redshank"
+  },
+  {
+    "name": "Greenshank",
+    "scientific_name": "Tringa nebularia",
+    "family": "Scolopacidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Common Greenshank"
+  },
+  {
+    "name": "Greater Yellowlegs",
+    "scientific_name": "Tringa melanoleuca",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Greater Yellowlegs"
+  },
+  {
+    "name": "Turnstone",
+    "scientific_name": "Arenaria interpres",
+    "family": "Scolopacidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Ruddy Turnstone"
+  },
+  {
+    "name": "Knot",
+    "scientific_name": "Calidris canutus",
+    "family": "Scolopacidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Red Knot"
+  },
+  {
+    "name": "Great Knot",
+    "scientific_name": "Calidris tenuirostris",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Great Knot"
+  },
+  {
+    "name": "Ruff",
+    "scientific_name": "Calidris pugnax",
+    "family": "Scolopacidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Ruff"
+  },
+  {
+    "name": "Sharp-tailed Sandpiper",
+    "scientific_name": "Calidris acuminata",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Sharp-tailed Sandpiper"
+  },
+  {
+    "name": "Broad-billed Sandpiper",
+    "scientific_name": "Calidris falcinellus",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Broad-billed Sandpiper"
+  },
+  {
+    "name": "Curlew Sandpiper",
+    "scientific_name": "Calidris ferruginea",
+    "family": "Scolopacidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Curlew Sandpiper"
+  },
+  {
+    "name": "Stilt Sandpiper",
+    "scientific_name": "Calidris himantopus",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Stilt Sandpiper"
+  },
+  {
+    "name": "Red-necked Stint",
+    "scientific_name": "Calidris ruficollis",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Red-necked Stint"
+  },
+  {
+    "name": "Temminck's Stint",
+    "scientific_name": "Calidris temminckii",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Temminck's Stint"
+  },
+  {
+    "name": "Long-toed Stint",
+    "scientific_name": "Calidris subminuta",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Long-toed Stint"
+  },
+  {
+    "name": "Buff-breasted Sandpiper",
+    "scientific_name": "Calidris subruficollis",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Buff-breasted Sandpiper"
+  },
+  {
+    "name": "Sanderling",
+    "scientific_name": "Calidris alba",
+    "family": "Scolopacidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Sanderling"
+  },
+  {
+    "name": "Dunlin",
+    "scientific_name": "Calidris alpina",
+    "family": "Scolopacidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Dunlin"
+  },
+  {
+    "name": "Purple Sandpiper",
+    "scientific_name": "Calidris maritima",
+    "family": "Scolopacidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Purple Sandpiper"
+  },
+  {
+    "name": "Baird's Sandpiper",
+    "scientific_name": "Calidris bairdii",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Baird's Sandpiper"
+  },
+  {
+    "name": "Pectoral Sandpiper",
+    "scientific_name": "Calidris melanotos",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Pectoral Sandpiper"
+  },
+  {
+    "name": "Semipalmated Sandpiper",
+    "scientific_name": "Calidris pusilla",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Semipalmated Sandpiper"
+  },
+  {
+    "name": "Western Sandpiper",
+    "scientific_name": "Calidris mauri",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Western Sandpiper"
+  },
+  {
+    "name": "Little Stint",
+    "scientific_name": "Calidris minuta",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Little Stint"
+  },
+  {
+    "name": "Least Sandpiper",
+    "scientific_name": "Calidris minutilla",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Least Sandpiper"
+  },
+  {
+    "name": "White-rumped Sandpiper",
+    "scientific_name": "Calidris fuscicollis",
+    "family": "Scolopacidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "White-rumped Sandpiper"
+  },
+  {
+    "name": "Cream-coloured Courser",
+    "scientific_name": "Cursorius cursor",
+    "family": "Glareolidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": null
+  },
+  {
+    "name": "Oriental Pratincole",
+    "scientific_name": "Glareola maldivarum",
+    "family": "Glareolidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Oriental Pratincole"
+  },
+  {
+    "name": "Black-winged Pratincole",
+    "scientific_name": "Glareola nordmanni",
+    "family": "Glareolidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": null
+  },
+  {
+    "name": "Collared Pratincole",
+    "scientific_name": "Glareola pratincola",
+    "family": "Glareolidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waders",
+    "birdnet_name": "Collared Pratincole"
+  },
+  {
+    "name": "Arctic Skua",
+    "scientific_name": "Stercorarius parasiticus",
+    "family": "Stercorariidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Skuas",
+    "birdnet_name": "Parasitic Jaeger"
+  },
+  {
+    "name": "Long-tailed Skua",
+    "scientific_name": "Stercorarius longicaudus",
+    "family": "Stercorariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Skuas",
+    "birdnet_name": "Long-tailed Jaeger"
+  },
+  {
+    "name": "Pomarine Skua",
+    "scientific_name": "Stercorarius pomarinus",
+    "family": "Stercorariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Skuas",
+    "birdnet_name": "Pomarine Jaeger"
+  },
+  {
+    "name": "Great Skua",
+    "scientific_name": "Stercorarius skua",
+    "family": "Stercorariidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Skuas",
+    "birdnet_name": "Great Skua"
+  },
+  {
+    "name": "South Polar Skua",
+    "scientific_name": "Stercorarius maccormicki",
+    "family": "Stercorariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Skuas",
+    "birdnet_name": "South Polar Skua"
+  },
+  {
+    "name": "Tufted Puffin",
+    "scientific_name": "Fratercula cirrhata",
+    "family": "Alcidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Auks",
+    "birdnet_name": null
+  },
+  {
+    "name": "Puffin",
+    "scientific_name": "Fratercula arctica",
+    "family": "Alcidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Auks",
+    "birdnet_name": "Atlantic Puffin"
+  },
+  {
+    "name": "Ancient Murrelet",
+    "scientific_name": "Synthliboramphus antiquus",
+    "family": "Alcidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Auks",
+    "birdnet_name": null
+  },
+  {
+    "name": "Long-billed Murrelet",
+    "scientific_name": "Brachyramphus perdix",
+    "family": "Alcidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Auks",
+    "birdnet_name": null
+  },
+  {
+    "name": "Black Guillemot",
+    "scientific_name": "Cepphus grylle",
+    "family": "Alcidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Auks",
+    "birdnet_name": "Black Guillemot"
+  },
+  {
+    "name": "Razorbill",
+    "scientific_name": "Alca torda",
+    "family": "Alcidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Auks",
+    "birdnet_name": "Razorbill"
+  },
+  {
+    "name": "Great Auk",
+    "scientific_name": "Pinguinus impennis",
+    "family": "Alcidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Auks",
+    "birdnet_name": null
+  },
+  {
+    "name": "Little Auk",
+    "scientific_name": "Alle alle",
+    "family": "Alcidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Auks",
+    "birdnet_name": null
+  },
+  {
+    "name": "Brünnich's Guillemot",
+    "scientific_name": "Uria lomvia",
+    "family": "Alcidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Auks",
+    "birdnet_name": "Thick-billed Murre"
+  },
+  {
+    "name": "Common Guillemot",
+    "scientific_name": "Uria aalge",
+    "family": "Alcidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Auks",
+    "birdnet_name": "Common Murre"
+  },
+  {
+    "name": "Aleutian Tern",
+    "scientific_name": "Onychoprion aleuticus",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Aleutian Tern"
+  },
+  {
+    "name": "Sooty Tern",
+    "scientific_name": "Onychoprion fuscatus",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Sooty Tern"
+  },
+  {
+    "name": "Bridled Tern",
+    "scientific_name": "Onychoprion anaethetus",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Bridled Tern"
+  },
+  {
+    "name": "Little Tern",
+    "scientific_name": "Sternula albifrons",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Little Tern"
+  },
+  {
+    "name": "Least Tern",
+    "scientific_name": "Sternula antillarum",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Least Tern"
+  },
+  {
+    "name": "Caspian Tern",
+    "scientific_name": "Hydroprogne caspia",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Caspian Tern"
+  },
+  {
+    "name": "Gull-billed Tern",
+    "scientific_name": "Gelochelidon nilotica",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Gull-billed Tern"
+  },
+  {
+    "name": "Whiskered Tern",
+    "scientific_name": "Chlidonias hybrida",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Whiskered Tern"
+  },
+  {
+    "name": "White-winged Black Tern",
+    "scientific_name": "Chlidonias leucopterus",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "White-winged Tern"
+  },
+  {
+    "name": "Black Tern",
+    "scientific_name": "Chlidonias niger",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Black Tern"
+  },
+  {
+    "name": "Sandwich Tern",
+    "scientific_name": "Thalasseus sandvicensis",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Sandwich Tern"
+  },
+  {
+    "name": "Elegant Tern",
+    "scientific_name": "Thalasseus elegans",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Elegant Tern"
+  },
+  {
+    "name": "Royal Tern",
+    "scientific_name": "Thalasseus maximus",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Royal Tern"
+  },
+  {
+    "name": "Lesser Crested Tern",
+    "scientific_name": "Thalasseus bengalensis",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Lesser Crested Tern"
+  },
+  {
+    "name": "Forster's Tern",
+    "scientific_name": "Sterna forsteri",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Forster's Tern"
+  },
+  {
+    "name": "Arctic Tern",
+    "scientific_name": "Sterna paradisaea",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Arctic Tern"
+  },
+  {
+    "name": "Common Tern",
+    "scientific_name": "Sterna hirundo",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Common Tern"
+  },
+  {
+    "name": "Roseate Tern",
+    "scientific_name": "Sterna dougallii",
+    "family": "Laridae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Roseate Tern"
+  },
+  {
+    "name": "Little Gull",
+    "scientific_name": "Hydrocoloeus minutus",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Little Gull"
+  },
+  {
+    "name": "Ross's Gull",
+    "scientific_name": "Rhodostethia rosea",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Ross's Gull"
+  },
+  {
+    "name": "Kittiwake",
+    "scientific_name": "Rissa tridactyla",
+    "family": "Laridae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Black-legged Kittiwake"
+  },
+  {
+    "name": "Sabine's Gull",
+    "scientific_name": "Xema sabini",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Sabine's Gull"
+  },
+  {
+    "name": "Ivory Gull",
+    "scientific_name": "Pagophila eburnea",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": null
+  },
+  {
+    "name": "Slender-billed Gull",
+    "scientific_name": "Chroicocephalus genei",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Slender-billed Gull"
+  },
+  {
+    "name": "Bonaparte's Gull",
+    "scientific_name": "Chroicocephalus philadelphia",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Bonaparte's Gull"
+  },
+  {
+    "name": "Black-headed Gull",
+    "scientific_name": "Chroicocephalus ridibundus",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Black-headed Gull"
+  },
+  {
+    "name": "Laughing Gull",
+    "scientific_name": "Leucophaeus atricilla",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Laughing Gull"
+  },
+  {
+    "name": "Franklin's Gull",
+    "scientific_name": "Leucophaeus pipixcan",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Franklin's Gull"
+  },
+  {
+    "name": "Great Black-headed Gull",
+    "scientific_name": "Ichthyaetus ichthyaetus",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": null
+  },
+  {
+    "name": "Audouin's Gull",
+    "scientific_name": "Ichthyaetus audouinii",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Audouin's Gull"
+  },
+  {
+    "name": "Mediterranean Gull",
+    "scientific_name": "Ichthyaetus melanocephalus",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Mediterranean Gull"
+  },
+  {
+    "name": "Ring-billed Gull",
+    "scientific_name": "Larus delawarensis",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Ring-billed Gull"
+  },
+  {
+    "name": "Common Gull",
+    "scientific_name": "Larus canus",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Common Gull"
+  },
+  {
+    "name": "Caspian Gull",
+    "scientific_name": "Larus cachinnans",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Caspian Gull"
+  },
+  {
+    "name": "Kelp Gull",
+    "scientific_name": "Larus dominicanus",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Kelp Gull"
+  },
+  {
+    "name": "American Herring Gull",
+    "scientific_name": "Larus smithsonianus",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": null
+  },
+  {
+    "name": "Herring Gull",
+    "scientific_name": "Larus argentatus",
+    "family": "Laridae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Herring Gull"
+  },
+  {
+    "name": "Yellow-legged Gull",
+    "scientific_name": "Larus michahellis",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Yellow-legged Gull"
+  },
+  {
+    "name": "Great Black-backed Gull",
+    "scientific_name": "Larus marinus",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Great Black-backed Gull"
+  },
+  {
+    "name": "Glaucous Gull",
+    "scientific_name": "Larus hyperboreus",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Glaucous Gull"
+  },
+  {
+    "name": "Lesser Black-backed Gull",
+    "scientific_name": "Larus fuscus",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Lesser Black-backed Gull"
+  },
+  {
+    "name": "Glaucous-winged Gull",
+    "scientific_name": "Larus glaucescens",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Glaucous-winged Gull"
+  },
+  {
+    "name": "Slaty-backed Gull",
+    "scientific_name": "Larus schistisagus",
+    "family": "Laridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Slaty-backed Gull"
+  },
+  {
+    "name": "Iceland Gull",
+    "scientific_name": "Larus glaucoides",
+    "family": "Laridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Gulls & Terns",
+    "birdnet_name": "Iceland Gull"
+  },
+  {
+    "name": "Red-billed Tropicbird",
+    "scientific_name": "Phaethon aethereus",
+    "family": "Phaethontidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Red-billed Tropicbird"
+  },
+  {
+    "name": "Red-throated Diver",
+    "scientific_name": "Gavia stellata",
+    "family": "Gaviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Divers",
+    "birdnet_name": "Red-throated Loon"
+  },
+  {
+    "name": "Great Northern Diver",
+    "scientific_name": "Gavia immer",
+    "family": "Gaviidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Divers",
+    "birdnet_name": "Common Loon"
+  },
+  {
+    "name": "White-billed Diver",
+    "scientific_name": "Gavia adamsii",
+    "family": "Gaviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Divers",
+    "birdnet_name": "Yellow-billed Loon"
+  },
+  {
+    "name": "Pacific Diver",
+    "scientific_name": "Gavia pacifica",
+    "family": "Gaviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Divers",
+    "birdnet_name": "Pacific Loon"
+  },
+  {
+    "name": "Black-throated Diver",
+    "scientific_name": "Gavia arctica",
+    "family": "Gaviidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Divers",
+    "birdnet_name": "Arctic Loon"
+  },
+  {
+    "name": "Atlantic Yellow-nosed Albatross",
+    "scientific_name": "Thalassarche chlororhynchos",
+    "family": "Diomedeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": null
+  },
+  {
+    "name": "Black-browed Albatross",
+    "scientific_name": "Thalassarche melanophris",
+    "family": "Diomedeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Black-browed Albatross"
+  },
+  {
+    "name": "Wilson's Storm-petrel",
+    "scientific_name": "Oceanites oceanicus",
+    "family": "Oceanitidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": null
+  },
+  {
+    "name": "White-faced Storm-petrel",
+    "scientific_name": "Pelagodroma marina",
+    "family": "Oceanitidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": null
+  },
+  {
+    "name": "European Storm-petrel",
+    "scientific_name": "Hydrobates pelagicus",
+    "family": "Hydrobatidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "European Storm-Petrel"
+  },
+  {
+    "name": "Band-rumped Storm-petrel",
+    "scientific_name": "Hydrobates castro",
+    "family": "Hydrobatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Band-rumped Storm-Petrel"
+  },
+  {
+    "name": "Swinhoe's Storm-petrel",
+    "scientific_name": "Hydrobates monorhis",
+    "family": "Hydrobatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Swinhoe's Storm-Petrel"
+  },
+  {
+    "name": "Leach's Storm-petrel",
+    "scientific_name": "Hydrobates leucorhous",
+    "family": "Hydrobatidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Leach's Storm-Petrel"
+  },
+  {
+    "name": "Fulmar",
+    "scientific_name": "Fulmarus glacialis",
+    "family": "Procellariidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Northern Fulmar"
+  },
+  {
+    "name": "White-chinned Petrel",
+    "scientific_name": "Procellaria aequinoctialis",
+    "family": "Procellariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": null
+  },
+  {
+    "name": "Scopoli's Shearwater",
+    "scientific_name": "Calonectris diomedea",
+    "family": "Procellariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Cory's Shearwater"
+  },
+  {
+    "name": "Cory's Shearwater",
+    "scientific_name": "Calonectris borealis",
+    "family": "Procellariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Cory's Shearwater"
+  },
+  {
+    "name": "Sooty Shearwater",
+    "scientific_name": "Ardenna grisea",
+    "family": "Procellariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Sooty Shearwater"
+  },
+  {
+    "name": "Great Shearwater",
+    "scientific_name": "Ardenna gravis",
+    "family": "Procellariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": null
+  },
+  {
+    "name": "Manx Shearwater",
+    "scientific_name": "Puffinus puffinus",
+    "family": "Procellariidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Manx Shearwater"
+  },
+  {
+    "name": "Mediterranean Shearwater",
+    "scientific_name": "Puffinus yelkouan",
+    "family": "Procellariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": null
+  },
+  {
+    "name": "Barolo Shearwater",
+    "scientific_name": "Puffinus baroli",
+    "family": "Procellariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": null
+  },
+  {
+    "name": "Soft-plumaged Petrel",
+    "scientific_name": "Pterodroma mollis",
+    "family": "Procellariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": null
+  },
+  {
+    "name": "Black-capped Petrel",
+    "scientific_name": "Pterodroma hasitata",
+    "family": "Procellariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": null
+  },
+  {
+    "name": "Zino's Petrel",
+    "scientific_name": "Pterodroma madeira",
+    "family": "Procellariidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Zino's Petrel"
+  },
+  {
+    "name": "Black Stork",
+    "scientific_name": "Ciconia nigra",
+    "family": "Ciconiidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Storks",
+    "birdnet_name": "Black Stork"
+  },
+  {
+    "name": "White Stork",
+    "scientific_name": "Ciconia ciconia",
+    "family": "Ciconiidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Storks",
+    "birdnet_name": "White Stork"
+  },
+  {
+    "name": "Ascension Frigatebird",
+    "scientific_name": "Fregata aquila",
+    "family": "Fregatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": null
+  },
+  {
+    "name": "Magnificent Frigatebird",
+    "scientific_name": "Fregata magnificens",
+    "family": "Fregatidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Magnificent Frigatebird"
+  },
+  {
+    "name": "Gannet",
+    "scientific_name": "Morus bassanus",
+    "family": "Sulidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Northern Gannet"
+  },
+  {
+    "name": "Red-footed Booby",
+    "scientific_name": "Sula sula",
+    "family": "Sulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Red-footed Booby"
+  },
+  {
+    "name": "Brown Booby",
+    "scientific_name": "Sula leucogaster",
+    "family": "Sulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Brown Booby"
+  },
+  {
+    "name": "Shag",
+    "scientific_name": "Gulosus aristotelis",
+    "family": "Phalacrocoracidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": null
+  },
+  {
+    "name": "Double-crested Cormorant",
+    "scientific_name": "Nannopterum auritum",
+    "family": "Phalacrocoracidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Double-crested Cormorant"
+  },
+  {
+    "name": "Cormorant",
+    "scientific_name": "Phalacrocorax carbo",
+    "family": "Phalacrocoracidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": "Great Cormorant"
+  },
+  {
+    "name": "Glossy Ibis",
+    "scientific_name": "Plegadis falcinellus",
+    "family": "Threskiornithidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Ibises & Spoonbills",
+    "birdnet_name": "Glossy Ibis"
+  },
+  {
+    "name": "Spoonbill",
+    "scientific_name": "Platalea leucorodia",
+    "family": "Threskiornithidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Ibises & Spoonbills",
+    "birdnet_name": "Eurasian Spoonbill"
+  },
+  {
+    "name": "Dalmatian Pelican",
+    "scientific_name": "Pelecanus crispus",
+    "family": "Pelecanidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Seabirds",
+    "birdnet_name": null
+  },
+  {
+    "name": "Least Bittern",
+    "scientific_name": "Botaurus exilis",
+    "family": "Ardeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Least Bittern"
+  },
+  {
+    "name": "Bittern",
+    "scientific_name": "Botaurus stellaris",
+    "family": "Ardeidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Great Bittern"
+  },
+  {
+    "name": "American Bittern",
+    "scientific_name": "Botaurus lentiginosus",
+    "family": "Ardeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "American Bittern"
+  },
+  {
+    "name": "Little Bittern",
+    "scientific_name": "Botaurus minutus",
+    "family": "Ardeidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Little Bittern"
+  },
+  {
+    "name": "Snowy Egret",
+    "scientific_name": "Egretta thula",
+    "family": "Ardeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Snowy Egret"
+  },
+  {
+    "name": "Little Egret",
+    "scientific_name": "Egretta garzetta",
+    "family": "Ardeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Little Egret"
+  },
+  {
+    "name": "Night-heron",
+    "scientific_name": "Nycticorax nycticorax",
+    "family": "Ardeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Black-crowned Night-Heron"
+  },
+  {
+    "name": "Green Heron",
+    "scientific_name": "Butorides virescens",
+    "family": "Ardeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Green Heron"
+  },
+  {
+    "name": "Chinese Pond Heron",
+    "scientific_name": "Ardeola bacchus",
+    "family": "Ardeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Chinese Pond-Heron"
+  },
+  {
+    "name": "Squacco Heron",
+    "scientific_name": "Ardeola ralloides",
+    "family": "Ardeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Squacco Heron"
+  },
+  {
+    "name": "Great White Egret",
+    "scientific_name": "Ardea alba",
+    "family": "Ardeidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Great Egret"
+  },
+  {
+    "name": "Cattle Egret",
+    "scientific_name": "Ardea ibis",
+    "family": "Ardeidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Cattle Egret"
+  },
+  {
+    "name": "Purple Heron",
+    "scientific_name": "Ardea purpurea",
+    "family": "Ardeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Purple Heron"
+  },
+  {
+    "name": "Grey Heron",
+    "scientific_name": "Ardea cinerea",
+    "family": "Ardeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Gray Heron"
+  },
+  {
+    "name": "Great Blue Heron",
+    "scientific_name": "Ardea herodias",
+    "family": "Ardeidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Herons & Egrets",
+    "birdnet_name": "Great Blue Heron"
+  },
+  {
+    "name": "Common Nighthawk",
+    "scientific_name": "Chordeiles minor",
+    "family": "Caprimulgidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Nightjars",
+    "birdnet_name": "Common Nighthawk"
+  },
+  {
+    "name": "Red-necked Nightjar",
+    "scientific_name": "Caprimulgus ruficollis",
+    "family": "Caprimulgidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Nightjars",
+    "birdnet_name": "Red-necked Nightjar"
+  },
+  {
+    "name": "Nightjar",
+    "scientific_name": "Caprimulgus europaeus",
+    "family": "Caprimulgidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Nightjars",
+    "birdnet_name": "Eurasian Nightjar"
+  },
+  {
+    "name": "Egyptian Nightjar",
+    "scientific_name": "Caprimulgus aegyptius",
+    "family": "Caprimulgidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Nightjars",
+    "birdnet_name": null
+  },
+  {
+    "name": "White-throated Needletail",
+    "scientific_name": "Hirundapus caudacutus",
+    "family": "Apodidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swifts",
+    "birdnet_name": "White-throated Needletail"
+  },
+  {
+    "name": "Chimney Swift",
+    "scientific_name": "Chaetura pelagica",
+    "family": "Apodidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swifts",
+    "birdnet_name": "Chimney Swift"
+  },
+  {
+    "name": "Alpine Swift",
+    "scientific_name": "Tachymarptis melba",
+    "family": "Apodidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swifts",
+    "birdnet_name": "Alpine Swift"
+  },
+  {
+    "name": "Fork-tailed Swift",
+    "scientific_name": "Apus pacificus",
+    "family": "Apodidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swifts",
+    "birdnet_name": "Pacific Swift"
+  },
+  {
+    "name": "White-rumped Swift",
+    "scientific_name": "Apus caffer",
+    "family": "Apodidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swifts",
+    "birdnet_name": "White-rumped Swift"
+  },
+  {
+    "name": "Little Swift",
+    "scientific_name": "Apus affinis",
+    "family": "Apodidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swifts",
+    "birdnet_name": "Little Swift"
+  },
+  {
+    "name": "Swift",
+    "scientific_name": "Apus apus",
+    "family": "Apodidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Swifts",
+    "birdnet_name": "Common Swift"
+  },
+  {
+    "name": "Pallid Swift",
+    "scientific_name": "Apus pallidus",
+    "family": "Apodidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swifts",
+    "birdnet_name": "Pallid Swift"
+  },
+  {
+    "name": "Barn Owl",
+    "scientific_name": "Tyto alba",
+    "family": "Tytonidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Owls",
+    "birdnet_name": "Barn Owl"
+  },
+  {
+    "name": "Tengmalm's Owl",
+    "scientific_name": "Aegolius funereus",
+    "family": "Strigidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Owls",
+    "birdnet_name": "Boreal Owl"
+  },
+  {
+    "name": "Little Owl",
+    "scientific_name": "Athene noctua",
+    "family": "Strigidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Owls",
+    "birdnet_name": "Little Owl"
+  },
+  {
+    "name": "Hawk Owl",
+    "scientific_name": "Surnia ulula",
+    "family": "Strigidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Owls",
+    "birdnet_name": "Northern Hawk Owl"
+  },
+  {
+    "name": "Scops Owl",
+    "scientific_name": "Otus scops",
+    "family": "Strigidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Owls",
+    "birdnet_name": "Eurasian Scops-Owl"
+  },
+  {
+    "name": "Short-eared Owl",
+    "scientific_name": "Asio flammeus",
+    "family": "Strigidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Owls",
+    "birdnet_name": "Short-eared Owl"
+  },
+  {
+    "name": "Long-eared Owl",
+    "scientific_name": "Asio otus",
+    "family": "Strigidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Owls",
+    "birdnet_name": "Long-eared Owl"
+  },
+  {
+    "name": "Snowy Owl",
+    "scientific_name": "Bubo scandiacus",
+    "family": "Strigidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Owls",
+    "birdnet_name": "Snowy Owl"
+  },
+  {
+    "name": "Tawny Owl",
+    "scientific_name": "Strix aluco",
+    "family": "Strigidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Owls",
+    "birdnet_name": "Tawny Owl"
+  },
+  {
+    "name": "Osprey",
+    "scientific_name": "Pandion haliaetus",
+    "family": "Pandionidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Osprey"
+  },
+  {
+    "name": "Black-winged Kite",
+    "scientific_name": "Elanus caeruleus",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Black-winged Kite"
+  },
+  {
+    "name": "Egyptian Vulture",
+    "scientific_name": "Neophron percnopterus",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": null
+  },
+  {
+    "name": "Honey-buzzard",
+    "scientific_name": "Pernis apivorus",
+    "family": "Accipitridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "European Honey-buzzard"
+  },
+  {
+    "name": "Short-toed Eagle",
+    "scientific_name": "Circaetus gallicus",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Short-toed Snake-Eagle"
+  },
+  {
+    "name": "Spotted Eagle",
+    "scientific_name": "Clanga clanga",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Greater Spotted Eagle"
+  },
+  {
+    "name": "Booted Eagle",
+    "scientific_name": "Hieraaetus pennatus",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Booted Eagle"
+  },
+  {
+    "name": "Golden Eagle",
+    "scientific_name": "Aquila chrysaetos",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Golden Eagle"
+  },
+  {
+    "name": "Sparrowhawk",
+    "scientific_name": "Accipiter nisus",
+    "family": "Accipitridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Eurasian Sparrowhawk"
+  },
+  {
+    "name": "Goshawk",
+    "scientific_name": "Astur gentilis",
+    "family": "Accipitridae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Northern Goshawk"
+  },
+  {
+    "name": "Pallid Harrier",
+    "scientific_name": "Circus macrourus",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Pallid Harrier"
+  },
+  {
+    "name": "Hen Harrier",
+    "scientific_name": "Circus cyaneus",
+    "family": "Accipitridae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Hen Harrier"
+  },
+  {
+    "name": "Northern Harrier",
+    "scientific_name": "Circus hudsonius",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Northern Harrier"
+  },
+  {
+    "name": "Montagu's Harrier",
+    "scientific_name": "Circus pygargus",
+    "family": "Accipitridae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Montagu's Harrier"
+  },
+  {
+    "name": "Marsh Harrier",
+    "scientific_name": "Circus aeruginosus",
+    "family": "Accipitridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Eurasian Marsh-Harrier"
+  },
+  {
+    "name": "Red Kite",
+    "scientific_name": "Milvus milvus",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Red Kite"
+  },
+  {
+    "name": "Black Kite",
+    "scientific_name": "Milvus migrans",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Black Kite"
+  },
+  {
+    "name": "White-tailed Eagle",
+    "scientific_name": "Haliaeetus albicilla",
+    "family": "Accipitridae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "White-tailed Eagle"
+  },
+  {
+    "name": "Rough-legged Buzzard",
+    "scientific_name": "Buteo lagopus",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Rough-legged Hawk"
+  },
+  {
+    "name": "Buzzard",
+    "scientific_name": "Buteo buteo",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": "Common Buzzard"
+  },
+  {
+    "name": "Long-legged Buzzard",
+    "scientific_name": "Buteo rufinus",
+    "family": "Accipitridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Raptors",
+    "birdnet_name": null
+  },
+  {
+    "name": "Hoopoe",
+    "scientific_name": "Upupa epops",
+    "family": "Upupidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Hoopoe",
+    "birdnet_name": "Eurasian Hoopoe"
+  },
+  {
+    "name": "Roller",
+    "scientific_name": "Coracias garrulus",
+    "family": "Coraciidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Rollers",
+    "birdnet_name": "European Roller"
+  },
+  {
+    "name": "Bee-eater",
+    "scientific_name": "Merops apiaster",
+    "family": "Meropidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Bee-eaters",
+    "birdnet_name": "European Bee-eater"
+  },
+  {
+    "name": "Blue-cheeked Bee-eater",
+    "scientific_name": "Merops persicus",
+    "family": "Meropidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Bee-eaters",
+    "birdnet_name": "Blue-cheeked Bee-eater"
+  },
+  {
+    "name": "Kingfisher",
+    "scientific_name": "Alcedo atthis",
+    "family": "Alcedinidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Kingfishers",
+    "birdnet_name": "Common Kingfisher"
+  },
+  {
+    "name": "Belted Kingfisher",
+    "scientific_name": "Megaceryle alcyon",
+    "family": "Alcedinidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Kingfishers",
+    "birdnet_name": "Belted Kingfisher"
+  },
+  {
+    "name": "Wryneck",
+    "scientific_name": "Jynx torquilla",
+    "family": "Picidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Woodpeckers",
+    "birdnet_name": "Eurasian Wryneck"
+  },
+  {
+    "name": "Green Woodpecker",
+    "scientific_name": "Picus viridis",
+    "family": "Picidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Woodpeckers",
+    "birdnet_name": "Eurasian Green Woodpecker"
+  },
+  {
+    "name": "Yellow-bellied Sapsucker",
+    "scientific_name": "Sphyrapicus varius",
+    "family": "Picidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Woodpeckers",
+    "birdnet_name": "Yellow-bellied Sapsucker"
+  },
+  {
+    "name": "Great Spotted Woodpecker",
+    "scientific_name": "Dendrocopos major",
+    "family": "Picidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Woodpeckers",
+    "birdnet_name": "Great Spotted Woodpecker"
+  },
+  {
+    "name": "Lesser Spotted Woodpecker",
+    "scientific_name": "Dryobates minor",
+    "family": "Picidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Woodpeckers",
+    "birdnet_name": "Lesser Spotted Woodpecker"
+  },
+  {
+    "name": "Lesser Kestrel",
+    "scientific_name": "Falco naumanni",
+    "family": "Falconidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Falcons",
+    "birdnet_name": "Lesser Kestrel"
+  },
+  {
+    "name": "Kestrel",
+    "scientific_name": "Falco tinnunculus",
+    "family": "Falconidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Falcons",
+    "birdnet_name": "Eurasian Kestrel"
+  },
+  {
+    "name": "American Kestrel",
+    "scientific_name": "Falco sparverius",
+    "family": "Falconidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Falcons",
+    "birdnet_name": "American Kestrel"
+  },
+  {
+    "name": "Red-footed Falcon",
+    "scientific_name": "Falco vespertinus",
+    "family": "Falconidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Falcons",
+    "birdnet_name": "Red-footed Falcon"
+  },
+  {
+    "name": "Amur Falcon",
+    "scientific_name": "Falco amurensis",
+    "family": "Falconidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Falcons",
+    "birdnet_name": "Amur Falcon"
+  },
+  {
+    "name": "Merlin",
+    "scientific_name": "Falco columbarius",
+    "family": "Falconidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Falcons",
+    "birdnet_name": "Merlin"
+  },
+  {
+    "name": "Eleonora's Falcon",
+    "scientific_name": "Falco eleonorae",
+    "family": "Falconidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Falcons",
+    "birdnet_name": null
+  },
+  {
+    "name": "Hobby",
+    "scientific_name": "Falco subbuteo",
+    "family": "Falconidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Falcons",
+    "birdnet_name": "Eurasian Hobby"
+  },
+  {
+    "name": "Peregrine",
+    "scientific_name": "Falco peregrinus",
+    "family": "Falconidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Falcons",
+    "birdnet_name": "Peregrine Falcon"
+  },
+  {
+    "name": "Gyr Falcon",
+    "scientific_name": "Falco rusticolus",
+    "family": "Falconidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Falcons",
+    "birdnet_name": "Gyrfalcon"
+  },
+  {
+    "name": "Ring-necked Parakeet",
+    "scientific_name": "Psittacula krameri",
+    "family": "Psittaculidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Parakeets",
+    "birdnet_name": "Rose-ringed Parakeet"
+  },
+  {
+    "name": "Eastern Kingbird",
+    "scientific_name": "Tyrannus tyrannus",
+    "family": "Tyrannidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Eastern Kingbird"
+  },
+  {
+    "name": "Eastern Phoebe",
+    "scientific_name": "Sayornis phoebe",
+    "family": "Tyrannidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Eastern Phoebe"
+  },
+  {
+    "name": "Acadian Flycatcher",
+    "scientific_name": "Empidonax virescens",
+    "family": "Tyrannidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Acadian Flycatcher"
+  },
+  {
+    "name": "Alder Flycatcher",
+    "scientific_name": "Empidonax alnorum",
+    "family": "Tyrannidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Alder Flycatcher"
+  },
+  {
+    "name": "Yellow-bellied Flycatcher",
+    "scientific_name": "Empidonax flaviventris",
+    "family": "Tyrannidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Yellow-bellied Flycatcher"
+  },
+  {
+    "name": "Philadelphia Vireo",
+    "scientific_name": "Vireo philadelphicus",
+    "family": "Vireonidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Philadelphia Vireo"
+  },
+  {
+    "name": "Red-eyed Vireo",
+    "scientific_name": "Vireo olivaceus",
+    "family": "Vireonidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Red-eyed Vireo"
+  },
+  {
+    "name": "Yellow-throated Vireo",
+    "scientific_name": "Vireo flavifrons",
+    "family": "Vireonidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Yellow-throated Vireo"
+  },
+  {
+    "name": "Golden Oriole",
+    "scientific_name": "Oriolus oriolus",
+    "family": "Oriolidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Orioles",
+    "birdnet_name": "Eurasian Golden Oriole"
+  },
+  {
+    "name": "Great Grey Shrike",
+    "scientific_name": "Lanius excubitor",
+    "family": "Laniidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Shrikes",
+    "birdnet_name": "Great Gray Shrike"
+  },
+  {
+    "name": "Masked Shrike",
+    "scientific_name": "Lanius nubicus",
+    "family": "Laniidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Shrikes",
+    "birdnet_name": "Masked Shrike"
+  },
+  {
+    "name": "Lesser Grey Shrike",
+    "scientific_name": "Lanius minor",
+    "family": "Laniidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Shrikes",
+    "birdnet_name": "Lesser Gray Shrike"
+  },
+  {
+    "name": "Woodchat Shrike",
+    "scientific_name": "Lanius senator",
+    "family": "Laniidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Shrikes",
+    "birdnet_name": "Woodchat Shrike"
+  },
+  {
+    "name": "Daurian Shrike",
+    "scientific_name": "Lanius isabellinus",
+    "family": "Laniidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Shrikes",
+    "birdnet_name": "Isabelline Shrike"
+  },
+  {
+    "name": "Red-backed Shrike",
+    "scientific_name": "Lanius collurio",
+    "family": "Laniidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Shrikes",
+    "birdnet_name": "Red-backed Shrike"
+  },
+  {
+    "name": "Turkestan Shrike",
+    "scientific_name": "Lanius phoenicuroides",
+    "family": "Laniidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Shrikes",
+    "birdnet_name": "Red-tailed Shrike"
+  },
+  {
+    "name": "Long-tailed Shrike",
+    "scientific_name": "Lanius schach",
+    "family": "Laniidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Shrikes",
+    "birdnet_name": "Long-tailed Shrike"
+  },
+  {
+    "name": "Brown Shrike",
+    "scientific_name": "Lanius cristatus",
+    "family": "Laniidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Shrikes",
+    "birdnet_name": "Brown Shrike"
+  },
+  {
+    "name": "Chough",
+    "scientific_name": "Pyrrhocorax pyrrhocorax",
+    "family": "Corvidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Crows",
+    "birdnet_name": "Red-billed Chough"
+  },
+  {
+    "name": "Jay",
+    "scientific_name": "Garrulus glandarius",
+    "family": "Corvidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Crows",
+    "birdnet_name": "Eurasian Jay"
+  },
+  {
+    "name": "Magpie",
+    "scientific_name": "Pica pica",
+    "family": "Corvidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Crows",
+    "birdnet_name": "Eurasian Magpie"
+  },
+  {
+    "name": "Nutcracker",
+    "scientific_name": "Nucifraga caryocatactes",
+    "family": "Corvidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Crows",
+    "birdnet_name": "Eurasian Nutcracker"
+  },
+  {
+    "name": "Jackdaw",
+    "scientific_name": "Coloeus monedula",
+    "family": "Corvidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Crows",
+    "birdnet_name": "Eurasian Jackdaw"
+  },
+  {
+    "name": "Rook",
+    "scientific_name": "Corvus frugilegus",
+    "family": "Corvidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Crows",
+    "birdnet_name": "Rook"
+  },
+  {
+    "name": "Raven",
+    "scientific_name": "Corvus corax",
+    "family": "Corvidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Crows",
+    "birdnet_name": "Common Raven"
+  },
+  {
+    "name": "Carrion Crow",
+    "scientific_name": "Corvus corone",
+    "family": "Corvidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Crows",
+    "birdnet_name": "Carrion Crow"
+  },
+  {
+    "name": "Penduline Tit",
+    "scientific_name": "Remiz pendulinus",
+    "family": "Remizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Tits",
+    "birdnet_name": "Eurasian Penduline-Tit"
+  },
+  {
+    "name": "Blue Tit",
+    "scientific_name": "Cyanistes caeruleus",
+    "family": "Paridae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Tits",
+    "birdnet_name": "Eurasian Blue Tit"
+  },
+  {
+    "name": "Great Tit",
+    "scientific_name": "Parus major",
+    "family": "Paridae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Tits",
+    "birdnet_name": "Great Tit"
+  },
+  {
+    "name": "Coal Tit",
+    "scientific_name": "Periparus ater",
+    "family": "Paridae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Tits",
+    "birdnet_name": "Coal Tit"
+  },
+  {
+    "name": "Crested Tit",
+    "scientific_name": "Lophophanes cristatus",
+    "family": "Paridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Tits",
+    "birdnet_name": "Crested Tit"
+  },
+  {
+    "name": "Marsh Tit",
+    "scientific_name": "Poecile palustris",
+    "family": "Paridae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Tits",
+    "birdnet_name": "Marsh Tit"
+  },
+  {
+    "name": "Willow Tit",
+    "scientific_name": "Poecile montanus",
+    "family": "Paridae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Tits",
+    "birdnet_name": "Willow Tit"
+  },
+  {
+    "name": "Bearded Tit",
+    "scientific_name": "Panurus biarmicus",
+    "family": "Panuridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Tits",
+    "birdnet_name": "Bearded Reedling"
+  },
+  {
+    "name": "Woodlark",
+    "scientific_name": "Lullula arborea",
+    "family": "Alaudidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Larks",
+    "birdnet_name": "Wood Lark"
+  },
+  {
+    "name": "White-winged Lark",
+    "scientific_name": "Alauda leucoptera",
+    "family": "Alaudidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Larks",
+    "birdnet_name": null
+  },
+  {
+    "name": "Skylark",
+    "scientific_name": "Alauda arvensis",
+    "family": "Alaudidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Larks",
+    "birdnet_name": "Eurasian Skylark"
+  },
+  {
+    "name": "Crested Lark",
+    "scientific_name": "Galerida cristata",
+    "family": "Alaudidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Larks",
+    "birdnet_name": "Crested Lark"
+  },
+  {
+    "name": "Shore Lark",
+    "scientific_name": "Eremophila alpestris",
+    "family": "Alaudidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Larks",
+    "birdnet_name": "Horned Lark"
+  },
+  {
+    "name": "Short-toed Lark",
+    "scientific_name": "Calandrella brachydactyla",
+    "family": "Alaudidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Larks",
+    "birdnet_name": "Greater Short-toed Lark"
+  },
+  {
+    "name": "Bimaculated Lark",
+    "scientific_name": "Melanocorypha bimaculata",
+    "family": "Alaudidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Larks",
+    "birdnet_name": null
+  },
+  {
+    "name": "Black Lark",
+    "scientific_name": "Melanocorypha yeltoniensis",
+    "family": "Alaudidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Larks",
+    "birdnet_name": null
+  },
+  {
+    "name": "Calandra Lark",
+    "scientific_name": "Melanocorypha calandra",
+    "family": "Alaudidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Larks",
+    "birdnet_name": "Calandra Lark"
+  },
+  {
+    "name": "Zitting Cisticola",
+    "scientific_name": "Cisticola juncidis",
+    "family": "Cisticolidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Zitting Cisticola"
+  },
+  {
+    "name": "Icterine Warbler",
+    "scientific_name": "Hippolais icterina",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Icterine Warbler"
+  },
+  {
+    "name": "Melodious Warbler",
+    "scientific_name": "Hippolais polyglotta",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Melodious Warbler"
+  },
+  {
+    "name": "Olive-tree Warbler",
+    "scientific_name": "Hippolais olivetorum",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Olive-tree Warbler"
+  },
+  {
+    "name": "Thick-billed Warbler",
+    "scientific_name": "Arundinax aedon",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Thick-billed Warbler"
+  },
+  {
+    "name": "Booted Warbler",
+    "scientific_name": "Iduna caligata",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Booted Warbler"
+  },
+  {
+    "name": "Sykes's Warbler",
+    "scientific_name": "Iduna rama",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Sykes's Warbler"
+  },
+  {
+    "name": "Eastern Olivaceous Warbler",
+    "scientific_name": "Iduna pallida",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Eastern Olivaceous Warbler"
+  },
+  {
+    "name": "Western Olivaceous Warbler",
+    "scientific_name": "Iduna opaca",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Western Olivaceous Warbler"
+  },
+  {
+    "name": "Sedge Warbler",
+    "scientific_name": "Acrocephalus schoenobaenus",
+    "family": "Acrocephalidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Sedge Warbler"
+  },
+  {
+    "name": "Aquatic Warbler",
+    "scientific_name": "Acrocephalus paludicola",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Aquatic Warbler"
+  },
+  {
+    "name": "Paddyfield Warbler",
+    "scientific_name": "Acrocephalus agricola",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Paddyfield Warbler"
+  },
+  {
+    "name": "Blyth's Reed Warbler",
+    "scientific_name": "Acrocephalus dumetorum",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Blyth's Reed Warbler"
+  },
+  {
+    "name": "Marsh Warbler",
+    "scientific_name": "Acrocephalus palustris",
+    "family": "Acrocephalidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Marsh Warbler"
+  },
+  {
+    "name": "Reed Warbler",
+    "scientific_name": "Acrocephalus scirpaceus",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Eurasian Reed Warbler"
+  },
+  {
+    "name": "Great Reed Warbler",
+    "scientific_name": "Acrocephalus arundinaceus",
+    "family": "Acrocephalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Great Reed Warbler"
+  },
+  {
+    "name": "Pallas's Grasshopper Warbler",
+    "scientific_name": "Helopsaltes certhiola",
+    "family": "Locustellidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Pallas's Grasshopper Warbler"
+  },
+  {
+    "name": "Lanceolated Warbler",
+    "scientific_name": "Locustella lanceolata",
+    "family": "Locustellidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Lanceolated Warbler"
+  },
+  {
+    "name": "River Warbler",
+    "scientific_name": "Locustella fluviatilis",
+    "family": "Locustellidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "River Warbler"
+  },
+  {
+    "name": "Savi's Warbler",
+    "scientific_name": "Locustella luscinioides",
+    "family": "Locustellidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Savi's Warbler"
+  },
+  {
+    "name": "Grasshopper Warbler",
+    "scientific_name": "Locustella naevia",
+    "family": "Locustellidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Common Grasshopper-Warbler"
+  },
+  {
+    "name": "Sand Martin",
+    "scientific_name": "Riparia riparia",
+    "family": "Hirundinidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swallows & Martins",
+    "birdnet_name": "Bank Swallow"
+  },
+  {
+    "name": "Tree Swallow",
+    "scientific_name": "Tachycineta bicolor",
+    "family": "Hirundinidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swallows & Martins",
+    "birdnet_name": "Tree Swallow"
+  },
+  {
+    "name": "Purple Martin",
+    "scientific_name": "Progne subis",
+    "family": "Hirundinidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swallows & Martins",
+    "birdnet_name": "Purple Martin"
+  },
+  {
+    "name": "Crag Martin",
+    "scientific_name": "Ptyonoprogne rupestris",
+    "family": "Hirundinidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swallows & Martins",
+    "birdnet_name": "Eurasian Crag-Martin"
+  },
+  {
+    "name": "Swallow",
+    "scientific_name": "Hirundo rustica",
+    "family": "Hirundinidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swallows & Martins",
+    "birdnet_name": "Barn Swallow"
+  },
+  {
+    "name": "House Martin",
+    "scientific_name": "Delichon urbicum",
+    "family": "Hirundinidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Swallows & Martins",
+    "birdnet_name": "Common House-Martin"
+  },
+  {
+    "name": "Red-rumped Swallow",
+    "scientific_name": "Cecropis rufula",
+    "family": "Hirundinidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swallows & Martins",
+    "birdnet_name": "Red-rumped Swallow"
+  },
+  {
+    "name": "Eastern Red-rumped Swallow",
+    "scientific_name": "Cecropis daurica",
+    "family": "Hirundinidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swallows & Martins",
+    "birdnet_name": "Red-rumped Swallow"
+  },
+  {
+    "name": "American Cliff Swallow",
+    "scientific_name": "Petrochelidon pyrrhonota",
+    "family": "Hirundinidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Swallows & Martins",
+    "birdnet_name": "Cliff Swallow"
+  },
+  {
+    "name": "Long-tailed Tit",
+    "scientific_name": "Aegithalos caudatus",
+    "family": "Aegithalidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Tits",
+    "birdnet_name": "Long-tailed Tit"
+  },
+  {
+    "name": "Cetti's Warbler",
+    "scientific_name": "Cettia cetti",
+    "family": "Cettiidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Cetti's Warbler"
+  },
+  {
+    "name": "Wood Warbler",
+    "scientific_name": "Phylloscopus sibilatrix",
+    "family": "Phylloscopidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Wood Warbler"
+  },
+  {
+    "name": "Western Bonelli's Warbler",
+    "scientific_name": "Phylloscopus bonelli",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Western Bonelli's Warbler"
+  },
+  {
+    "name": "Eastern Bonelli's Warbler",
+    "scientific_name": "Phylloscopus orientalis",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Eastern Bonelli's Warbler"
+  },
+  {
+    "name": "Yellow-browed Warbler",
+    "scientific_name": "Phylloscopus inornatus",
+    "family": "Phylloscopidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Yellow-browed Warbler"
+  },
+  {
+    "name": "Hume's Warbler",
+    "scientific_name": "Phylloscopus humei",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Hume's Warbler"
+  },
+  {
+    "name": "Pallas's Warbler",
+    "scientific_name": "Phylloscopus proregulus",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Pallas's Leaf Warbler"
+  },
+  {
+    "name": "Radde's Warbler",
+    "scientific_name": "Phylloscopus schwarzi",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Radde's Warbler"
+  },
+  {
+    "name": "Sulphur-bellied Warbler",
+    "scientific_name": "Phylloscopus griseolus",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Sulphur-bellied Warbler"
+  },
+  {
+    "name": "Dusky Warbler",
+    "scientific_name": "Phylloscopus fuscatus",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Dusky Warbler"
+  },
+  {
+    "name": "Willow Warbler",
+    "scientific_name": "Phylloscopus trochilus",
+    "family": "Phylloscopidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Willow Warbler"
+  },
+  {
+    "name": "Iberian Chiffchaff",
+    "scientific_name": "Phylloscopus ibericus",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Iberian Chiffchaff"
+  },
+  {
+    "name": "Chiffchaff",
+    "scientific_name": "Phylloscopus collybita",
+    "family": "Phylloscopidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Common Chiffchaff"
+  },
+  {
+    "name": "Eastern Crowned Warbler",
+    "scientific_name": "Phylloscopus coronatus",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Eastern Crowned Warbler"
+  },
+  {
+    "name": "Green Warbler",
+    "scientific_name": "Phylloscopus nitidus",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Green Warbler"
+  },
+  {
+    "name": "Two-barred Greenish Warbler",
+    "scientific_name": "Phylloscopus plumbeitarsus",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Two-barred Warbler"
+  },
+  {
+    "name": "Greenish Warbler",
+    "scientific_name": "Phylloscopus trochiloides",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Greenish Warbler"
+  },
+  {
+    "name": "Pale-legged Leaf Warbler",
+    "scientific_name": "Phylloscopus tenellipes",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Pale-legged Leaf Warbler"
+  },
+  {
+    "name": "Arctic Warbler",
+    "scientific_name": "Phylloscopus borealis",
+    "family": "Phylloscopidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Arctic Warbler"
+  },
+  {
+    "name": "Garden Warbler",
+    "scientific_name": "Sylvia borin",
+    "family": "Sylviidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Garden Warbler"
+  },
+  {
+    "name": "Blackcap",
+    "scientific_name": "Sylvia atricapilla",
+    "family": "Sylviidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Eurasian Blackcap"
+  },
+  {
+    "name": "Barred Warbler",
+    "scientific_name": "Curruca nisoria",
+    "family": "Sylviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Barred Warbler"
+  },
+  {
+    "name": "Lesser Whitethroat",
+    "scientific_name": "Curruca curruca",
+    "family": "Sylviidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Lesser Whitethroat"
+  },
+  {
+    "name": "Western Orphean Warbler",
+    "scientific_name": "Curruca hortensis",
+    "family": "Sylviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Western Orphean Warbler"
+  },
+  {
+    "name": "Eastern Orphean Warbler",
+    "scientific_name": "Curruca crassirostris",
+    "family": "Sylviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Eastern Orphean Warbler"
+  },
+  {
+    "name": "Asian Desert Warbler",
+    "scientific_name": "Curruca nana",
+    "family": "Sylviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": null
+  },
+  {
+    "name": "Whitethroat",
+    "scientific_name": "Curruca communis",
+    "family": "Sylviidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Greater Whitethroat"
+  },
+  {
+    "name": "Spectacled Warbler",
+    "scientific_name": "Curruca conspicillata",
+    "family": "Sylviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Spectacled Warbler"
+  },
+  {
+    "name": "Marmora's Warbler",
+    "scientific_name": "Curruca sarda",
+    "family": "Sylviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": null
+  },
+  {
+    "name": "Dartford Warbler",
+    "scientific_name": "Curruca undata",
+    "family": "Sylviidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Dartford Warbler"
+  },
+  {
+    "name": "Rüppell's Warbler",
+    "scientific_name": "Curruca ruppeli",
+    "family": "Sylviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": null
+  },
+  {
+    "name": "Sardinian Warbler",
+    "scientific_name": "Curruca melanocephala",
+    "family": "Sylviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Sardinian Warbler"
+  },
+  {
+    "name": "Moltoni's Warbler",
+    "scientific_name": "Curruca subalpina",
+    "family": "Sylviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": null
+  },
+  {
+    "name": "Western Subalpine Warbler",
+    "scientific_name": "Curruca iberiae",
+    "family": "Sylviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": "Western Subalpine Warbler"
+  },
+  {
+    "name": "Eastern Subalpine Warbler",
+    "scientific_name": "Curruca cantillans",
+    "family": "Sylviidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Warblers",
+    "birdnet_name": null
+  },
+  {
+    "name": "Cedar Waxwing",
+    "scientific_name": "Bombycilla cedrorum",
+    "family": "Bombycillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waxwings",
+    "birdnet_name": "Cedar Waxwing"
+  },
+  {
+    "name": "Waxwing",
+    "scientific_name": "Bombycilla garrulus",
+    "family": "Bombycillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Waxwings",
+    "birdnet_name": "Bohemian Waxwing"
+  },
+  {
+    "name": "Ruby-crowned Kinglet",
+    "scientific_name": "Corthylio calendula",
+    "family": "Regulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Goldcrests",
+    "birdnet_name": "Ruby-crowned Kinglet"
+  },
+  {
+    "name": "Firecrest",
+    "scientific_name": "Regulus ignicapilla",
+    "family": "Regulidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Goldcrests",
+    "birdnet_name": "Common Firecrest"
+  },
+  {
+    "name": "Goldcrest",
+    "scientific_name": "Regulus regulus",
+    "family": "Regulidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Goldcrests",
+    "birdnet_name": "Goldcrest"
+  },
+  {
+    "name": "Wallcreeper",
+    "scientific_name": "Tichodroma muraria",
+    "family": "Tichodromidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Treecreepers",
+    "birdnet_name": "Wallcreeper"
+  },
+  {
+    "name": "Red-breasted Nuthatch",
+    "scientific_name": "Sitta canadensis",
+    "family": "Sittidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Nuthatches",
+    "birdnet_name": "Red-breasted Nuthatch"
+  },
+  {
+    "name": "Nuthatch",
+    "scientific_name": "Sitta europaea",
+    "family": "Sittidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Nuthatches",
+    "birdnet_name": "Eurasian Nuthatch"
+  },
+  {
+    "name": "Treecreeper",
+    "scientific_name": "Certhia familiaris",
+    "family": "Certhiidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Treecreepers",
+    "birdnet_name": "Eurasian Treecreeper"
+  },
+  {
+    "name": "Short-toed Treecreeper",
+    "scientific_name": "Certhia brachydactyla",
+    "family": "Certhiidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Treecreepers",
+    "birdnet_name": "Short-toed Treecreeper"
+  },
+  {
+    "name": "Wren",
+    "scientific_name": "Troglodytes troglodytes",
+    "family": "Troglodytidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wrens",
+    "birdnet_name": "Eurasian Wren"
+  },
+  {
+    "name": "Grey Catbird",
+    "scientific_name": "Dumetella carolinensis",
+    "family": "Mimidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Gray Catbird"
+  },
+  {
+    "name": "Brown Thrasher",
+    "scientific_name": "Toxostoma rufum",
+    "family": "Mimidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Brown Thrasher"
+  },
+  {
+    "name": "Northern Mockingbird",
+    "scientific_name": "Mimus polyglottos",
+    "family": "Mimidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Northern Mockingbird"
+  },
+  {
+    "name": "Starling",
+    "scientific_name": "Sturnus vulgaris",
+    "family": "Sturnidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Starlings",
+    "birdnet_name": "European Starling"
+  },
+  {
+    "name": "Rose-coloured Starling",
+    "scientific_name": "Pastor roseus",
+    "family": "Sturnidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Starlings",
+    "birdnet_name": "Rosy Starling"
+  },
+  {
+    "name": "Dipper",
+    "scientific_name": "Cinclus cinclus",
+    "family": "Cinclidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Dippers",
+    "birdnet_name": "White-throated Dipper"
+  },
+  {
+    "name": "White's Thrush",
+    "scientific_name": "Zoothera aurea",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "White's Thrush"
+  },
+  {
+    "name": "Varied Thrush",
+    "scientific_name": "Ixoreus naevius",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Varied Thrush"
+  },
+  {
+    "name": "Wood Thrush",
+    "scientific_name": "Hylocichla mustelina",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Wood Thrush"
+  },
+  {
+    "name": "Swainson's Thrush",
+    "scientific_name": "Catharus ustulatus",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Swainson's Thrush"
+  },
+  {
+    "name": "Veery",
+    "scientific_name": "Catharus fuscescens",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Veery"
+  },
+  {
+    "name": "Grey-cheeked Thrush",
+    "scientific_name": "Catharus minimus",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Gray-cheeked Thrush"
+  },
+  {
+    "name": "Hermit Thrush",
+    "scientific_name": "Catharus guttatus",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Hermit Thrush"
+  },
+  {
+    "name": "Siberian Thrush",
+    "scientific_name": "Geokichla sibirica",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Siberian Thrush"
+  },
+  {
+    "name": "Mistle Thrush",
+    "scientific_name": "Turdus viscivorus",
+    "family": "Turdidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Mistle Thrush"
+  },
+  {
+    "name": "Song Thrush",
+    "scientific_name": "Turdus philomelos",
+    "family": "Turdidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Song Thrush"
+  },
+  {
+    "name": "Redwing",
+    "scientific_name": "Turdus iliacus",
+    "family": "Turdidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Redwing"
+  },
+  {
+    "name": "Blackbird",
+    "scientific_name": "Turdus merula",
+    "family": "Turdidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Eurasian Blackbird"
+  },
+  {
+    "name": "Fieldfare",
+    "scientific_name": "Turdus pilaris",
+    "family": "Turdidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Fieldfare"
+  },
+  {
+    "name": "Ring Ouzel",
+    "scientific_name": "Turdus torquatus",
+    "family": "Turdidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Ring Ouzel"
+  },
+  {
+    "name": "Red-throated Thrush",
+    "scientific_name": "Turdus ruficollis",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Red-throated Thrush"
+  },
+  {
+    "name": "Black-throated Thrush",
+    "scientific_name": "Turdus atrogularis",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Black-throated Thrush"
+  },
+  {
+    "name": "Naumann's Thrush",
+    "scientific_name": "Turdus naumanni",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Naumann's Thrush"
+  },
+  {
+    "name": "Dusky Thrush",
+    "scientific_name": "Turdus eunomus",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Dusky Thrush"
+  },
+  {
+    "name": "Eyebrowed Thrush",
+    "scientific_name": "Turdus obscurus",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "Eyebrowed Thrush"
+  },
+  {
+    "name": "American Robin",
+    "scientific_name": "Turdus migratorius",
+    "family": "Turdidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Thrushes",
+    "birdnet_name": "American Robin"
+  },
+  {
+    "name": "Rufous-tailed Scrub Robin",
+    "scientific_name": "Cercotrichas galactotes",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Rufous-tailed Scrub-Robin"
+  },
+  {
+    "name": "Asian Brown Flycatcher",
+    "scientific_name": "Muscicapa dauurica",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Asian Brown Flycatcher"
+  },
+  {
+    "name": "Spotted Flycatcher",
+    "scientific_name": "Muscicapa striata",
+    "family": "Muscicapidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Spotted Flycatcher"
+  },
+  {
+    "name": "Robin",
+    "scientific_name": "Erithacus rubecula",
+    "family": "Muscicapidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "European Robin"
+  },
+  {
+    "name": "White-throated Robin",
+    "scientific_name": "Irania gutturalis",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "White-throated Robin"
+  },
+  {
+    "name": "Thrush Nightingale",
+    "scientific_name": "Luscinia luscinia",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Thrush Nightingale"
+  },
+  {
+    "name": "Nightingale",
+    "scientific_name": "Luscinia megarhynchos",
+    "family": "Muscicapidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Common Nightingale"
+  },
+  {
+    "name": "Bluethroat",
+    "scientific_name": "Luscinia svecica",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Bluethroat"
+  },
+  {
+    "name": "Siberian Rubythroat",
+    "scientific_name": "Calliope calliope",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Siberian Rubythroat"
+  },
+  {
+    "name": "Siberian Blue Robin",
+    "scientific_name": "Larvivora cyane",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Siberian Blue Robin"
+  },
+  {
+    "name": "Rufous-tailed Robin",
+    "scientific_name": "Larvivora sibilans",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Rufous-tailed Robin"
+  },
+  {
+    "name": "Red-breasted Flycatcher",
+    "scientific_name": "Ficedula parva",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Red-breasted Flycatcher"
+  },
+  {
+    "name": "Taiga Flycatcher",
+    "scientific_name": "Ficedula albicilla",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Taiga Flycatcher"
+  },
+  {
+    "name": "Collared Flycatcher",
+    "scientific_name": "Ficedula albicollis",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Collared Flycatcher"
+  },
+  {
+    "name": "Pied Flycatcher",
+    "scientific_name": "Ficedula hypoleuca",
+    "family": "Muscicapidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "European Pied Flycatcher"
+  },
+  {
+    "name": "Red-flanked Bluetail",
+    "scientific_name": "Tarsiger cyanurus",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Red-flanked Bluetail"
+  },
+  {
+    "name": "Black Redstart",
+    "scientific_name": "Phoenicurus ochruros",
+    "family": "Muscicapidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Black Redstart"
+  },
+  {
+    "name": "Moussier's Redstart",
+    "scientific_name": "Phoenicurus moussieri",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Moussier's Redstart"
+  },
+  {
+    "name": "Redstart",
+    "scientific_name": "Phoenicurus phoenicurus",
+    "family": "Muscicapidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Common Redstart"
+  },
+  {
+    "name": "Rock Thrush",
+    "scientific_name": "Monticola saxatilis",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Rufous-tailed Rock-Thrush"
+  },
+  {
+    "name": "Blue Rock Thrush",
+    "scientific_name": "Monticola solitarius",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Blue Rock-Thrush"
+  },
+  {
+    "name": "Whinchat",
+    "scientific_name": "Saxicola rubetra",
+    "family": "Muscicapidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Whinchat"
+  },
+  {
+    "name": "Siberian Stonechat",
+    "scientific_name": "Saxicola maurus",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Siberian Stonechat"
+  },
+  {
+    "name": "Stonechat",
+    "scientific_name": "Saxicola rubicola",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "European Stonechat"
+  },
+  {
+    "name": "Desert Wheatear",
+    "scientific_name": "Oenanthe deserti",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Desert Wheatear"
+  },
+  {
+    "name": "Western Black-eared Wheatear",
+    "scientific_name": "Oenanthe hispanica",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Western Black-eared Wheatear"
+  },
+  {
+    "name": "Pied Wheatear",
+    "scientific_name": "Oenanthe pleschanka",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Pied Wheatear"
+  },
+  {
+    "name": "Eastern Black-eared Wheatear",
+    "scientific_name": "Oenanthe melanoleuca",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Eastern Black-eared Wheatear"
+  },
+  {
+    "name": "Wheatear",
+    "scientific_name": "Oenanthe oenanthe",
+    "family": "Muscicapidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Northern Wheatear"
+  },
+  {
+    "name": "Isabelline Wheatear",
+    "scientific_name": "Oenanthe isabellina",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "Isabelline Wheatear"
+  },
+  {
+    "name": "White-crowned Black Wheatear",
+    "scientific_name": "Oenanthe leucopyga",
+    "family": "Muscicapidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Flycatchers & Chats",
+    "birdnet_name": "White-crowned Wheatear"
+  },
+  {
+    "name": "Alpine Accentor",
+    "scientific_name": "Prunella collaris",
+    "family": "Prunellidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Accentors",
+    "birdnet_name": "Alpine Accentor"
+  },
+  {
+    "name": "Dunnock",
+    "scientific_name": "Prunella modularis",
+    "family": "Prunellidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Accentors",
+    "birdnet_name": "Dunnock"
+  },
+  {
+    "name": "Siberian Accentor",
+    "scientific_name": "Prunella montanella",
+    "family": "Prunellidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Accentors",
+    "birdnet_name": "Siberian Accentor"
+  },
+  {
+    "name": "Rock Sparrow",
+    "scientific_name": "Petronia petronia",
+    "family": "Passeridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Sparrows",
+    "birdnet_name": "Rock Sparrow"
+  },
+  {
+    "name": "Tree Sparrow",
+    "scientific_name": "Passer montanus",
+    "family": "Passeridae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Sparrows",
+    "birdnet_name": "Eurasian Tree Sparrow"
+  },
+  {
+    "name": "Spanish Sparrow",
+    "scientific_name": "Passer hispaniolensis",
+    "family": "Passeridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Sparrows",
+    "birdnet_name": "Spanish Sparrow"
+  },
+  {
+    "name": "House Sparrow",
+    "scientific_name": "Passer domesticus",
+    "family": "Passeridae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Sparrows",
+    "birdnet_name": "House Sparrow"
+  },
+  {
+    "name": "Grey Wagtail",
+    "scientific_name": "Motacilla cinerea",
+    "family": "Motacillidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Gray Wagtail"
+  },
+  {
+    "name": "Yellow Wagtail",
+    "scientific_name": "Motacilla flava",
+    "family": "Motacillidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Western Yellow Wagtail"
+  },
+  {
+    "name": "Citrine Wagtail",
+    "scientific_name": "Motacilla citreola",
+    "family": "Motacillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Citrine Wagtail"
+  },
+  {
+    "name": "Eastern Yellow Wagtail",
+    "scientific_name": "Motacilla tschutschensis",
+    "family": "Motacillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Eastern Yellow Wagtail"
+  },
+  {
+    "name": "Pied Wagtail",
+    "scientific_name": "Motacilla alba",
+    "family": "Motacillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "White Wagtail"
+  },
+  {
+    "name": "Blyth's Pipit",
+    "scientific_name": "Anthus godlewskii",
+    "family": "Motacillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Blyth's Pipit"
+  },
+  {
+    "name": "Tawny Pipit",
+    "scientific_name": "Anthus campestris",
+    "family": "Motacillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Tawny Pipit"
+  },
+  {
+    "name": "Richard's Pipit",
+    "scientific_name": "Anthus richardi",
+    "family": "Motacillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Richard's Pipit"
+  },
+  {
+    "name": "Pechora Pipit",
+    "scientific_name": "Anthus gustavi",
+    "family": "Motacillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Pechora Pipit"
+  },
+  {
+    "name": "Tree Pipit",
+    "scientific_name": "Anthus trivialis",
+    "family": "Motacillidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Tree Pipit"
+  },
+  {
+    "name": "Olive-backed Pipit",
+    "scientific_name": "Anthus hodgsoni",
+    "family": "Motacillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Olive-backed Pipit"
+  },
+  {
+    "name": "Red-throated Pipit",
+    "scientific_name": "Anthus cervinus",
+    "family": "Motacillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Red-throated Pipit"
+  },
+  {
+    "name": "American Pipit",
+    "scientific_name": "Anthus rubescens",
+    "family": "Motacillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "American Pipit"
+  },
+  {
+    "name": "Meadow Pipit",
+    "scientific_name": "Anthus pratensis",
+    "family": "Motacillidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Meadow Pipit"
+  },
+  {
+    "name": "Rock Pipit",
+    "scientific_name": "Anthus petrosus",
+    "family": "Motacillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Rock Pipit"
+  },
+  {
+    "name": "Water Pipit",
+    "scientific_name": "Anthus spinoletta",
+    "family": "Motacillidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Wagtails & Pipits",
+    "birdnet_name": "Water Pipit"
+  },
+  {
+    "name": "Brambling",
+    "scientific_name": "Fringilla montifringilla",
+    "family": "Fringillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Brambling"
+  },
+  {
+    "name": "Chaffinch",
+    "scientific_name": "Fringilla coelebs",
+    "family": "Fringillidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Common Chaffinch"
+  },
+  {
+    "name": "Evening Grosbeak",
+    "scientific_name": "Hesperiphona vespertina",
+    "family": "Fringillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Evening Grosbeak"
+  },
+  {
+    "name": "Hawfinch",
+    "scientific_name": "Coccothraustes coccothraustes",
+    "family": "Fringillidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Hawfinch"
+  },
+  {
+    "name": "Common Rosefinch",
+    "scientific_name": "Carpodacus erythrinus",
+    "family": "Fringillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Common Rosefinch"
+  },
+  {
+    "name": "Pine Grosbeak",
+    "scientific_name": "Pinicola enucleator",
+    "family": "Fringillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Pine Grosbeak"
+  },
+  {
+    "name": "Bullfinch",
+    "scientific_name": "Pyrrhula pyrrhula",
+    "family": "Fringillidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Eurasian Bullfinch"
+  },
+  {
+    "name": "Trumpeter Finch",
+    "scientific_name": "Bucanetes githagineus",
+    "family": "Fringillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Trumpeter Finch"
+  },
+  {
+    "name": "Greenfinch",
+    "scientific_name": "Chloris chloris",
+    "family": "Fringillidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "European Greenfinch"
+  },
+  {
+    "name": "Twite",
+    "scientific_name": "Linaria flavirostris",
+    "family": "Fringillidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Twite"
+  },
+  {
+    "name": "Linnet",
+    "scientific_name": "Linaria cannabina",
+    "family": "Fringillidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Eurasian Linnet"
+  },
+  {
+    "name": "Redpoll",
+    "scientific_name": "Acanthis flammea",
+    "family": "Fringillidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Common Redpoll"
+  },
+  {
+    "name": "Two-barred Crossbill",
+    "scientific_name": "Loxia leucoptera",
+    "family": "Fringillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "White-winged Crossbill"
+  },
+  {
+    "name": "Parrot Crossbill",
+    "scientific_name": "Loxia pytyopsittacus",
+    "family": "Fringillidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Parrot Crossbill"
+  },
+  {
+    "name": "Scottish Crossbill",
+    "scientific_name": "Loxia scotica",
+    "family": "Fringillidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Scottish Crossbill"
+  },
+  {
+    "name": "Crossbill",
+    "scientific_name": "Loxia curvirostra",
+    "family": "Fringillidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Red Crossbill"
+  },
+  {
+    "name": "Citril Finch",
+    "scientific_name": "Carduelis citrinella",
+    "family": "Fringillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Citril Finch"
+  },
+  {
+    "name": "Goldfinch",
+    "scientific_name": "Carduelis carduelis",
+    "family": "Fringillidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "European Goldfinch"
+  },
+  {
+    "name": "Serin",
+    "scientific_name": "Serinus serinus",
+    "family": "Fringillidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "European Serin"
+  },
+  {
+    "name": "Siskin",
+    "scientific_name": "Spinus spinus",
+    "family": "Fringillidae",
+    "bto_status": "Green",
+    "migratory": null,
+    "group_name": "Finches",
+    "birdnet_name": "Eurasian Siskin"
+  },
+  {
+    "name": "Snow Bunting",
+    "scientific_name": "Plectrophenax nivalis",
+    "family": "Calcariidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Snow Bunting"
+  },
+  {
+    "name": "Lapland Bunting",
+    "scientific_name": "Calcarius lapponicus",
+    "family": "Calcariidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Lapland Longspur"
+  },
+  {
+    "name": "Pallas's Reed Bunting",
+    "scientific_name": "Emberiza pallasi",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Pallas's Bunting"
+  },
+  {
+    "name": "Reed Bunting",
+    "scientific_name": "Emberiza schoeniclus",
+    "family": "Emberizidae",
+    "bto_status": "Amber",
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Reed Bunting"
+  },
+  {
+    "name": "Yellow-browed Bunting",
+    "scientific_name": "Emberiza chrysophrys",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Yellow-browed Bunting"
+  },
+  {
+    "name": "Chestnut Bunting",
+    "scientific_name": "Emberiza rutila",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": null
+  },
+  {
+    "name": "Yellow-breasted Bunting",
+    "scientific_name": "Emberiza aureola",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Yellow-breasted Bunting"
+  },
+  {
+    "name": "Little Bunting",
+    "scientific_name": "Emberiza pusilla",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Little Bunting"
+  },
+  {
+    "name": "Rustic Bunting",
+    "scientific_name": "Emberiza rustica",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Rustic Bunting"
+  },
+  {
+    "name": "Black-faced Bunting",
+    "scientific_name": "Emberiza spodocephala",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Black-faced Bunting"
+  },
+  {
+    "name": "Black-headed Bunting",
+    "scientific_name": "Emberiza melanocephala",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Black-headed Bunting"
+  },
+  {
+    "name": "Red-headed Bunting",
+    "scientific_name": "Emberiza bruniceps",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Red-headed Bunting"
+  },
+  {
+    "name": "Corn Bunting",
+    "scientific_name": "Emberiza calandra",
+    "family": "Emberizidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Corn Bunting"
+  },
+  {
+    "name": "Chestnut-eared Bunting",
+    "scientific_name": "Emberiza fucata",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Chestnut-eared Bunting"
+  },
+  {
+    "name": "Rock Bunting",
+    "scientific_name": "Emberiza cia",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Rock Bunting"
+  },
+  {
+    "name": "Ortolan Bunting",
+    "scientific_name": "Emberiza hortulana",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Ortolan Bunting"
+  },
+  {
+    "name": "Cretzschmar's Bunting",
+    "scientific_name": "Emberiza caesia",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Cretzschmar's Bunting"
+  },
+  {
+    "name": "Cirl Bunting",
+    "scientific_name": "Emberiza cirlus",
+    "family": "Emberizidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Cirl Bunting"
+  },
+  {
+    "name": "Pine Bunting",
+    "scientific_name": "Emberiza leucocephalos",
+    "family": "Emberizidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Pine Bunting"
+  },
+  {
+    "name": "Yellowhammer",
+    "scientific_name": "Emberiza citrinella",
+    "family": "Emberizidae",
+    "bto_status": "Red",
+    "migratory": null,
+    "group_name": "Buntings",
+    "birdnet_name": "Yellowhammer"
+  },
+  {
+    "name": "Lark Sparrow",
+    "scientific_name": "Chondestes grammacus",
+    "family": "Passerellidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Lark Sparrow"
+  },
+  {
+    "name": "Dark-eyed Junco",
+    "scientific_name": "Junco hyemalis",
+    "family": "Passerellidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Dark-eyed Junco"
+  },
+  {
+    "name": "White-throated Sparrow",
+    "scientific_name": "Zonotrichia albicollis",
+    "family": "Passerellidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "White-throated Sparrow"
+  },
+  {
+    "name": "White-crowned Sparrow",
+    "scientific_name": "Zonotrichia leucophrys",
+    "family": "Passerellidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "White-crowned Sparrow"
+  },
+  {
+    "name": "Savannah Sparrow",
+    "scientific_name": "Passerculus sandwichensis",
+    "family": "Passerellidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Savannah Sparrow"
+  },
+  {
+    "name": "Song Sparrow",
+    "scientific_name": "Melospiza melodia",
+    "family": "Passerellidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Song Sparrow"
+  },
+  {
+    "name": "Eastern Towhee",
+    "scientific_name": "Pipilo erythrophthalmus",
+    "family": "Passerellidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Eastern Towhee"
+  },
+  {
+    "name": "Bobolink",
+    "scientific_name": "Dolichonyx oryzivorus",
+    "family": "Icteridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Bobolink"
+  },
+  {
+    "name": "Baltimore Oriole",
+    "scientific_name": "Icterus galbula",
+    "family": "Icteridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Baltimore Oriole"
+  },
+  {
+    "name": "Red-winged Blackbird",
+    "scientific_name": "Agelaius phoeniceus",
+    "family": "Icteridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Red-winged Blackbird"
+  },
+  {
+    "name": "Brown-headed Cowbird",
+    "scientific_name": "Molothrus ater",
+    "family": "Icteridae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Brown-headed Cowbird"
+  },
+  {
+    "name": "Ovenbird",
+    "scientific_name": "Seiurus aurocapilla",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Ovenbird"
+  },
+  {
+    "name": "Northern Waterthrush",
+    "scientific_name": "Parkesia noveboracensis",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Northern Waterthrush"
+  },
+  {
+    "name": "Black-and-white Warbler",
+    "scientific_name": "Mniotilta varia",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Black-and-white Warbler"
+  },
+  {
+    "name": "Golden-winged Warbler",
+    "scientific_name": "Vermivora chrysoptera",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Golden-winged Warbler"
+  },
+  {
+    "name": "Tennessee Warbler",
+    "scientific_name": "Leiothlypis peregrina",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Tennessee Warbler"
+  },
+  {
+    "name": "Common Yellowthroat",
+    "scientific_name": "Geothlypis trichas",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Common Yellowthroat"
+  },
+  {
+    "name": "American Redstart",
+    "scientific_name": "Setophaga ruticilla",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "American Redstart"
+  },
+  {
+    "name": "Hooded Warbler",
+    "scientific_name": "Setophaga citrina",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Hooded Warbler"
+  },
+  {
+    "name": "Northern Parula",
+    "scientific_name": "Setophaga americana",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Northern Parula"
+  },
+  {
+    "name": "Magnolia Warbler",
+    "scientific_name": "Setophaga magnolia",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Magnolia Warbler"
+  },
+  {
+    "name": "Blackburnian Warbler",
+    "scientific_name": "Setophaga fusca",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Blackburnian Warbler"
+  },
+  {
+    "name": "Blackpoll Warbler",
+    "scientific_name": "Setophaga striata",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Blackpoll Warbler"
+  },
+  {
+    "name": "Bay-breasted Warbler",
+    "scientific_name": "Setophaga castanea",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Bay-breasted Warbler"
+  },
+  {
+    "name": "Chestnut-sided Warbler",
+    "scientific_name": "Setophaga pensylvanica",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Chestnut-sided Warbler"
+  },
+  {
+    "name": "Yellow Warbler",
+    "scientific_name": "Setophaga aestiva",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Yellow Warbler"
+  },
+  {
+    "name": "Cape May Warbler",
+    "scientific_name": "Setophaga tigrina",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Cape May Warbler"
+  },
+  {
+    "name": "Yellow-rumped Warbler",
+    "scientific_name": "Setophaga coronata",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Yellow-rumped Warbler"
+  },
+  {
+    "name": "Canada Warbler",
+    "scientific_name": "Cardellina canadensis",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Canada Warbler"
+  },
+  {
+    "name": "Wilson's Warbler",
+    "scientific_name": "Cardellina pusilla",
+    "family": "Parulidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Wilson's Warbler"
+  },
+  {
+    "name": "Rose-breasted Grosbeak",
+    "scientific_name": "Pheucticus ludovicianus",
+    "family": "Cardinalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Rose-breasted Grosbeak"
+  },
+  {
+    "name": "Indigo Bunting",
+    "scientific_name": "Passerina cyanea",
+    "family": "Cardinalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Indigo Bunting"
+  },
+  {
+    "name": "Summer Tanager",
+    "scientific_name": "Piranga rubra",
+    "family": "Cardinalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Summer Tanager"
+  },
+  {
+    "name": "Scarlet Tanager",
+    "scientific_name": "Piranga olivacea",
+    "family": "Cardinalidae",
+    "bto_status": null,
+    "migratory": null,
+    "group_name": "New World Passerines",
+    "birdnet_name": "Scarlet Tanager"
+  }
+]

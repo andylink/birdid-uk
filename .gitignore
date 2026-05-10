@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+
+# Runtime data
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Logs
+logs/
+*.log
+
+# Checkpoints / models (large binaries)
+checkpoints/
+
+# Frontend build output and deps
+dashboard/frontend/node_modules/
+dashboard/frontend/dist/
+dashboard/frontend/.svelte-kit/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Temp files
+*.tmp
+*.bak

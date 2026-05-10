@@ -1,0 +1,10 @@
+@import 'tailwindcss';
+
+:root {
+  color-scheme: dark;
+}
+
+/* Slim native audio player */
+audio {
+  accent-color: #34d399;
+}

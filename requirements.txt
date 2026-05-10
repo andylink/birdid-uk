@@ -1,0 +1,7 @@
+birdnet-analyzer
+sounddevice
+scipy
+sqlalchemy
+# psycopg2-binary  # uncomment when using type = "postgresql" in [database]
+paho-mqtt
+
