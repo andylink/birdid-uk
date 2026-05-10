@@ -28,6 +28,7 @@ import queue
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -58,17 +59,40 @@ _capture_buffer: CaptureBuffer
 _executor:       ThreadPoolExecutor
 
 
+@dataclass
+class _Pending:
+    """Accumulates repeated inference hits for one species within a time window.
+
+    A new entry is created on the first hit that clears the confidence
+    threshold.  Subsequent hits within ``confirmation_window_seconds``
+    increment ``hit_count`` and update the best-confidence snapshot.
+    When ``hit_count`` reaches ``min_detections`` the detection is confirmed
+    and a deferred save is submitted; the entry is then removed.
+    If the window expires before enough hits accumulate the entry is discarded
+    silently (false positive suppressed).
+    """
+    first_seen_mono:   float         # time.monotonic() at the first hit
+    best_confidence:   float
+    best_ts:           datetime
+    best_begin_sample: int           # ring-buffer cursor at the best hit
+    best_fallback:     np.ndarray    # 3-second raw PCM copy from the best hit
+    hit_count:         int
+
+
+# Keyed by BirdNET common name.  Accessed only from _classify_loop (single
+# thread), so no locking is required.
+_pending: dict[str, _Pending] = {}
+
+
 # ── Deferred save ─────────────────────────────────────────────────────────────
 
 def _deferred_save(
     ts:             datetime,
-    top_species:    str,
-    top_conf:       float,
-    new_detections: list[tuple[str, float]],
+    species:        str,
+    conf:           float,
     begin_sample:   int,
     fallback_audio: np.ndarray,
-    label_map:      dict[str, str],
-    birdnet_to_bto: dict[str, str],
+    bto_name:       str | None,
 ) -> None:
     """Sleep for the post-capture period, read the full clip, then persist.
 
@@ -76,23 +100,21 @@ def _deferred_save(
     (clip file, database row, MQTT publish, Birdmap POST) happen here so
     that the classify loop is never blocked waiting for I/O.
 
+    ``begin_sample`` points to the start of the best-confidence inference
+    window in the ring buffer.  The saved clip extends ``pre_capture_seconds``
+    before that point and ``post_capture_seconds`` after the window ends.
+
     If the ring buffer read fails (e.g. the segment was overwritten because
     the executor backlog was unusually deep), the function falls back to
     saving the 3-second analysis window that was captured at detection time.
 
     Args:
-        ts:             Wall-clock timestamp of the detection.
-        top_species:    Highest-confidence non-cooldown species.
-        top_conf:       Confidence of *top_species*.
-        new_detections: All non-cooldown (species, conf) pairs from this window.
-        begin_sample:   Absolute sample index where the analysis window started
-                        (= ``_capture_buffer.total_written - window_samples`` at
-                        detection time).
-        fallback_audio: The 3-second raw PCM array; used if the ring read fails.
-        label_map:      Classifier label map (not needed here, passed through
-                        for symmetry; pending clips are saved synchronously).
-        birdnet_to_bto: Mapping of BirdNET common name → BTO British name,
-                        used to populate ``bto_name`` on the detection row.
+        ts:             Wall-clock timestamp of the best-confidence hit.
+        species:        BirdNET common name of the confirmed species.
+        conf:           Confidence of the best hit.
+        begin_sample:   Absolute sample index where the analysis window started.
+        fallback_audio: The 3-second raw PCM array from the best hit.
+        bto_name:       BTO British name for the database row (may be None).
     """
     post_capture = cfg.audio.post_capture_seconds
     if post_capture > 0:
@@ -115,15 +137,14 @@ def _deferred_save(
         logger.warning(
             "capture buffer miss for %s at sample %d (post_capture=%ds); "
             "saving 3-second fallback clip",
-            top_species, begin_sample, post_capture,
+            species, begin_sample, post_capture,
         )
         segment = fallback_audio
 
-    clip_path = save_clip(segment, ts, top_species)
-    bto_name  = birdnet_to_bto.get(top_species)
-    record_detection(ts, top_species, top_conf, clip_path, new_detections[1:], bto_name)
-    publish_detection(ts, top_species, top_conf, clip_path, new_detections[1:])
-    birdmap.post_detection(ts, top_species, top_conf, clip_path)
+    clip_path = save_clip(segment, ts, species)
+    record_detection(ts, species, conf, clip_path, [], bto_name)
+    publish_detection(ts, species, conf, clip_path, [])
+    birdmap.post_detection(ts, species, conf, clip_path)
 
 
 # ── Threads ───────────────────────────────────────────────────────────────────
@@ -152,13 +173,12 @@ def _record_thread() -> None:
 
 
 def _classify_loop(
-    label_map:      dict[str, str],
     bou_allowed:    frozenset[str] | None,
     birdnet_to_bto: dict[str, str],
 ) -> None:
     """
     Consume audio chunks, maintain a rolling window, run inference, and
-    apply per-species confidence thresholds and cooldowns.
+    apply per-species confidence thresholds, confirmation filter, and cooldowns.
 
     For each window:
       1. Apply high-pass filter to a copy of the audio if enabled in config
@@ -168,10 +188,13 @@ def _classify_loop(
       3b. If the BOU filter is enabled, drop species not in the BOU allowlist.
       4. Filter each detection by its per-species ``min_confidence``.
       5. Cap the candidate list at the global ``top_n`` setting.
-      6. Skip detections still within their per-species ``cooldown_seconds``.
-      7. Submit a deferred-save task for the first (highest-confidence)
-         non-cooldown detection; the task sleeps for ``post_capture_seconds``
-         before reading the full clip from the capture buffer.
+      6. Confirmation filter: each species accumulates hits in ``_pending``
+         until it reaches ``min_detections`` within ``confirmation_window_seconds``.
+         Only confirmed species proceed; the highest-confidence hit's audio
+         and timestamp are used for the saved clip.
+      7. Cooldown check (at confirmation time): skip if the species was saved
+         too recently.  Cooldown clock starts when the save is submitted.
+      8. Submit a deferred-save task for each confirmed species.
     """
     buffer: list[np.ndarray] = []
     window_blocks  = cfg.audio.window_seconds // cfg.audio.hop_seconds
@@ -263,37 +286,71 @@ def _classify_loop(
         # ── Step 5: cap to global top_n ───────────────────────────────────────
         passing = passing[: cfg.defaults.top_n]
 
-        # ── Steps 6 & 7: cooldown check + deferred save ───────────────────────
-        new_detections: list[tuple[str, float]] = []
-        for species, conf in passing:
-            sc        = get_species_config(species)
-            cooldown  = timedelta(seconds=sc.cooldown_seconds)
-            in_cooldown = (
-                ts - _last_detected.get(species, datetime.min.replace(tzinfo=timezone.utc)) < cooldown
-            )
-            tag = "  [cooldown]" if in_cooldown else ""
-            logger.info("%-32s %.2f%s", species, conf, tag)
-            if not in_cooldown:
-                new_detections.append((species, conf))
-
-        if not new_detections:
-            continue
-
-        # Mark all non-cooldown species as detected now (before the deferred
-        # save fires) so the cooldown clock starts immediately.
-        for species, _ in new_detections:
-            _last_detected[species] = ts
-
-        # Submit deferred save for the highest-confidence detection.
-        # begin_sample points to where the analysis window started in the ring.
-        top_species, top_conf = new_detections[0]
+        # ── Steps 6–8: confirmation filter + cooldown + deferred save ─────────
+        now_mono     = time.monotonic()
         begin_sample = _capture_buffer.total_written - window_samples
-        _executor.submit(
-            _deferred_save,
-            ts, top_species, top_conf, new_detections,
-            begin_sample, audio.copy(),  # copy: buffer list may mutate next hop
-            label_map, birdnet_to_bto,
-        )
+
+        for species, conf in passing:
+            sc = get_species_config(species)
+            logger.info("%-32s %.2f", species, conf)
+
+            p = _pending.get(species)
+
+            # Discard stale pending state if the confirmation window expired.
+            if p is not None and now_mono - p.first_seen_mono > sc.confirmation_window_seconds:
+                logger.debug(
+                    "%-32s confirmation window expired (%d/%d hits)",
+                    species, p.hit_count, sc.min_detections,
+                )
+                del _pending[species]
+                p = None
+
+            if p is None:
+                # First hit — open a new pending window.
+                _pending[species] = _Pending(
+                    first_seen_mono   = now_mono,
+                    best_confidence   = conf,
+                    best_ts           = ts,
+                    best_begin_sample = begin_sample,
+                    best_fallback     = audio.copy(),
+                    hit_count         = 1,
+                )
+                p = _pending[species]
+            else:
+                # Subsequent hit within the window — accumulate.
+                p.hit_count += 1
+                if conf > p.best_confidence:
+                    p.best_confidence   = conf
+                    p.best_ts           = ts
+                    p.best_begin_sample = begin_sample
+                    p.best_fallback     = audio.copy()
+
+            if p.hit_count < sc.min_detections:
+                logger.debug("%-32s pending %d/%d", species, p.hit_count, sc.min_detections)
+                continue
+
+            # Confirmed — check cooldown at confirmation time.
+            cooldown_td = timedelta(seconds=sc.cooldown_seconds)
+            last_saved  = _last_detected.get(species, datetime.min.replace(tzinfo=timezone.utc))
+            if ts - last_saved < cooldown_td:
+                logger.debug("%-32s confirmed but in cooldown", species)
+                del _pending[species]
+                continue
+
+            # Accept: record cooldown start and submit the deferred save.
+            logger.info(
+                "%-32s CONFIRMED (%d hits, best=%.2f)",
+                species, p.hit_count, p.best_confidence,
+            )
+            _last_detected[species] = ts
+            bto_name = birdnet_to_bto.get(species)
+            _executor.submit(
+                _deferred_save,
+                p.best_ts, species, p.best_confidence,
+                p.best_begin_sample, p.best_fallback,
+                bto_name,
+            )
+            del _pending[species]
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -341,7 +398,7 @@ def main() -> None:
     rec.start()
 
     try:
-        _classify_loop(label_map, bou_allowed, birdnet_to_bto)
+        _classify_loop(bou_allowed, birdnet_to_bto)
     except KeyboardInterrupt:
         pass
     finally:

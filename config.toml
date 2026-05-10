@@ -28,13 +28,13 @@ window_seconds = 3      # analysis window length (must match BirdNET training)
 # continuously; when a detection fires, a deferred task reads a full-length
 # segment after sleeping for the post-capture period.
 #
-#   clip layout:  |-- pre_capture --|-- window (3 s) --|-- post_capture --|
-#                 <------------ clip_seconds -------------------------------->
+#   clip layout:  |-- pre_capture (2 s) --|-- window (3 s) --|-- post_capture (10 s) --|
+#                 <----------------------------- clip_seconds (15 s) ------------------->
 #
 # post_capture_seconds is derived: clip_seconds - window_seconds - pre_capture_seconds
 # (must be >= 0).
 clip_seconds            = 15   # total saved clip length in seconds
-pre_capture_seconds     = 0    # extra audio before the analysis window
+pre_capture_seconds     = 2    # extra audio before the analysis window
 capture_buffer_seconds  = 30   # ring buffer size; must be > clip_seconds + margin
 
 # Microphone device index (from `python -m sounddevice`).
@@ -52,6 +52,15 @@ cooldown_seconds = 15
 
 # Maximum number of species to log / show per analysis window
 top_n = 3
+
+# Confirmation filter: a species must be detected this many times within
+# confirmation_window_seconds before it is saved.  This filters transient
+# false positives without running inference more frequently.
+# Set min_detections = 1 to disable (save on first hit, original behaviour).
+# With hop_seconds = 1 and window_seconds = 3, each second produces one new
+# inference result, so min_detections = 3 requires ~3 s of repeated signal.
+min_detections             = 3
+confirmation_window_seconds = 9
 
 # Labels that are never surfaced as detections (case-insensitive)
 noise_labels = ["background", "noise", "silence", "other", "engine", "Power tools", "Human non-vocal"]

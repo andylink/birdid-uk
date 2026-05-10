@@ -51,10 +51,15 @@ class AudioConfig:
 @dataclass(frozen=True)
 class SpeciesConfig:
     """Merged defaults + any per-species overrides for a single species."""
-    min_confidence:     float
-    cooldown_seconds:   int
-    top_n:              int
-    noise_labels:       frozenset[str]
+    min_confidence:             float
+    cooldown_seconds:           int
+    top_n:                      int
+    noise_labels:               frozenset[str]
+    # Confirmation filter: a species must be detected at least min_detections
+    # times within confirmation_window_seconds before a clip is saved.
+    # Set min_detections = 1 to disable confirmation and save on the first hit.
+    min_detections:             int
+    confirmation_window_seconds: float
 
 
 @dataclass(frozen=True)
@@ -176,12 +181,14 @@ class Config:
 
         d = self.defaults
         return SpeciesConfig(
-            min_confidence     = overrides.get("min_confidence",     d.min_confidence),
-            cooldown_seconds   = overrides.get("cooldown_seconds",   d.cooldown_seconds),
-            top_n              = overrides.get("top_n",              d.top_n),
-            noise_labels       = frozenset(
+            min_confidence              = overrides.get("min_confidence",              d.min_confidence),
+            cooldown_seconds            = overrides.get("cooldown_seconds",            d.cooldown_seconds),
+            top_n                       = overrides.get("top_n",                       d.top_n),
+            noise_labels                = frozenset(
                 overrides.get("noise_labels", list(d.noise_labels))
             ),
+            min_detections              = overrides.get("min_detections",              d.min_detections),
+            confirmation_window_seconds = overrides.get("confirmation_window_seconds", d.confirmation_window_seconds),
         )
 
 
@@ -223,10 +230,12 @@ def _load() -> Config:
 
     d = raw["defaults"]
     defaults = SpeciesConfig(
-        min_confidence     = float(d["min_confidence"]),
-        cooldown_seconds   = int(d["cooldown_seconds"]),
-        top_n              = int(d["top_n"]),
-        noise_labels       = frozenset(s.lower() for s in d["noise_labels"]),
+        min_confidence              = float(d["min_confidence"]),
+        cooldown_seconds            = int(d["cooldown_seconds"]),
+        top_n                       = int(d["top_n"]),
+        noise_labels                = frozenset(s.lower() for s in d["noise_labels"]),
+        min_detections              = int(d.get("min_detections",              3)),
+        confirmation_window_seconds = float(d.get("confirmation_window_seconds", 9.0)),
     )
     exclude = frozenset(s.lower() for s in d.get("exclude", []))
 
