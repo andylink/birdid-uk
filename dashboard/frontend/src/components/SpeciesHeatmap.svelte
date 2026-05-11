@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { getDailySpeciesSummary } from '$lib/api';
+	import { getDailySpeciesSummary, getSunTimes } from '$lib/api';
 	import { createSSE } from '$lib/sse';
-	import type { Detection, DailySpeciesSummary } from '$lib/api';
+	import type { Detection, DailySpeciesSummary, SunTimes } from '$lib/api';
 	import { localToday, localHour, formatTime } from '$lib/time';
 	import { TIMEZONE } from '$lib/timezone';
 	import {
@@ -24,6 +24,7 @@
 	let error = $state<string | null>(null);
 	let sse: ReturnType<typeof createSSE> | null = null;
 	let boccFilter = $state<string>('all'); // 'all' | 'Red' | 'Amber' | 'Green'
+	let sunTimes = $state<SunTimes | null>(null);
 
 	// ── Constants ─────────────────────────────────────────────────────────────
 
@@ -65,6 +66,14 @@
 		Math.max(1, ...summaries.flatMap((s) => s.hourly_counts))
 	);
 
+	// Parse "HH:MM" → integer hour, or null when sun data isn't available
+	const sunriseHour = $derived(
+		sunTimes ? parseInt(sunTimes.sunrise.slice(0, 2), 10) : null
+	);
+	const sunsetHour = $derived(
+		sunTimes ? parseInt(sunTimes.sunset.slice(0, 2), 10) : null
+	);
+
 	// ── Helpers ───────────────────────────────────────────────────────────────
 
 	function todayStr(): string {
@@ -94,10 +103,14 @@
 		loading = true;
 		error = null;
 		try {
-			summaries = await getDailySpeciesSummary(date);
+			[summaries, sunTimes] = await Promise.all([
+				getDailySpeciesSummary(date),
+				getSunTimes(date),
+			]);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not load species data';
 			summaries = [];
+			sunTimes = null;
 		} finally {
 			loading = false;
 		}
@@ -307,15 +320,38 @@
 						>
 							Species
 						</th>
-						{#each HOURS as hour}
-							<th
-								scope="col"
-								class="w-8 min-w-[2rem] py-1.5 text-center text-[10px] font-mono
-								       font-normal text-slate-500 border-b border-slate-800 bg-slate-900"
-							>
-								{hour.toString().padStart(2, '0')}
-							</th>
-						{/each}
+					{#each HOURS as hour}
+						{@const isSunrise = sunriseHour !== null && hour === sunriseHour}
+						{@const isSunset  = sunsetHour  !== null && hour === sunsetHour}
+						<th
+							scope="col"
+							class="w-8 min-w-[2rem] py-1 text-center text-[10px] font-mono
+							       font-normal border-b border-slate-800 bg-slate-900
+							       {isSunrise ? 'text-amber-400' : isSunset ? 'text-orange-400' : 'text-slate-500'}"
+							title={isSunrise
+								? `Sunrise ${sunTimes!.sunrise}`
+								: isSunset
+								? `Sunset ${sunTimes!.sunset}`
+								: undefined}
+						>
+							{hour.toString().padStart(2, '0')}
+							{#if isSunrise}
+								<!-- Sun rising: circle above horizon, upward chevron below -->
+								<svg viewBox="0 0 14 12" class="w-3.5 h-3 mx-auto mt-0.5" aria-hidden="true">
+									<circle cx="7" cy="3.5" r="2.5" fill="#fbbf24"/>
+									<line x1="1" y1="7.5" x2="13" y2="7.5" stroke="#fbbf24" stroke-width="1.3" stroke-linecap="round"/>
+									<polyline points="4,11 7,8.5 10,11" stroke="#fbbf24" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+							{:else if isSunset}
+								<!-- Sun setting: downward chevron above horizon, circle below -->
+								<svg viewBox="0 0 14 12" class="w-3.5 h-3 mx-auto mt-0.5" aria-hidden="true">
+									<polyline points="4,1 7,3.5 10,1" stroke="#fb923c" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+									<line x1="1" y1="4.5" x2="13" y2="4.5" stroke="#fb923c" stroke-width="1.3" stroke-linecap="round"/>
+									<circle cx="7" cy="8.5" r="2.5" fill="#fb923c"/>
+								</svg>
+							{/if}
+						</th>
+					{/each}
 						<th
 							scope="col"
 							class="w-12 min-w-[3rem] py-1.5 text-right pr-3 text-xs font-medium

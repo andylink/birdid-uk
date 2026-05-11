@@ -4316,6 +4316,19 @@
     "group_name": "Crows"
   },
   {
+    "name": "Jackdaw",
+    "scientific_name": "Coloeus monedula",
+    "british_list_status": "Resident Breeder, Winter Visitor",
+    "population_estimate": "2 million Pairs",
+    "bto_2letter_code": "JD",
+    "bto_5letter_code": "JACKD",
+    "species_status": "Common",
+    "uk_bocc": "Green",
+    "birdfacts_url": "https://www.bto.org/understanding-birds/birdfacts/jackdaw",
+    "international_english_name": "Eurasian Jackdaw",
+    "group_name": "Crows"
+  },
+  {
     "name": "Rook",
     "scientific_name": "Corvus frugilegus",
     "british_list_status": "Resident Breeder, Winter Visitor",

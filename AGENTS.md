@@ -60,7 +60,7 @@ cd dashboard/frontend && npm install
 - **Two clip types**: Detection clips are amplitude-normalised (full int16 range). Pending clips for retraining (`data/pending/`) are *not* normalised — this is intentional to match xeno-canto training data amplitude characteristics.
 - **Confidence threshold sync**: `dashboard/config.py` defines `CONF_HIGH = 0.9` / `CONF_MED = 0.7`. `dashboard/frontend/src/lib/confidence.ts` mirrors these manually — no codegen. Keep both in sync.
 - **Species name format**: Custom classifier labels are `Genus_species_Common_Name`. `clean_species_name()` strips the scientific prefix. Config keys must use the resulting common name (case-insensitive lookup).
-- **Location hardcoded**: Sunrise/sunset in `dashboard/sun.py` uses 52.699°N 1.675°E (Norfolk). Also in `dashboard/config.py` as `SUN_LAT`/`SUN_LON`. `SPECIES_META` is UK-specific.
+- **Location in config**: `[location]` section in `config.toml` holds `lat`/`lon` (WGS-84 decimal degrees). `dashboard/config.py` derives `SUN_LAT`/`SUN_LON` from `cfg.location`. `SPECIES_META` is UK-specific.
 - **paho-mqtt v1/v2 compat**: `mqtt.py` branches on `CallbackAPIVersion` availability to handle both API versions.
 
 ## Key file map

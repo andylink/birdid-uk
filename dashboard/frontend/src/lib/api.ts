@@ -268,6 +268,24 @@ export function speciesImageUrl(species: string): string {
 	return `/api/v1/species/image?name=${encodeURIComponent(species)}`;
 }
 
+// ── Sun times ──────────────────────────────────────────────────────────────
+
+export interface SunTimes {
+	sunrise: string;  // "HH:MM" local time
+	sunset:  string;  // "HH:MM" local time
+}
+
+/**
+ * Fetch sunrise and sunset times for a given local date.
+ * Returns null silently if the endpoint is unavailable (e.g. astral not
+ * installed or date out of range) so callers can treat absent sun data as
+ * a no-op rather than an error.
+ */
+export function getSunTimes(date: string): Promise<SunTimes | null> {
+	return apiFetch<SunTimes>(`/api/v1/sun?date=${encodeURIComponent(date)}`)
+		.catch(() => null);
+}
+
 // ── Conservation analytics ─────────────────────────────────────────────────
 
 export function getBoccBreakdown(period: Period): Promise<BoccBreakdownEntry[]> {

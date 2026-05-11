@@ -37,9 +37,11 @@ LOCAL_TZ: ZoneInfo = ZoneInfo(TIMEZONE)
 CONF_HIGH: float = 0.9
 CONF_MED: float = 0.7
 
-# ── Geographic location (Norfolk, UK) ─────────────────────────────────────────
-SUN_LAT: float = 52.699
-SUN_LON: float = 1.675
+# ── Geographic location ───────────────────────────────────────────────────────
+# WGS-84 decimal degrees from [location] in config.toml.
+# Used for sunrise/sunset calculations.
+SUN_LAT: float = cfg.location.lat
+SUN_LON: float = cfg.location.lon
 
 # ── SSE polling interval ──────────────────────────────────────────────────────
 SSE_POLL_SECONDS: float = 2.0

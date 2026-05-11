@@ -26,6 +26,12 @@ class GeneralConfig:
 
 
 @dataclass(frozen=True)
+class LocationConfig:
+    lat: float  # WGS-84 decimal degrees (north positive)
+    lon: float  # WGS-84 decimal degrees (east positive)
+
+
+@dataclass(frozen=True)
 class PathsConfig:
     detections_dir: Path
     db_path:        Path
@@ -179,6 +185,7 @@ class Config:
     seasonal_filter: SeasonalFilterConfig
     defaults:        SpeciesConfig
     general:         GeneralConfig
+    location:        LocationConfig
     exclude:         frozenset[str]   # species names to permanently suppress (case-insensitive)
     # raw per-species override dicts, keyed by species common name
     _species_overrides: dict[str, dict] = field(default_factory=dict, repr=False)
@@ -217,6 +224,12 @@ def _load() -> Config:
     g = raw.get("general", {})
     general_cfg = GeneralConfig(
         timezone = str(g.get("timezone", "UTC")),
+    )
+
+    loc = raw.get("location", {})
+    location_cfg = LocationConfig(
+        lat = float(loc.get("lat", 0.0)),
+        lon = float(loc.get("lon", 0.0)),
     )
 
     p = raw["paths"]
@@ -344,6 +357,7 @@ def _load() -> Config:
         seasonal_filter    = seasonal_filter_cfg,
         defaults           = defaults,
         general            = general_cfg,
+        location           = location_cfg,
         exclude            = exclude,
         _species_overrides = raw.get("species", {}),
     )

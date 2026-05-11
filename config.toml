@@ -9,6 +9,12 @@
 timezone = "Europe/London"
 
 
+[location]
+# WGS-84 decimal degrees. Used for sunrise/sunset calculations.
+lat = 52.69867   # Norfolk, UK
+lon = 1.67531
+
+
 [paths]
 # Directory where detected audio clips are saved
 detections_dir = "data/detections"
@@ -142,7 +148,7 @@ retain   = false
 # Set enabled = true to forward detections to birdmap.co.uk.
 # Register an account at birdmap.co.uk, create a station, and paste the
 # returned API key and station ID here.
-enabled      = true
+enabled      = false
 api_url      = "http://localhost:8000"
 api_key      = "bm_RMeuZyv7jmZo07h89zMZnJuPo0I0hguyw14SUAW9UJb8yBDK"
 station_id   = 1                # assigned by server on registration
@@ -177,7 +183,7 @@ enabled = true
 #
 # This filter sits after the BOU allowlist (Step 3b) and before the
 # per-species confidence threshold (Step 4).
-enabled     = true
+enabled     = false
 filter_json = "uk_seasonal_filter.json"
 
 
@@ -211,3 +217,7 @@ min_detections = 1
 
 [species."Barn Owl"]
 min_detections = 1
+
+[species."Thrush Nightingale"]
+min_detections = 1
+min_confidence = 0.2

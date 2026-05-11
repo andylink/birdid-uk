@@ -20,6 +20,7 @@ from dashboard.routes.analytics import router as analytics_router
 from dashboard.routes.detections import router as detections_router
 from dashboard.routes.media import router as media_router
 from dashboard.routes.species import router as species_router
+from dashboard.routes.sun import router as sun_router
 from dashboard.stream import detection_generator
 from dashboard.config import DB_PATH, TIMEZONE
 
@@ -97,6 +98,7 @@ app.include_router(detections_router)
 app.include_router(analytics_router)
 app.include_router(media_router)
 app.include_router(species_router)
+app.include_router(sun_router)
 
 
 # ── SSE stream ────────────────────────────────────────────────────────────────
