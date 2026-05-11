@@ -9,9 +9,12 @@
 
 	// Tracks whether dark mode is active — used to render the correct toggle icon.
 	let isDark = $state(true);
+	// Station name fetched from /api/v1/config; default shown until fetch resolves.
+	let stationName = $state('BirdNet-UK');
 
-	onMount(() => {
-		initTimezone();
+	onMount(async () => {
+		const config = await initTimezone();
+		if (config?.station_name) stationName = config.station_name;
 		// The inline script in app.html already applied the class; just read it.
 		isDark = currentTheme() === 'dark';
 	});
@@ -25,10 +28,7 @@
 <div class="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
 	<header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center gap-4 shrink-0">
 		<a href="/" class="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold text-lg tracking-tight">
-			<svg viewBox="0 0 24 24" class="w-6 h-6 fill-current" aria-hidden="true">
-				<path d="M23 7c0 0-3 .5-4.5 1.5C17.1 5.1 14 3 10.5 3 5.8 3 2 6.8 2 11.5S5.8 20 10.5 20c2.5 0 4.8-1.1 6.4-2.8C18.5 18.5 23 17 23 17V7z"/>
-			</svg>
-			bird detector
+			{stationName}
 		</a>
 
 		<span class="text-slate-300 dark:text-slate-700">|</span>

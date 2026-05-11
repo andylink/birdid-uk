@@ -8,6 +8,10 @@
 # automatically — no manual adjustment needed when the clocks change.
 timezone = "Europe/London"
 
+# Display name shown in the dashboard header. Leave empty to use the default
+# "BirdNet-UK".
+station_name = "TheCLinks"
+
 
 [location]
 # WGS-84 decimal degrees. Used for sunrise/sunset calculations.

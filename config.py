@@ -22,7 +22,8 @@ _CONFIG_PATH = Path(__file__).parent / "config.toml"
 
 @dataclass(frozen=True)
 class GeneralConfig:
-    timezone: str
+    timezone:     str
+    station_name: str  # display name for the dashboard header; empty = default "BirdNet-UK"
 
 
 @dataclass(frozen=True)
@@ -223,7 +224,8 @@ def _load() -> Config:
 
     g = raw.get("general", {})
     general_cfg = GeneralConfig(
-        timezone = str(g.get("timezone", "UTC")),
+        timezone     = str(g.get("timezone",     "UTC")),
+        station_name = str(g.get("station_name", "")),
     )
 
     loc = raw.get("location", {})

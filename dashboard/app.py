@@ -22,7 +22,7 @@ from dashboard.routes.media import router as media_router
 from dashboard.routes.species import router as species_router
 from dashboard.routes.sun import router as sun_router
 from dashboard.stream import detection_generator
-from dashboard.config import DB_PATH, TIMEZONE
+from dashboard.config import DB_PATH, TIMEZONE, STATION_NAME
 
 _JSON_PATH = Path(__file__).parent.parent / "species_bto_FINAL_filtered.json"
 
@@ -118,7 +118,7 @@ async def healthz():
 @app.get("/api/v1/config")
 async def get_config():
     """Return public runtime config consumed by the frontend (e.g. timezone)."""
-    return {"timezone": TIMEZONE}
+    return {"timezone": TIMEZONE, "station_name": STATION_NAME}
 
 
 # ── Static frontend (production build) ────────────────────────────────────────

@@ -33,6 +33,11 @@ DETECTIONS_DIR: Path = (_PROJECT_ROOT / cfg.paths.detections_dir).resolve()
 TIMEZONE: str = cfg.general.timezone
 LOCAL_TZ: ZoneInfo = ZoneInfo(TIMEZONE)
 
+# ── Station name ──────────────────────────────────────────────────────────────
+# Display name shown in the dashboard header.  Falls back to "BirdNet-UK" when
+# station_name is absent or empty in config.toml.
+STATION_NAME: str = cfg.general.station_name or "BirdNet-UK"
+
 # ── Confidence thresholds — keep in sync with frontend/src/lib/confidence.ts ──
 CONF_HIGH: float = 0.9
 CONF_MED: float = 0.7
