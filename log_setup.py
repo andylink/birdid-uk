@@ -40,18 +40,22 @@ def setup_logging() -> None:
     * A ``StreamHandler`` (stdout) is **always** added so console output is
       preserved identically to the old ``print()`` behaviour.
     * When ``cfg.log.enabled`` is ``True`` a rotating file handler is added.
+    * The verbosity level is read from ``cfg.log.level`` (default ``"INFO"``).
+      Set ``level = "DEBUG"`` in ``[log]`` to see seasonal/BOU filter decisions.
     * Third-party loggers that are excessively chatty (``birdnet_analyzer``,
       ``sounddevice``) are capped at WARNING so they don't pollute the output.
     """
+    level = getattr(logging, cfg.log.level, logging.INFO)
+
     root = logging.getLogger()
-    root.setLevel(logging.INFO)
+    root.setLevel(level)
 
     # ── Console handler (always active) ───────────────────────────────────────
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(
         logging.Formatter(_CONSOLE_FMT, datefmt=_CONSOLE_DATEFMT)
     )
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(level)
     root.addHandler(console_handler)
 
     # ── File handler (opt-in) ─────────────────────────────────────────────────
@@ -77,7 +81,7 @@ def setup_logging() -> None:
         file_handler.setFormatter(
             logging.Formatter(_FILE_FMT, datefmt=_FILE_DATEFMT)
         )
-        file_handler.setLevel(logging.INFO)
+        file_handler.setLevel(level)
         root.addHandler(file_handler)
 
     # ── Suppress noisy third-party loggers ────────────────────────────────────

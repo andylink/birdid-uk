@@ -45,6 +45,7 @@ from inference import load_label_map, run_inference
 from log_setup import setup_logging
 from mqtt import init_mqtt, publish_detection
 from retention import start_retention_thread
+from seasonal_filter import SeasonalFilter, current_iso_week
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +176,7 @@ def _record_thread() -> None:
 def _classify_loop(
     bou_allowed:    frozenset[str] | None,
     birdnet_to_bto: dict[str, str],
+    seasonal:       SeasonalFilter,
 ) -> None:
     """
     Consume audio chunks, maintain a rolling window, run inference, and
@@ -186,6 +188,8 @@ def _classify_loop(
       2. Run inference — returns all detections above a raw 0.01 floor.
       3. Drop any species on the global exclude list.
       3b. If the BOU filter is enabled, drop species not in the BOU allowlist.
+      3c. If the seasonal filter is enabled, drop species outside their expected
+          season for the current BirdNET week.
       4. Filter each detection by its per-species ``min_confidence``.
       5. Cap the candidate list at the global ``top_n`` setting.
       6. Confirmation filter: each species accumulates hits in ``_pending``
@@ -269,6 +273,26 @@ def _classify_loop(
                 for species, conf in candidates
                 if species in bou_allowed
             ]
+
+        if not candidates:
+            continue
+
+        # ── Step 3c: seasonal presence filter ────────────────────────────────
+        if seasonal.enabled:
+            week = current_iso_week(ts)
+            filtered = [
+                (species, conf)
+                for species, conf in candidates
+                if seasonal.check(species, week)
+            ]
+            if len(filtered) < len(candidates):
+                for species, conf in candidates:
+                    if not seasonal.check(species, week):
+                        logger.debug(
+                            "%-32s out of season (week %d) — suppressed",
+                            species, week,
+                        )
+            candidates = filtered
 
         if not candidates:
             continue
@@ -370,6 +394,16 @@ def main() -> None:
     else:
         logger.info("BOU filter disabled")
 
+    # Build the seasonal presence filter.
+    seasonal = SeasonalFilter(
+        enabled   = cfg.seasonal_filter.enabled,
+        json_path = cfg.seasonal_filter.filter_json,
+    )
+    if cfg.seasonal_filter.enabled:
+        logger.info("Seasonal filter enabled — out-of-season detections will be suppressed")
+    else:
+        logger.info("Seasonal filter disabled")
+
     init_db()
     seed_species_info(Path(__file__).parent / "species_bto_FINAL_filtered.json")
     init_mqtt()
@@ -398,7 +432,7 @@ def main() -> None:
     rec.start()
 
     try:
-        _classify_loop(bou_allowed, birdnet_to_bto)
+        _classify_loop(bou_allowed, birdnet_to_bto, seasonal)
     except KeyboardInterrupt:
         pass
     finally:

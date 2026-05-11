@@ -47,8 +47,11 @@ def _labels_path() -> Path:
     base = pathlib.Path(birdnet_analyzer.__file__).parent
     locale = cfg.inference.label_locale
     if locale and locale != "en":
+        # BirdNET label filenames use underscores (e.g. en_uk), but config may
+        # store the locale with a hyphen (e.g. "en-uk").  Normalise here.
+        locale_norm = locale.replace("-", "_")
         # Translated labels live in labels/V2.4/
-        path = base / "labels" / "V2.4" / f"BirdNET_GLOBAL_6K_V2.4_Labels_{locale}.txt"
+        path = base / "labels" / "V2.4" / f"BirdNET_GLOBAL_6K_V2.4_Labels_{locale_norm}.txt"
         if path.exists():
             return path
     # Default: global English labels in checkpoints/V2.4/
@@ -105,6 +108,8 @@ def run_inference(audio: np.ndarray) -> list[tuple[str, float]]:
         wav_path = Path(tmpdir) / "clip.wav"
         save_wav(audio, wav_path)
 
+        # Normalise locale: BirdNET expects underscores (en_uk), not hyphens.
+        locale_norm = cfg.inference.label_locale.replace("-", "_")
         with redirect_stdout(io.StringIO()):
             analyze(
                 str(wav_path),
@@ -113,7 +118,7 @@ def run_inference(audio: np.ndarray) -> list[tuple[str, float]]:
                 rtype="csv",
                 merge_consecutive=1,
                 threads=1,
-                locale=cfg.inference.label_locale,
+                locale=locale_norm,
             )
 
         csv_path = Path(tmpdir) / "clip.BirdNET.results.csv"

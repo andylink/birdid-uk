@@ -85,6 +85,7 @@ class LogConfig:
     rotation:       str   # "daily" or "size"
     max_size_bytes: int
     backup_count:   int
+    level:          str   # "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL"
 
 
 @dataclass(frozen=True)
@@ -130,6 +131,22 @@ class BouFilterConfig:
 
 
 @dataclass(frozen=True)
+class SeasonalFilterConfig:
+    """Controls the ISO-week-based seasonal presence filter.
+
+    When *enabled* is ``True``, the detect loop drops any detection whose
+    species has a seasonal restriction in *filter_json* and the current ISO
+    8601 week (1–52) falls outside the allowed-weeks set.
+    Species absent from the JSON are assumed year-round (no restriction).
+
+    *filter_json* defaults to ``uk_seasonal_filter.json`` in the project
+    root.  Copy and edit it, then point this key at the copy to customise.
+    """
+    enabled:     bool
+    filter_json: Path
+
+
+@dataclass(frozen=True)
 class InferenceConfig:
     """Controls BirdNET inference behaviour.
 
@@ -149,19 +166,20 @@ class InferenceConfig:
 
 @dataclass(frozen=True)
 class Config:
-    paths:      PathsConfig
-    audio:      AudioConfig
-    inference:  InferenceConfig
-    filter:     FilterConfig
-    retention:  RetentionConfig
-    log:        LogConfig
-    database:   DatabaseConfig
-    mqtt:       MqttConfig
-    birdmap:    BirdmapConfig
-    bou_filter: BouFilterConfig
-    defaults:   SpeciesConfig
-    general:    GeneralConfig
-    exclude:    frozenset[str]   # species names to permanently suppress (case-insensitive)
+    paths:           PathsConfig
+    audio:           AudioConfig
+    inference:       InferenceConfig
+    filter:          FilterConfig
+    retention:       RetentionConfig
+    log:             LogConfig
+    database:        DatabaseConfig
+    mqtt:            MqttConfig
+    birdmap:         BirdmapConfig
+    bou_filter:      BouFilterConfig
+    seasonal_filter: SeasonalFilterConfig
+    defaults:        SpeciesConfig
+    general:         GeneralConfig
+    exclude:         frozenset[str]   # species names to permanently suppress (case-insensitive)
     # raw per-species override dicts, keyed by species common name
     _species_overrides: dict[str, dict] = field(default_factory=dict, repr=False)
 
@@ -262,6 +280,7 @@ def _load() -> Config:
         rotation       = str(l.get("rotation",        "daily")),
         max_size_bytes = int(l.get("max_size_bytes",  10 * 1024 * 1024)),
         backup_count   = int(l.get("backup_count",    7)),
+        level          = str(l.get("level",           "INFO")).upper(),
     )
 
     db = raw.get("database", {})
@@ -300,6 +319,12 @@ def _load() -> Config:
         enabled = bool(bf.get("enabled", False)),
     )
 
+    sf = raw.get("seasonal_filter", {})
+    seasonal_filter_cfg = SeasonalFilterConfig(
+        enabled     = bool(sf.get("enabled",     False)),
+        filter_json = Path(sf.get("filter_json", "uk_seasonal_filter.json")),
+    )
+
     inf = raw.get("inference", {})
     inference_cfg = InferenceConfig(
         label_locale = str(inf.get("label_locale", "en")),
@@ -316,6 +341,7 @@ def _load() -> Config:
         mqtt               = mqtt_cfg,
         birdmap            = birdmap_cfg,
         bou_filter         = bou_filter_cfg,
+        seasonal_filter    = seasonal_filter_cfg,
         defaults           = defaults,
         general            = general_cfg,
         exclude            = exclude,
