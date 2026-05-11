@@ -89,6 +89,46 @@ class PerchModel:
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
+    def _deduplicate_ebird_csv(self) -> None:
+        """Pre-deduplicate ``perch_v2_ebird_classes.csv`` in the Kaggle cache.
+
+        Perch v2 ships with a ``perch_v2_ebird_classes.csv`` that contains
+        duplicate entries.  When ``model_configs.load_model_by_name`` loads the
+        model it reads this file and emits a noisy
+        "Failed to load class list … duplicate entries in class list" warning.
+        The warning is non-fatal (the model still loads) and does not affect our
+        inference because we use ``assets/labels.csv`` for class ordering rather
+        than ``model.class_list``.  However, deduplicating the file once prevents
+        the warning on all subsequent runs.
+        """
+        model_dir = self._get_model_dir()
+        if model_dir is None:
+            return
+        ebird_csv = model_dir / "assets" / "perch_v2_ebird_classes.csv"
+        if not ebird_csv.exists():
+            return
+        try:
+            lines = ebird_csv.read_text(encoding="utf-8").splitlines()
+            seen: set[str] = set()
+            deduped: list[str] = []
+            for line in lines:
+                if line not in seen:
+                    seen.add(line)
+                    deduped.append(line)
+            if len(deduped) < len(lines):
+                logger.debug(
+                    "Perch: deduplicating perch_v2_ebird_classes.csv "
+                    "(%d → %d entries to silence Perch class-list warning)",
+                    len(lines), len(deduped),
+                )
+                ebird_csv.write_text("\n".join(deduped), encoding="utf-8")
+        except Exception:
+            logger.debug(
+                "Perch: could not pre-process perch_v2_ebird_classes.csv "
+                "(non-fatal — model will still load)",
+                exc_info=True,
+            )
+
     def _ensure_model(self) -> None:
         """Lazy-load the Perch v2 TF model (downloads from Kaggle if needed)."""
         if self._model is not None:
@@ -107,6 +147,7 @@ class PerchModel:
             "Loading Perch v2 model — first run downloads ~400 MB from Kaggle "
             "(cached in ~/.cache/kagglehub/ afterwards)…"
         )
+        self._deduplicate_ebird_csv()
         self._model = model_configs.load_model_by_name("perch_v2")
         logger.info("Perch v2 model ready.")
 

@@ -575,14 +575,24 @@ def main() -> None:
             secondary_model      = secondary_model,
             secondary_bto_map    = secondary_bto_map,
             secondary_model_name = secondary_name,
-            min_conf_threshold   = cfg.defaults.min_confidence,
+            min_conf_threshold   = cfg.cross_validation.cv_min_confidence,
         )
         logger.info(
             "Cross-validation enabled — secondary model: %s (window: %.0f s)  "
-            "skip_threshold=%.2f  on_disagree=%s",
+            "skip_threshold=%.2f  on_disagree=%s  cv_min_confidence=%.3f",
             secondary_name, secondary_model.window_seconds,
             cfg.cross_validation.skip_threshold, cfg.cross_validation.on_disagree,
+            cfg.cross_validation.cv_min_confidence,
         )
+
+        # Eagerly load the secondary model's TF graph now so the first live CV
+        # call doesn't stall a deferred-save worker thread.  run_inference()
+        # triggers _ensure_model() on first call; calling it here with a silent
+        # dummy array moves that startup cost to before the classify loop begins.
+        logger.info("Pre-warming secondary model (%s) — loading TF graph…", secondary_name)
+        _warmup_samples = int(secondary_model.window_seconds * cfg.audio.sample_rate)
+        secondary_model.run_inference(np.zeros(_warmup_samples, dtype=np.float32))
+        logger.info("Secondary model (%s) pre-warm complete.", secondary_name)
     else:
         logger.info("Cross-validation disabled")
 

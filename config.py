@@ -200,9 +200,13 @@ class CrossValidationConfig:
     score is used unchanged.  The raw primary score is always stored in
     ``detections.primary_confidence`` for auditability.
     """
-    enabled:        bool
-    skip_threshold: float   # primary best_confidence >= this → skip CV
-    on_disagree:    str     # "drop" | "flag"
+    enabled:           bool
+    skip_threshold:    float   # primary best_confidence >= this → skip CV
+    on_disagree:       str     # "drop" | "flag"
+    cv_min_confidence: float   # minimum secondary-model score to count as a candidate
+                               # BirdNET scores are in [0, 1]; Perch softmax probs over
+                               # ~10 k classes are much lower — keep this at ≈ 0.01 (the
+                               # raw inference floor) so Perch candidates aren't filtered out
 
 
 @dataclass(frozen=True)
@@ -374,9 +378,10 @@ def _load() -> Config:
 
     cv = raw.get("cross_validation", {})
     cross_validation_cfg = CrossValidationConfig(
-        enabled        = bool(cv.get("enabled",        False)),
-        skip_threshold = float(cv.get("skip_threshold", 0.90)),
-        on_disagree    = str(cv.get("on_disagree",     "drop")),
+        enabled           = bool(cv.get("enabled",           False)),
+        skip_threshold    = float(cv.get("skip_threshold",    0.90)),
+        on_disagree       = str(cv.get("on_disagree",        "drop")),
+        cv_min_confidence = float(cv.get("cv_min_confidence", 0.01)),
     )
 
     return Config(

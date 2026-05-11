@@ -285,7 +285,7 @@ model = "birdnet"
 # When models agree, detections.confidence is set to the arithmetic mean of
 # both scores.  The raw primary score is always stored in
 # detections.primary_confidence for auditability.
-enabled = false
+enabled = true
 
 # If primary model confidence >= skip_threshold, cross-validation is skipped
 # and the detection is saved unconditionally (high-confidence shortcut).
@@ -301,6 +301,21 @@ skip_threshold = 0.90
 # [species."<name>"] block to override for specific species (e.g. rare or
 # nocturnal birds where a missed detection is costly).
 on_disagree = "drop"
+
+# Minimum confidence for the *secondary* model's top result to count as a
+# candidate during cross-validation.  This is intentionally much lower than
+# [defaults] min_confidence because BirdNET and Perch operate on very different
+# probability scales:
+#   • BirdNET:  logistic scores up to ~0.99 for a clear species call.
+#   • Perch:    softmax over ~10 000+ classes — a strongly-matched species
+#               might only reach 0.03–0.08, so the primary min_confidence (0.6)
+#               would filter out every valid Perch result, causing CV to always
+#               report "no candidates → disagree" and drop real detections.
+# Setting this to 0.01 (the raw inference floor) lets any Perch species
+# probability that clears the floor participate in the comparison.
+# If the primary model is Perch and secondary is BirdNET, 0.01 is still safe —
+# BirdNET returns very few candidates below 0.1 in practice.
+cv_min_confidence = 0.01
 
 
 
