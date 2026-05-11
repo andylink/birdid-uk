@@ -38,8 +38,10 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import pathlib
 import tempfile
+import time
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -47,6 +49,8 @@ import numpy as np
 
 from audio import save_wav
 from config import cfg
+
+logger = logging.getLogger(__name__)
 
 
 class BirdNETModel:
@@ -116,6 +120,7 @@ class BirdNETModel:
         from birdnet_analyzer.analyze.core import analyze  # lazy import
 
         noise_labels = cfg.defaults.noise_labels
+        t0 = time.perf_counter()
 
         with tempfile.TemporaryDirectory() as tmpdir:
             wav_path = Path(tmpdir) / "clip.wav"
@@ -147,4 +152,10 @@ class BirdNETModel:
                         results.append((common, conf))
 
         results.sort(key=lambda x: x[1], reverse=True)
+        logger.debug(
+            "BirdNET inference: %.3f s for %.1f s window (%.1fx real-time)",
+            time.perf_counter() - t0,
+            self.window_seconds,
+            self.window_seconds / (time.perf_counter() - t0),
+        )
         return results

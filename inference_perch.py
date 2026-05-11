@@ -56,6 +56,7 @@ from __future__ import annotations
 import csv as csv_mod
 import json
 import logging
+import time
 from math import gcd
 from pathlib import Path
 
@@ -288,6 +289,7 @@ class PerchModel:
             return []
 
         noise_labels = cfg.defaults.noise_labels
+        t0 = time.perf_counter()
 
         # ── Convert int16 PCM → float32 in [-1, 1] ───────────────────────────
         if audio.dtype == np.int16:
@@ -355,4 +357,10 @@ class PerchModel:
                 results.append((common, float(prob)))
 
         results.sort(key=lambda x: x[1], reverse=True)
+        logger.debug(
+            "Perch inference: %.3f s for %.1f s window (%.1fx real-time)",
+            time.perf_counter() - t0,
+            self.window_seconds,
+            self.window_seconds / (time.perf_counter() - t0),
+        )
         return results
