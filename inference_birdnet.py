@@ -4,8 +4,8 @@ inference_birdnet.py — BirdNET GLOBAL 6K V2.4 inference backend.
 Uses the model shipped with *birdnet_analyzer*.  No extra dependencies or
 model downloads are required beyond the package itself.
 
-Stock label format
-------------------
+Label format
+------------
 The bundled labels file uses ``Scientific name_Common name`` (one underscore
 separator, space inside the scientific name), e.g.::
 
@@ -14,17 +14,21 @@ separator, space inside the scientific name), e.g.::
 :meth:`BirdNETModel.load_label_map` returns ``{common_name: full_label_line}``
 so that ``bou_filter`` can do its three-stage species matching.
 
-The ``analyze()`` CSV already contains the clean common name in the
-``Common name`` column, so no name conversion is needed at inference time.
+The ``analyze()`` CSV contains the common name in the ``Common name`` column;
+this is used directly as the species key throughout the detect loop.
+
+BTO name translation is handled downstream by ``bou_filter.build_birdnet_to_bto_map``,
+which maps BirdNET international English names (e.g. ``"European Robin"``) to
+BTO British names (e.g. ``"Robin"``) via the ``international_english_name``
+field in ``species_bto_FINAL_filtered.json``.  No name conversion is done here.
 
 Label locale
 ------------
-``cfg.inference.label_locale`` selects which common-name convention is used.
-``"en"`` (the default) uses the bundled global English labels in
-``checkpoints/V2.4/``.  Any other value (e.g. ``"en-uk"``) loads the
-matching translated file from ``labels/V2.4/`` and passes the locale to
-BirdNET's ``analyze()`` so inference results and the label map use the same
-naming convention.
+``cfg.inference.label_locale`` is passed to BirdNET's ``analyze()`` and used
+to select the labels file.  The default ``"en"`` uses the bundled global
+English / IOC names from ``checkpoints/V2.4/``.  Non-default locales load from
+``labels/V2.4/``; the ``en_uk`` translation file exists but is incomplete, so
+``"en"`` with ``bou_filter`` name translation is preferred.
 
 Window spec
 -----------
@@ -65,24 +69,15 @@ class BirdNETModel:
     def _labels_path(self) -> Path:
         import birdnet_analyzer
         base = pathlib.Path(birdnet_analyzer.__file__).parent
-        locale = cfg.inference.label_locale
-        if locale and locale != "en":
-            # BirdNET label filenames use underscores (e.g. en_uk), but config
-            # may store the locale with a hyphen (e.g. "en-uk").  Normalise.
-            locale_norm = locale.replace("-", "_")
-            path = base / "labels" / "V2.4" / f"BirdNET_GLOBAL_6K_V2.4_Labels_{locale_norm}.txt"
-            if path.exists():
-                return path
-        # Default: global English labels in checkpoints/V2.4/
         return base / "checkpoints" / "V2.4" / "BirdNET_GLOBAL_6K_V2.4_Labels.txt"
 
     def load_label_map(self) -> dict[str, str]:
         """Return ``{common_name: full_label_line}`` for all BirdNET species.
 
-        The locale is controlled by ``cfg.inference.label_locale``.  Label
-        lines have the form ``Scientific name_Common name``, e.g.
-        ``Erithacus rubecula_European Robin``.  The common name matches the
-        ``Common name`` column returned by ``analyze()``.
+        Uses the standard global English / IOC labels bundled with
+        birdnet-analyzer (``checkpoints/V2.4/BirdNET_GLOBAL_6K_V2.4_Labels.txt``).
+        Label lines have the form ``Scientific name_Common name``, e.g.
+        ``Erithacus rubecula_European Robin``.
 
         Returns an empty dict if the labels file cannot be found.
         """
@@ -126,8 +121,6 @@ class BirdNETModel:
             wav_path = Path(tmpdir) / "clip.wav"
             save_wav(audio, wav_path)
 
-            # Normalise locale: BirdNET expects underscores (en_uk), not hyphens.
-            locale_norm = cfg.inference.label_locale.replace("-", "_")
             with redirect_stdout(io.StringIO()):
                 analyze(
                     str(wav_path),
@@ -136,7 +129,6 @@ class BirdNETModel:
                     rtype="csv",
                     merge_consecutive=1,
                     threads=1,
-                    locale=locale_norm,
                 )
 
             csv_path = Path(tmpdir) / "clip.BirdNET.results.csv"

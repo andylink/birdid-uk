@@ -1,3 +1,3 @@
 - mobile views
-- int for graphs not decimal
-- migrant tracking using species_info
+- switch to display 2letter abbreviatoin as default in dashboard
+- migrant tracking using species_info?
