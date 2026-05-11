@@ -26,9 +26,9 @@
 
 		<!-- Spectrogram image with loading skeleton + error fallback -->
 		{#if !imgError}
-			<div class="relative h-12 rounded overflow-hidden bg-slate-800">
+			<div class="relative h-12 rounded overflow-hidden bg-slate-200 dark:bg-slate-800">
 				{#if !imgLoaded}
-					<div class="absolute inset-0 bg-slate-700 animate-pulse" aria-hidden="true"></div>
+					<div class="absolute inset-0 bg-slate-300 dark:bg-slate-700 animate-pulse" aria-hidden="true"></div>
 				{/if}
 				<img
 					src="/spectrogram/{filename}"

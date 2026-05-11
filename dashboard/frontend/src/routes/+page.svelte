@@ -16,19 +16,19 @@
 	<div class="flex flex-1 min-h-0">
 
 		<!-- Heatmap: takes all remaining width -->
-		<div class="flex-1 min-w-0 border-r border-slate-800">
+		<div class="flex-1 min-w-0 border-r border-slate-200 dark:border-slate-800">
 			<SpeciesHeatmap />
 		</div>
 
 		<!-- Detection feed sidebar -->
-		<div class="w-80 shrink-0 border-l border-slate-800">
+		<div class="w-80 shrink-0 border-l border-slate-200 dark:border-slate-800">
 			<DetectionFeed />
 		</div>
 
 	</div>
 
 	<!-- Bottom bar: activity chart -->
-	<div class="h-40 shrink-0 border-t border-slate-800 bg-slate-900/40">
+	<div class="h-40 shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40">
 		<ActivityChart />
 	</div>
 

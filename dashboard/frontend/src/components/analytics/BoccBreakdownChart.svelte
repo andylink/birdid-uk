@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { getBoccBreakdown, type Period, type BoccBreakdownEntry } from '$lib/api';
 	import { BOCC_COLOR } from '$lib/bto';
 
@@ -19,6 +19,22 @@
 		Green:   BOCC_COLOR.Green,
 		Unknown: '#475569',
 	};
+
+	function chartColors() {
+		const s = getComputedStyle(document.documentElement);
+		return {
+			grid: s.getPropertyValue('--chart-grid').trim() || 'rgba(255,255,255,0.05)',
+			tick: s.getPropertyValue('--chart-tick').trim() || '#94a3b8',
+		};
+	}
+
+	function applyColorsToChart() {
+		if (!chart) return;
+		const { tick } = chartColors();
+		const legend = (chart.options.plugins as any)?.legend?.labels;
+		if (legend) legend.color = tick;
+		chart.update('none');
+	}
 
 	async function fetchAndRender(p: Period) {
 		loading = true;
@@ -48,13 +64,15 @@
 				return;
 			}
 
-			if (!canvas) return;
+		if (!canvas) return;
 
-			const { Chart, DoughnutController, ArcElement, Tooltip, Legend } =
-				await import('chart.js');
-			Chart.register(DoughnutController, ArcElement, Tooltip, Legend);
+		const { Chart, DoughnutController, ArcElement, Tooltip, Legend } =
+			await import('chart.js');
+		Chart.register(DoughnutController, ArcElement, Tooltip, Legend);
 
-			chart = new Chart(canvas, {
+		const { tick } = chartColors();
+
+		chart = new Chart(canvas, {
 				type: 'doughnut',
 				data: {
 					labels,
@@ -72,14 +90,14 @@
 					maintainAspectRatio: false,
 					cutout: '62%',
 					plugins: {
-						legend: {
-							position: 'right',
-							labels: {
-								color: '#94a3b8',
-								font: { size: 11 },
-								boxWidth: 12,
-								padding: 12,
-							}
+					legend: {
+						position: 'right',
+						labels: {
+							color: tick,
+							font: { size: 11 },
+							boxWidth: 12,
+							padding: 12,
+						}
 						},
 						tooltip: {
 							callbacks: {
@@ -104,14 +122,21 @@
 
 	$effect(() => { fetchAndRender(period); });
 
+	onMount(() => {
+		document.addEventListener('themechange', applyColorsToChart);
+		return () => {
+			document.removeEventListener('themechange', applyColorsToChart);
+		};
+	});
+
 	onDestroy(() => chart?.destroy());
 </script>
 
-<div class="bg-slate-900 border border-slate-800 rounded-lg flex flex-col h-64">
-	<h3 class="text-xs font-semibold text-slate-400 uppercase tracking-widest px-4 pt-3 pb-1 shrink-0">
+<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg flex flex-col h-64">
+	<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest px-4 pt-3 pb-1 shrink-0">
 		BoCC Status Breakdown
 	</h3>
-	<p class="text-[10px] text-slate-600 px-4 pb-1 shrink-0">Unique species by conservation list</p>
+	<p class="text-[10px] text-slate-400 dark:text-slate-600 px-4 pb-1 shrink-0">Unique species by conservation list</p>
 	<div class="flex-1 relative px-3 pb-3 min-h-0">
 		<canvas bind:this={canvas} class="w-full h-full" class:invisible={loading || empty || !!error}></canvas>
 		{#if loading}

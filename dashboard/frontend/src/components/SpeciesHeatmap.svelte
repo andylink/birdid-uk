@@ -181,20 +181,20 @@
 	onDestroy(() => sse?.close());
 </script>
 
-<section class="flex flex-col h-full bg-slate-950 overflow-hidden" aria-label="Daily species heatmap">
+<section class="flex flex-col h-full bg-slate-100 dark:bg-slate-950 overflow-hidden" aria-label="Daily species heatmap">
 
 	<!-- ── Header ────────────────────────────────────────────────────────────── -->
-	<header class="flex items-center gap-3 px-4 py-2 border-b border-slate-800 bg-slate-900 shrink-0 flex-wrap gap-y-2">
-		<h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+	<header class="flex items-center gap-3 px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 flex-wrap gap-y-2">
+		<h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
 			Daily Species Summary
 		</h2>
 
 		{#if !loading && !error}
-			<span class="text-sm text-slate-300 font-medium hidden sm:block">
+			<span class="text-sm text-slate-700 dark:text-slate-300 font-medium hidden sm:block">
 				{formatDisplayDate(selectedDate)}
 			</span>
 			{#if summaries.length > 0}
-				<span class="text-xs text-slate-600">
+				<span class="text-xs text-slate-500">
 					{filteredSummaries.length}{boccFilter !== 'all' ? `/${summaries.length}` : ''} species
 					· {filteredSummaries.reduce((t, s) => t + s.count, 0)} detections
 				</span>
@@ -208,8 +208,8 @@
 					<button
 						class="text-[10px] px-2 py-0.5 rounded border transition-colors font-medium
 						       {boccFilter === val
-						         ? 'bg-slate-700 border-slate-500 text-slate-100'
-						         : 'border-slate-700 text-slate-500 hover:text-slate-300'}"
+						         ? 'bg-slate-200 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-slate-900 dark:text-slate-100'
+						         : 'border-slate-300 dark:border-slate-700 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}"
 						style={boccFilter === val && color ? `border-color: ${color}; color: ${color}` : ''}
 						onclick={() => boccFilter = val}
 						aria-pressed={boccFilter === val}
@@ -226,7 +226,7 @@
 		<div class="ml-auto flex items-center gap-1.5">
 			<button
 				onclick={prevDay}
-				class="p-1.5 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-700 transition-colors"
+				class="p-1.5 rounded text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
 				aria-label="Previous day"
 			>
 				<svg viewBox="0 0 20 20" class="w-4 h-4 fill-current">
@@ -239,7 +239,8 @@
 				value={selectedDate}
 				max={todayStr()}
 				oninput={handleDateInput}
-				class="text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded px-2 py-1
+				class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700
+				       text-slate-800 dark:text-slate-200 rounded px-2 py-1
 				       cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
 				aria-label="Select date"
 			/>
@@ -247,7 +248,7 @@
 			<button
 				onclick={nextDay}
 				disabled={isToday}
-				class="p-1.5 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-700 transition-colors
+				class="p-1.5 rounded text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors
 				       disabled:opacity-30 disabled:cursor-not-allowed"
 				aria-label="Next day"
 			>
@@ -275,17 +276,17 @@
 			<div class="p-3 space-y-1" aria-busy="true" aria-label="Loading…">
 				{#each Array.from({ length: 10 }) as _}
 					<div class="flex gap-0.5 animate-pulse">
-						<div class="h-7 w-44 bg-slate-800 rounded shrink-0"></div>
+						<div class="h-7 w-44 bg-slate-200 dark:bg-slate-800 rounded shrink-0"></div>
 						{#each HOURS as _h}
-							<div class="h-7 w-8 bg-slate-800/40 rounded-sm shrink-0"></div>
+							<div class="h-7 w-8 bg-slate-200/40 dark:bg-slate-800/40 rounded-sm shrink-0"></div>
 						{/each}
-						<div class="h-7 w-12 bg-slate-800 rounded shrink-0"></div>
+						<div class="h-7 w-12 bg-slate-200 dark:bg-slate-800 rounded shrink-0"></div>
 					</div>
 				{/each}
 			</div>
 
 		{:else if error}
-			<div class="flex flex-col items-center justify-center h-40 gap-2 text-slate-500">
+			<div class="flex flex-col items-center justify-center h-40 gap-2 text-slate-400 dark:text-slate-500">
 				<svg viewBox="0 0 24 24" class="w-8 h-8 fill-current opacity-40" aria-hidden="true">
 					<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
 				</svg>
@@ -293,15 +294,12 @@
 			</div>
 
 		{:else if summaries.length === 0}
-			<div class="flex flex-col items-center justify-center h-40 gap-2 text-slate-600">
-				<svg viewBox="0 0 24 24" class="w-8 h-8 fill-current opacity-40" aria-hidden="true">
-					<path d="M23 7c0 0-3 .5-4.5 1.5C17.1 5.1 14 3 10.5 3 5.8 3 2 6.8 2 11.5S5.8 20 10.5 20c2.5 0 4.8-1.1 6.4-2.8C18.5 18.5 23 17 23 17V7z"/>
-				</svg>
-				<p class="text-sm">No detections for {formatDisplayDate(selectedDate)}</p>
+			<div class="flex flex-col items-center justify-center h-40 gap-2 text-slate-400 dark:text-slate-600">
+				<p class="text-sm">No species detected today.</p>
 			</div>
 
 		{:else if filteredSummaries.length === 0}
-			<div class="flex flex-col items-center justify-center h-40 gap-2 text-slate-600">
+			<div class="flex flex-col items-center justify-center h-40 gap-2 text-slate-400 dark:text-slate-600">
 				<p class="text-sm">No {boccFilter} list species detected today.</p>
 				<button
 					class="text-xs text-emerald-500 hover:text-emerald-400 underline"
@@ -315,8 +313,8 @@
 					<tr>
 						<th
 							scope="col"
-							class="sticky left-0 z-20 bg-slate-900 px-3 py-1.5 text-left text-xs
-							       font-medium text-slate-400 border-b border-r border-slate-800 min-w-[10rem]"
+							class="sticky left-0 z-20 bg-white dark:bg-slate-900 px-3 py-1.5 text-left text-xs
+							       font-medium text-slate-500 dark:text-slate-400 border-b border-r border-slate-200 dark:border-slate-800 min-w-[10rem]"
 						>
 							Species
 						</th>
@@ -326,8 +324,8 @@
 						<th
 							scope="col"
 							class="w-8 min-w-[2rem] py-1 text-center text-[10px] font-mono
-							       font-normal border-b border-slate-800 bg-slate-900
-							       {isSunrise ? 'text-amber-400' : isSunset ? 'text-orange-400' : 'text-slate-500'}"
+							       font-normal border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900
+							       {isSunrise ? 'text-amber-500 dark:text-amber-400' : isSunset ? 'text-orange-500 dark:text-orange-400' : 'text-slate-400 dark:text-slate-500'}"
 							title={isSunrise
 								? `Sunrise ${sunTimes!.sunrise}`
 								: isSunset
@@ -352,11 +350,11 @@
 							{/if}
 						</th>
 					{/each}
-						<th
-							scope="col"
-							class="w-12 min-w-[3rem] py-1.5 text-right pr-3 text-xs font-medium
-							       text-slate-400 border-b border-l border-slate-800 bg-slate-900"
-						>
+					<th
+						scope="col"
+						class="w-12 min-w-[3rem] py-1.5 text-right pr-3 text-xs font-medium
+						       text-slate-500 dark:text-slate-400 border-b border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+					>
 							Total
 						</th>
 					</tr>
@@ -365,10 +363,10 @@
 			<tbody>
 				{#each filteredSummaries as item (item.species)}
 					{@const statusStyle = item.species_status ? SPECIES_STATUS_STYLE[item.species_status] : null}
-					<tr class="group hover:bg-slate-800/20 transition-colors">
+					<tr class="group hover:bg-slate-900/5 dark:hover:bg-slate-800/20 transition-colors">
 						<td
-							class="sticky left-0 z-10 bg-slate-950 group-hover:bg-slate-900/60
-							       px-3 py-0.5 border-b border-r border-slate-800/50 transition-colors"
+							class="sticky left-0 z-10 bg-slate-100 dark:bg-slate-950 group-hover:bg-slate-200 dark:group-hover:bg-slate-900/60
+							       px-3 py-0.5 border-b border-r border-slate-200 dark:border-slate-800/50 transition-colors"
 						>
 						<div class="flex items-center gap-2 min-w-0">
 							<span
@@ -387,7 +385,7 @@
 									aria-label="UK Birds of Conservation Concern: {item.uk_bocc}"
 								></span>
 							{/if}
-							<span class="truncate text-xs text-slate-200" title={item.species}>
+							<span class="truncate text-xs text-slate-700 dark:text-slate-200" title={item.species}>
 								<a
 									href="/species/{encodeURIComponent(item.species)}?from=dashboard"
 									class="hover:text-emerald-400 hover:underline transition-colors focus:outline-none
@@ -408,11 +406,11 @@
 						</div>
 						</td>
 
-							{#each HOURS as hour}
+								{#each HOURS as hour}
 								{@const count = item.hourly_counts[hour] ?? 0}
 								{@const intensity = getIntensity(count)}
 								<td
-									class="w-8 h-7 text-center border-b border-slate-800/20 transition-colors"
+									class="w-8 h-7 text-center border-b border-slate-200/50 dark:border-slate-800/20 transition-colors"
 									style={intensity > 0 ? `background-color: ${HEATMAP_COLORS[intensity]}` : ''}
 									title={count > 0
 										? `${count} detection${count !== 1 ? 's' : ''} at ${hour.toString().padStart(2, '0')}:00`
@@ -431,8 +429,8 @@
 								</td>
 							{/each}
 
-							<td class="w-12 text-right pr-3 py-0.5 border-b border-l border-slate-800/50
-							           text-xs text-slate-300 tabular-nums font-medium">
+						<td class="w-12 text-right pr-3 py-0.5 border-b border-l border-slate-200 dark:border-slate-800/50
+						           text-xs text-slate-600 dark:text-slate-300 tabular-nums font-medium">
 								{item.count}
 							</td>
 						</tr>
@@ -444,17 +442,17 @@
 
 	<!-- ── Legend ─────────────────────────────────────────────────────────── -->
 	{#if !loading && !error && summaries.length > 0}
-		<div class="flex items-center gap-2 px-4 py-2 border-t border-slate-800 bg-slate-900/50 shrink-0">
-			<span class="text-[10px] text-slate-600 uppercase tracking-wider">Less</span>
+		<div class="flex items-center gap-2 px-4 py-2 border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 shrink-0">
+			<span class="text-[10px] text-slate-400 dark:text-slate-600 uppercase tracking-wider">Less</span>
 			{#each HEATMAP_COLORS.slice(1) as color, i}
 				<div
-					class="w-3 h-3 rounded-sm border border-slate-700/40"
+					class="w-3 h-3 rounded-sm border border-slate-300/40 dark:border-slate-700/40"
 					style="background-color: {color}"
 					title="Intensity {i + 1}"
 				></div>
 			{/each}
-			<span class="text-[10px] text-slate-600 uppercase tracking-wider">More</span>
-			<span class="ml-auto text-[10px] text-slate-700">per hour, scaled to peak</span>
+			<span class="text-[10px] text-slate-400 dark:text-slate-600 uppercase tracking-wider">More</span>
+			<span class="ml-auto text-[10px] text-slate-500 dark:text-slate-700">per hour, scaled to peak</span>
 		</div>
 	{/if}
 

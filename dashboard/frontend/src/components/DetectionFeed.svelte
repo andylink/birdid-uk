@@ -39,10 +39,10 @@
 </script>
 
 <section class="flex flex-col h-full" aria-label="Live detection feed">
-	<header class="px-4 py-2 border-b border-slate-800 flex items-center gap-2 text-sm shrink-0">
-		<span class="font-medium text-slate-200">Live Feed</span>
+	<header class="px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 text-sm shrink-0">
+		<span class="font-medium text-slate-800 dark:text-slate-200">Live Feed</span>
 		<span
-			class="w-2 h-2 rounded-full {connected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}"
+			class="w-2 h-2 rounded-full {connected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400 dark:bg-slate-600'}"
 			aria-label={connected ? 'Connected' : 'Connecting…'}
 		></span>
 		{#if detections.length}
@@ -54,7 +54,7 @@
 
 	<!-- Notable species section (only visible when at least one has been seen) -->
 	{#if notableList.length > 0}
-		<div class="border-b border-red-900/40 bg-red-950/20 px-3 py-2 shrink-0">
+		<div class="border-b border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 px-3 py-2 shrink-0">
 			<p class="text-[9px] font-bold text-red-500 uppercase tracking-widest mb-1.5">
 				Notable this session
 			</p>
@@ -78,7 +78,7 @@
 
 	<div class="flex-1 overflow-y-auto" role="feed" aria-live="polite" aria-label="Bird detections">
 		{#if detections.length === 0}
-			<div class="flex flex-col items-center justify-center h-full text-slate-600 gap-2 py-16">
+			<div class="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-600 gap-2 py-16">
 				<svg viewBox="0 0 24 24" class="w-8 h-8 fill-current opacity-50" aria-hidden="true">
 					<path d="M23 7c0 0-3 .5-4.5 1.5C17.1 5.1 14 3 10.5 3 5.8 3 2 6.8 2 11.5S5.8 20 10.5 20c2.5 0 4.8-1.1 6.4-2.8C18.5 18.5 23 17 23 17V7z"/>
 				</svg>

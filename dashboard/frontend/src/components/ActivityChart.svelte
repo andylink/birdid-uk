@@ -12,6 +12,25 @@
 	let mode = $state<Mode>('today');
 	let timer: ReturnType<typeof setInterval> | null = null;
 
+	function chartColors() {
+		const s = getComputedStyle(document.documentElement);
+		return {
+			grid: s.getPropertyValue('--chart-grid').trim() || 'rgba(255,255,255,0.05)',
+			tick: s.getPropertyValue('--chart-tick').trim() || '#94a3b8',
+		};
+	}
+
+	function applyColorsToChart() {
+		if (!chart) return;
+		const { grid, tick } = chartColors();
+		const scales = chart.options.scales as any;
+		if (scales?.x?.grid) scales.x.grid.color = grid;
+		if (scales?.x?.ticks) scales.x.ticks.color = tick;
+		if (scales?.y?.grid) scales.y.grid.color = grid;
+		if (scales?.y?.ticks) scales.y.ticks.color = tick;
+		chart.update('none');
+	}
+
 	async function loadData(m: Mode) {
 		const hourly = await getByHour(m === 'today' ? localToday() : undefined);
 		return hourly;
@@ -61,6 +80,8 @@
 
 			if (!canvas) return;
 
+			const { grid, tick } = chartColors();
+
 			chart = new Chart(canvas, {
 				type: 'line',
 				data: {
@@ -90,47 +111,54 @@
 					},
 					scales: {
 						x: {
-							grid: { color: 'rgba(255,255,255,0.05)' },
+							grid: { color: grid },
 							ticks: {
-								color: '#94a3b8',
+								color: tick,
 								maxTicksLimit: 8,
 								callback: (_val, idx) => idx % 3 === 0 ? hourly.labels[idx] : ''
 							}
 						},
 						y: {
-							grid: { color: 'rgba(255,255,255,0.05)' },
-							ticks: { color: '#94a3b8' },
+							grid: { color: grid },
+							ticks: { color: tick },
 							beginAtZero: true,
 						}
 					}
 				}
 			});
 
-			resetTimer();
-		} catch (e) {
-			console.error('ActivityChart error:', e);
-			error = e instanceof Error ? e.message : 'Could not load activity data.';
-		} finally {
-			loading = false;
-		}
-	});
+		resetTimer();
+	} catch (e) {
+		console.error('ActivityChart error:', e);
+		error = e instanceof Error ? e.message : 'Could not load activity data.';
+	} finally {
+		loading = false;
+	}
+});
 
-	onDestroy(() => {
-		chart?.destroy();
-		if (timer !== null) clearInterval(timer);
-	});
+onMount(() => {
+	document.addEventListener('themechange', applyColorsToChart);
+	return () => {
+		document.removeEventListener('themechange', applyColorsToChart);
+	};
+});
+
+onDestroy(() => {
+	chart?.destroy();
+	if (timer !== null) clearInterval(timer);
+});
 </script>
 
 <div class="flex flex-col h-full">
 	<div class="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
-		<h2 class="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+		<h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
 			Activity by Hour
 		</h2>
-		<div class="flex text-xs rounded overflow-hidden border border-slate-700">
+		<div class="flex text-xs rounded overflow-hidden border border-slate-300 dark:border-slate-700">
 			<button
 				class="px-2 py-0.5 transition-colors {mode === 'today'
 					? 'bg-emerald-600 text-white'
-					: 'text-slate-400 hover:text-slate-200'}"
+					: 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}"
 				onclick={() => switchMode('today')}
 			>
 				Today
@@ -138,7 +166,7 @@
 			<button
 				class="px-2 py-0.5 transition-colors {mode === 'alltime'
 					? 'bg-emerald-600 text-white'
-					: 'text-slate-400 hover:text-slate-200'}"
+					: 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}"
 				onclick={() => switchMode('alltime')}
 			>
 				All time

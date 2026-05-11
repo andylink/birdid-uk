@@ -1,7 +1,17 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  color-scheme: light;
+  --chart-grid: rgba(0,0,0,0.06);
+  --chart-tick: #64748b;
+}
+
+.dark {
   color-scheme: dark;
+  --chart-grid: rgba(255,255,255,0.05);
+  --chart-tick: #94a3b8;
 }
 
 /* Slim native audio player */

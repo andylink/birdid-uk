@@ -27,13 +27,13 @@
 </script>
 
 <article
-	class="flex gap-3 px-4 py-3 border-b border-slate-800 hover:bg-slate-900/50 transition-colors
-	       {isNotable ? 'border-l-2 border-l-red-500 bg-red-950/10' : ''}"
+	class="flex gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900/50 transition-colors
+	       {isNotable ? 'border-l-2 border-l-red-500 bg-red-50/50 dark:bg-red-950/10' : ''}"
 >
 	<!-- Confidence bar -->
 	<div class="flex flex-col items-center gap-1 pt-0.5">
 		<div
-			class="w-1 rounded-full bg-slate-700 relative overflow-hidden"
+			class="w-1 rounded-full bg-slate-300 dark:bg-slate-700 relative overflow-hidden"
 			style="height: 48px"
 			aria-label="Confidence {formatConfidence(detection.confidence)}"
 		>
@@ -48,7 +48,7 @@
 	<div class="flex-1 min-w-0">
 		<div class="flex items-start justify-between gap-2">
 			<div class="flex items-center gap-2 flex-wrap min-w-0">
-				<span class="font-semibold {isNotable ? 'text-red-200' : 'text-slate-100'}">{detection.species}</span>
+				<span class="font-semibold {isNotable ? 'text-red-600 dark:text-red-200' : 'text-slate-900 dark:text-slate-100'}">{detection.species}</span>
 				<span class="text-xs px-1.5 py-0.5 rounded-full font-mono {badgeClass}">
 					{formatConfidence(detection.confidence)}
 				</span>

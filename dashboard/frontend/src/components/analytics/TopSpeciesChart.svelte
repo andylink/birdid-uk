@@ -14,6 +14,25 @@
 	// Keep a reference to the raw data for tooltip group labels.
 	let entries: TopSpeciesEntry[] = [];
 
+	function chartColors() {
+		const s = getComputedStyle(document.documentElement);
+		return {
+			grid: s.getPropertyValue('--chart-grid').trim() || 'rgba(255,255,255,0.05)',
+			tick: s.getPropertyValue('--chart-tick').trim() || '#94a3b8',
+		};
+	}
+
+	function applyColorsToChart() {
+		if (!chart) return;
+		const { grid, tick } = chartColors();
+		const scales = chart.options.scales as any;
+		if (scales?.x?.grid) scales.x.grid.color = grid;
+		if (scales?.x?.ticks) scales.x.ticks.color = tick;
+		if (scales?.y?.grid) scales.y.grid.color = grid;
+		if (scales?.y?.ticks) scales.y.ticks.color = tick;
+		chart.update('none');
+	}
+
 	// Truncate long species names for the y-axis labels.
 	function truncate(s: string, max = 28): string {
 		return s.length > max ? s.slice(0, max - 1) + '…' : s;
@@ -47,13 +66,15 @@
 				return;
 			}
 
-			if (!canvas) return;
+		if (!canvas) return;
 
-			const { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } =
-				await import('chart.js');
-			Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
+		const { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } =
+			await import('chart.js');
+		Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
-			chart = new Chart(canvas, {
+		const { grid, tick } = chartColors();
+
+		chart = new Chart(canvas, {
 				type: 'bar',
 				data: {
 					labels,
@@ -82,16 +103,16 @@
 							}
 						}
 					},
-					scales: {
-						x: {
-							grid: { color: 'rgba(255,255,255,0.05)' },
-							ticks: { color: '#94a3b8' },
-							beginAtZero: true,
-						},
-						y: {
-							grid: { display: false },
-							ticks: { color: '#94a3b8', font: { size: 11 } },
-						}
+				scales: {
+					x: {
+						grid: { color: grid },
+						ticks: { color: tick },
+						beginAtZero: true,
+					},
+					y: {
+						grid: { display: false },
+						ticks: { color: tick, font: { size: 11 } },
+					}
 					}
 				}
 			});
@@ -104,11 +125,18 @@
 
 	$effect(() => { fetchAndRender(period); });
 
+	onMount(() => {
+		document.addEventListener('themechange', applyColorsToChart);
+		return () => {
+			document.removeEventListener('themechange', applyColorsToChart);
+		};
+	});
+
 	onDestroy(() => chart?.destroy());
 </script>
 
-<div class="bg-slate-900 border border-slate-800 rounded-lg flex flex-col h-80">
-	<h3 class="text-xs font-semibold text-slate-400 uppercase tracking-widest px-4 pt-3 pb-2 shrink-0">
+<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg flex flex-col h-80">
+	<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest px-4 pt-3 pb-2 shrink-0">
 		Top 10 Species
 	</h3>
 	<div class="flex-1 relative px-3 pb-3 min-h-0">

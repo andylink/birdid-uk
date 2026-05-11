@@ -109,12 +109,13 @@
 
 		<!-- Header + controls -->
 		<div class="flex flex-wrap items-center justify-between gap-3">
-			<h1 class="text-lg font-semibold text-slate-100 tracking-tight">Species</h1>
+			<h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">Species</h1>
 
 			<div class="flex flex-wrap items-center gap-2">
 				<!-- Sort -->
 				<select
-					class="text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded
+					class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700
+					       text-slate-800 dark:text-slate-200 rounded
 					       px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					value={sort}
 					onchange={e => setSort(e.currentTarget.value as SortOption)}
@@ -126,7 +127,8 @@
 
 				<!-- Period -->
 				<select
-					class="text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded
+					class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700
+					       text-slate-800 dark:text-slate-200 rounded
 					       px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 					value={period}
 					onchange={e => setPeriod(e.currentTarget.value as SpeciesPeriod)}
@@ -137,7 +139,7 @@
 				</select>
 
 				<!-- View toggle -->
-				<div class="flex rounded overflow-hidden border border-slate-700">
+				<div class="flex rounded overflow-hidden border border-slate-300 dark:border-slate-700">
 					<button
 						title="Card view"
 						aria-label="Card view"
@@ -176,20 +178,22 @@
 		<!-- Custom date pickers -->
 		{#if period === 'custom'}
 			<div class="flex flex-wrap items-center gap-3 text-xs">
-				<span class="text-slate-400">From</span>
+				<span class="text-slate-500 dark:text-slate-400">From</span>
 				<input
 					type="date"
 					bind:value={dateFrom}
 					onchange={() => { offset = 0; }}
-					class="bg-slate-800 border border-slate-700 text-slate-200 rounded
+					class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700
+					       text-slate-800 dark:text-slate-200 rounded
 					       px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 				/>
-				<span class="text-slate-400">to</span>
+				<span class="text-slate-500 dark:text-slate-400">to</span>
 				<input
 					type="date"
 					bind:value={dateTo}
 					onchange={() => { offset = 0; }}
-					class="bg-slate-800 border border-slate-700 text-slate-200 rounded
+					class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700
+					       text-slate-800 dark:text-slate-200 rounded
 					       px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
 				/>
 			</div>
@@ -205,8 +209,8 @@
 					<button
 						class="text-[10px] px-2 py-0.5 rounded border transition-colors font-medium
 						       {boccFilter === val
-						         ? 'bg-slate-700 border-slate-500 text-slate-100'
-						         : 'border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-600'}"
+						         ? 'bg-slate-200 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-slate-900 dark:text-slate-100'
+						         : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-600'}"
 						style={boccFilter === val && color ? `border-color: ${color}; color: ${color}` : ''}
 						onclick={() => setBocc(val)}
 						aria-pressed={boccFilter === val}
@@ -227,8 +231,8 @@
 					<button
 						class="text-[10px] px-2 py-0.5 rounded border transition-colors font-medium
 						       {statusFilter === val
-						         ? 'bg-slate-700 border-slate-500 text-slate-100'
-						         : 'border-slate-800 text-slate-500 hover:text-slate-300 hover:border-slate-600'}"
+						         ? 'bg-slate-200 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-slate-900 dark:text-slate-100'
+						         : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-600'}"
 						style={statusFilter === val && style ? `border-color: ${style.text}; color: ${style.text}` : ''}
 						onclick={() => setStatus(val)}
 						aria-pressed={statusFilter === val}
@@ -242,9 +246,10 @@
 			<div class="flex items-center gap-1.5">
 				<span class="text-[10px] text-slate-500 uppercase tracking-wider">Group</span>
 				<select
-					class="text-xs bg-slate-800 border border-slate-700 text-slate-200 rounded
+					class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700
+					       text-slate-800 dark:text-slate-200 rounded
 					       px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-500
-					       {groupFilter ? 'border-emerald-600/60 text-emerald-300' : ''}"
+					       {groupFilter ? 'border-emerald-600/60 text-emerald-700 dark:text-emerald-300' : ''}"
 					value={groupFilter}
 					onchange={e => setGroup(e.currentTarget.value)}
 				>
@@ -258,8 +263,9 @@
 			<!-- Clear filters -->
 			{#if hasFilters}
 				<button
-					class="text-[10px] px-2 py-0.5 rounded border border-slate-700 text-slate-400
-					       hover:text-slate-200 hover:border-slate-500 transition-colors"
+					class="text-[10px] px-2 py-0.5 rounded border border-slate-300 dark:border-slate-700
+					       text-slate-500 hover:text-slate-700 dark:hover:text-slate-200
+					       hover:border-slate-400 dark:hover:border-slate-500 transition-colors"
 					onclick={clearFilters}
 				>
 					Clear filters ✕
@@ -285,30 +291,30 @@
 			{#if view === 'card'}
 				<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
 					{#each Array(10) as _}
-						<div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-							<div class="aspect-video bg-slate-800 animate-pulse"></div>
+						<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+							<div class="aspect-video bg-slate-200 dark:bg-slate-800 animate-pulse"></div>
 							<div class="p-3 space-y-2">
-								<div class="h-4 bg-slate-800 rounded animate-pulse w-3/4"></div>
-								<div class="h-5 bg-slate-800 rounded animate-pulse w-1/2"></div>
+								<div class="h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse w-3/4"></div>
+								<div class="h-5 bg-slate-200 dark:bg-slate-800 rounded animate-pulse w-1/2"></div>
 								<div class="space-y-1 pt-1">
-									<div class="h-3 bg-slate-800 rounded animate-pulse"></div>
-									<div class="h-3 bg-slate-800 rounded animate-pulse"></div>
-									<div class="h-3 bg-slate-800 rounded animate-pulse"></div>
+									<div class="h-3 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
+									<div class="h-3 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
+									<div class="h-3 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
 								</div>
 							</div>
 						</div>
 					{/each}
 				</div>
 			{:else}
-				<div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+				<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
 					{#each Array(10) as _}
-						<div class="flex items-center gap-3 px-3 py-2.5 border-b border-slate-800">
-							<div class="w-11 h-11 rounded bg-slate-800 animate-pulse shrink-0"></div>
-							<div class="flex-1 h-4 bg-slate-800 rounded animate-pulse"></div>
-							<div class="w-16 h-4 bg-slate-800 rounded animate-pulse"></div>
-							<div class="w-16 h-4 bg-slate-800 rounded animate-pulse hidden sm:block"></div>
-							<div class="w-24 h-4 bg-slate-800 rounded animate-pulse hidden md:block"></div>
-							<div class="w-24 h-4 bg-slate-800 rounded animate-pulse hidden md:block"></div>
+						<div class="flex items-center gap-3 px-3 py-2.5 border-b border-slate-200 dark:border-slate-800">
+							<div class="w-11 h-11 rounded bg-slate-200 dark:bg-slate-800 animate-pulse shrink-0"></div>
+							<div class="flex-1 h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
+							<div class="w-16 h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
+							<div class="w-16 h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse hidden sm:block"></div>
+							<div class="w-24 h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse hidden md:block"></div>
+							<div class="w-24 h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse hidden md:block"></div>
 						</div>
 					{/each}
 				</div>
@@ -339,8 +345,8 @@
 								{/each}
 							</div>
 						{:else}
-							<div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-								<div class="flex items-center gap-3 px-3 py-2 border-b border-slate-700
+							<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+								<div class="flex items-center gap-3 px-3 py-2 border-b border-slate-300 dark:border-slate-700
 								            text-xs font-semibold text-slate-500 uppercase tracking-wider">
 									<div class="w-11 shrink-0"></div>
 									<div class="flex-1">Species</div>
@@ -363,10 +369,10 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+				<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
 					<!-- Column headers -->
 					<div
-						class="flex items-center gap-3 px-3 py-2 border-b border-slate-700
+						class="flex items-center gap-3 px-3 py-2 border-b border-slate-300 dark:border-slate-700
 						       text-xs font-semibold text-slate-500 uppercase tracking-wider"
 					>
 						<div class="w-11 shrink-0"></div>
@@ -397,9 +403,9 @@
 		{#if total > PAGE_SIZE}
 			<div class="flex items-center justify-center gap-4 py-2">
 				<button
-					class="px-3 py-1.5 rounded border border-slate-700 text-sm text-slate-400
-					       hover:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed
-					       transition-colors"
+					class="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-700 text-sm
+					       text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200
+					       disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
 					disabled={offset === 0}
 					onclick={() => (offset = Math.max(0, offset - PAGE_SIZE))}
 				>
@@ -409,9 +415,9 @@
 					Page {currentPage} of {totalPages}
 				</span>
 				<button
-					class="px-3 py-1.5 rounded border border-slate-700 text-sm text-slate-400
-					       hover:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed
-					       transition-colors"
+					class="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-700 text-sm
+					       text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200
+					       disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
 					disabled={offset + PAGE_SIZE >= total}
 					onclick={() => (offset = offset + PAGE_SIZE)}
 				>

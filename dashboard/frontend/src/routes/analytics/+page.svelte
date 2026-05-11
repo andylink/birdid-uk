@@ -31,13 +31,13 @@
 
 		<!-- Page header + period filter -->
 		<div class="flex flex-wrap items-center justify-between gap-3">
-			<h1 class="text-lg font-semibold text-slate-100 tracking-tight">Analytics</h1>
-			<div class="flex text-xs rounded overflow-hidden border border-slate-700">
+			<h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">Analytics</h1>
+			<div class="flex text-xs rounded overflow-hidden border border-slate-300 dark:border-slate-700">
 				{#each PERIODS as p}
 					<button
 						class="px-3 py-1.5 transition-colors {period === p.value
 							? 'bg-emerald-600 text-white'
-							: 'text-slate-400 hover:text-slate-200'}"
+							: 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}"
 						onclick={() => period = p.value}
 					>
 						{p.label}

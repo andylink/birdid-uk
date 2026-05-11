@@ -9,6 +9,25 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
+	function chartColors() {
+		const s = getComputedStyle(document.documentElement);
+		return {
+			grid: s.getPropertyValue('--chart-grid').trim() || 'rgba(255,255,255,0.05)',
+			tick: s.getPropertyValue('--chart-tick').trim() || '#94a3b8',
+		};
+	}
+
+	function applyColorsToChart() {
+		if (!chart) return;
+		const { grid, tick } = chartColors();
+		const scales = chart.options.scales as any;
+		if (scales?.x?.grid) scales.x.grid.color = grid;
+		if (scales?.x?.ticks) scales.x.ticks.color = tick;
+		if (scales?.y?.grid) scales.y.grid.color = grid;
+		if (scales?.y?.ticks) scales.y.ticks.color = tick;
+		chart.update('none');
+	}
+
 	async function fetchAndRender(p: Period) {
 		loading = true;
 		error = null;
@@ -24,14 +43,16 @@
 				return;
 			}
 
-			if (!canvas) return;
+		if (!canvas) return;
 
-			const { Chart, LineController, LineElement, LinearScale, CategoryScale,
-				PointElement, Tooltip, Filler } = await import('chart.js');
-			Chart.register(LineController, LineElement, LinearScale, CategoryScale,
-				PointElement, Tooltip, Filler);
+		const { Chart, LineController, LineElement, LinearScale, CategoryScale,
+			PointElement, Tooltip, Filler } = await import('chart.js');
+		Chart.register(LineController, LineElement, LinearScale, CategoryScale,
+			PointElement, Tooltip, Filler);
 
-			chart = new Chart(canvas, {
+		const { grid, tick } = chartColors();
+
+		chart = new Chart(canvas, {
 				type: 'line',
 				data: {
 					labels: hourly.labels,
@@ -58,20 +79,20 @@
 							}
 						}
 					},
-					scales: {
-						x: {
-							grid: { color: 'rgba(255,255,255,0.05)' },
-							ticks: {
-								color: '#94a3b8',
-								maxTicksLimit: 8,
-								callback: (_val, idx) => idx % 3 === 0 ? hourly.labels[idx] : '',
-							}
-						},
-						y: {
-							grid: { color: 'rgba(255,255,255,0.05)' },
-							ticks: { color: '#94a3b8' },
-							beginAtZero: true,
+				scales: {
+					x: {
+						grid: { color: grid },
+						ticks: {
+							color: tick,
+							maxTicksLimit: 8,
+							callback: (_val, idx) => idx % 3 === 0 ? hourly.labels[idx] : '',
 						}
+					},
+					y: {
+						grid: { color: grid },
+						ticks: { color: tick },
+						beginAtZero: true,
+					}
 					}
 				}
 			});
@@ -89,11 +110,18 @@
 
 	$effect(() => { fetchAndRender(period); });
 
+	onMount(() => {
+		document.addEventListener('themechange', applyColorsToChart);
+		return () => {
+			document.removeEventListener('themechange', applyColorsToChart);
+		};
+	});
+
 	onDestroy(() => chart?.destroy());
 </script>
 
-<div class="bg-slate-900 border border-slate-800 rounded-lg flex flex-col h-80">
-	<h3 class="text-xs font-semibold text-slate-400 uppercase tracking-widest px-4 pt-3 pb-2 shrink-0">
+<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg flex flex-col h-80">
+	<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest px-4 pt-3 pb-2 shrink-0">
 		Detections by Time of Day
 	</h3>
 	<div class="flex-1 relative px-3 pb-3 min-h-0">
