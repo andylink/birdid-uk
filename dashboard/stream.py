@@ -45,6 +45,7 @@ async def detection_generator() -> AsyncGenerator[dict, None]:
             async with conn.execute(
                 """
                 SELECT d.id, d.timestamp, d.species, d.bto_name, d.confidence, d.clip_path,
+                       d.model,
                        si.scientific_name, si.group_name, si.uk_bocc, si.species_status,
                        si.bto_2letter_code, si.bto_5letter_code
                 FROM detections d

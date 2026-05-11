@@ -104,6 +104,7 @@ def _deferred_save(
     begin_sample:   int,
     fallback_audio: np.ndarray,
     bto_name:       str | None,
+    model_name:     str,
 ) -> None:
     """Sleep for the post-capture period, read the full clip, then persist.
 
@@ -126,6 +127,8 @@ def _deferred_save(
         begin_sample:   Absolute sample index where the analysis window started.
         fallback_audio: The 3-second raw PCM array from the best hit.
         bto_name:       BTO British name for the database row (may be None).
+        model_name:     Inference backend that produced this detection
+                        (e.g. ``"birdnet"`` or ``"perch"``).
     """
     post_capture = (
         cfg.audio.clip_seconds
@@ -157,7 +160,7 @@ def _deferred_save(
         segment = fallback_audio
 
     clip_path = save_clip(segment, ts, species)
-    record_detection(ts, species, conf, clip_path, [], bto_name)
+    record_detection(ts, species, conf, clip_path, [], bto_name, model_name)
     publish_detection(ts, species, conf, clip_path, [])
     birdmap.post_detection(ts, species, conf, clip_path)
 
@@ -394,7 +397,7 @@ def _classify_loop(
                 _deferred_save,
                 p.best_ts, species, p.best_confidence,
                 p.best_begin_sample, p.best_fallback,
-                bto_name,
+                bto_name, cfg.inference.model,
             )
             del _pending[species]
 

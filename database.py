@@ -18,6 +18,7 @@ detections
     bto_name    TEXT               (BTO British name, e.g. "Robin"; NULL if unmapped)
     confidence  FLOAT    NOT NULL
     clip_path   TEXT
+    model       TEXT               (inference backend, e.g. "birdnet" or "perch")
 
 detection_results
     id           INTEGER  PK AUTOINCREMENT
@@ -74,6 +75,7 @@ _detections = Table(
     Column("bto_name",   String),
     Column("confidence", Float,   nullable=False),
     Column("clip_path",  String),
+    Column("model",      String),
 )
 
 _detection_results = Table(
@@ -159,6 +161,7 @@ def record_detection(
     clip_path: Path,
     secondary: list[tuple[str, float]],
     bto_name: str | None = None,
+    model_name: str | None = None,
 ) -> None:
     """
     Persist one detection window to the database.
@@ -168,10 +171,13 @@ def record_detection(
     ``detections``).  Both inserts run in a single transaction.
 
     Args:
-        bto_name: The canonical BTO British common name for *species*
-                  (e.g. ``"Robin"`` when BirdNET returns ``"European Robin"``).
-                  Populated by translating via the BirdNET→BTO map built at
-                  startup.  If ``None``, the column is left NULL.
+        bto_name:   The canonical BTO British common name for *species*
+                    (e.g. ``"Robin"`` when BirdNET returns ``"European Robin"``).
+                    Populated by translating via the BirdNET→BTO map built at
+                    startup.  If ``None``, the column is left NULL.
+        model_name: The inference backend that produced this detection
+                    (e.g. ``"birdnet"`` or ``"perch"``).  Taken from
+                    ``cfg.inference.model`` at detection time.
     """
     if _engine is None:
         return
@@ -183,6 +189,7 @@ def record_detection(
                 bto_name   = bto_name,
                 confidence = confidence,
                 clip_path  = str(clip_path),
+                model      = model_name,
             )
         )
         detection_id = result.inserted_primary_key[0]
