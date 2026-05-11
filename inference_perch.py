@@ -23,26 +23,32 @@ capture ring buffer are unaffected — they always operate at the recording rate
 
 Label mapping
 -------------
-Perch uses eBird species codes (e.g. ``"robin1"``) as its class identifiers.
-:meth:`PerchModel.load_label_map` converts these to common names via the
-following priority order:
+Perch v2's class list (``model.class_list["labels"].classes``) contains
+**scientific names** in ``inat2024_fsd50k`` namespace order — the same order
+as the logits vector.  :meth:`PerchModel.load_label_map` maps these to common
+names via the following priority:
 
 1. Scientific-name match against ``species_bto_FINAL_filtered.json`` → BTO
    British common name (e.g. ``"Robin"``).  This re-uses the same data that
    drives the BOU filter so the BOU allowlist works correctly with Perch.
-2. English common name from the label CSV bundled in the Kaggle model dir
-   (column ``common_name``, ``english_name``, or ``name``).
-3. eBird code itself as a last resort (ensures no species is silently dropped).
+2. Scientific name itself as a last resort (ensures no species is silently
+   dropped; non-UK species are filtered by the BOU allowlist anyway).
 
 The returned ``{common_name: "Scientific_Common"}`` format is identical to
 BirdNET's label map so ``bou_filter`` and ``seasonal_filter`` work without
 modification.
 
-Cross-validation hook
----------------------
-This module is designed to support a future cross-validation mode where both
-BirdNET and Perch run on every confirmed detection.  The ``PerchModel``
-instance is stateful (lazy model + map loading) and safe to hold long-term.
+Implementation notes
+--------------------
+The ordered class list is read from ``assets/labels.csv`` (column
+``inat2024_fsd50k``) in the Kaggle model cache directory.  This avoids loading
+the 400 MB TF model just to build the label map.  The model itself is loaded
+lazily on the first :meth:`run_inference` call.
+
+``run_inference`` uses the cached ``self._classes`` list (scientific names,
+aligned with the logits vector) and never re-accesses
+``model.class_list`` — avoiding the key mismatch between logits key
+``"label"`` and class_list key ``"labels"``.
 """
 
 from __future__ import annotations
@@ -76,8 +82,9 @@ class PerchModel:
 
     def __init__(self) -> None:
         self._model: object | None = None
-        self._label_map:     dict[str, str] | None = None  # {common_name: label_str}
-        self._code_to_common: dict[str, str]        = {}   # {ebird_code: common_name}
+        self._label_map:    dict[str, str] | None = None  # {common_name: label_str}
+        self._sci_to_common: dict[str, str]        = {}   # {scientific_name: common_name}
+        self._classes:       list[str]             = []   # ordered sci names (aligned with logits)
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
@@ -114,24 +121,69 @@ class PerchModel:
             logger.debug("Could not locate Perch v2 Kaggle model directory: %s", exc)
             return None
 
-    def _ebird_codes_from_model(self) -> list[str]:
-        """Extract the ordered eBird code list from the loaded model object."""
-        self._ensure_model()
+    def _sci_names_from_csv(self) -> list[str]:
+        """Read the ordered scientific-name list from ``assets/labels.csv``.
+
+        The CSV has a single column ``inat2024_fsd50k`` whose rows are
+        scientific names aligned with the model's logits vector.  This is the
+        preferred source because it does not require loading the TF model.
+        """
+        model_dir = self._get_model_dir()
+        if model_dir is None:
+            return []
+        labels_csv = model_dir / "assets" / "labels.csv"
+        if not labels_csv.exists():
+            logger.debug("Perch labels.csv not found at %s", labels_csv)
+            return []
         try:
-            cls_obj = (
-                self._model.class_list.get("label")  # type: ignore[union-attr]
-                or next(iter(self._model.class_list.values()), None)  # type: ignore[union-attr]
-            )
-            return list(cls_obj.classes) if cls_obj is not None else []
-        except Exception:
-            logger.warning("Could not extract Perch class list from model object.")
+            with open(labels_csv, newline="") as fh:
+                reader = csv_mod.DictReader(fh)
+                names: list[str] = []
+                for row in reader:
+                    # Column name is the namespace; accept any single-column CSV
+                    # by trying the known name first then falling back.
+                    name = (
+                        row.get("inat2024_fsd50k")
+                        or next(iter(row.values()), "")
+                    ).strip()
+                    if name:
+                        names.append(name)
+            logger.debug("Perch labels.csv: %d scientific names loaded.", len(names))
+            return names
+        except Exception as exc:
+            logger.debug("Could not read Perch labels.csv: %s", exc)
             return []
 
-    def _build_maps(self) -> tuple[dict[str, str], dict[str, str]]:
-        """Build both the label map and the eBird-code → common-name lookup.
+    def _sci_names_from_model(self) -> list[str]:
+        """Extract the ordered scientific-name list from the loaded model (fallback).
 
-        Called once on the first invocation of :meth:`load_label_map`.
-        Returns ``(label_map, code_to_common)``.
+        Used when ``labels.csv`` is unavailable.  Requires the TF model to be
+        loaded first via :meth:`_ensure_model`.
+        """
+        self._ensure_model()
+        try:
+            cl = self._model.class_list  # type: ignore[union-attr]
+            # class_list is a dict; key is "labels" (not "label")
+            cls_obj = cl.get("labels") or next(iter(cl.values()), None)
+            if cls_obj is None:
+                return []
+            return list(cls_obj.classes)
+        except Exception as exc:
+            logger.warning(
+                "Could not extract Perch class list from model object: %s", exc
+            )
+            return []
+
+    def _build_maps(self) -> tuple[dict[str, str], dict[str, str], list[str]]:
+        """Build the label map, sci→common lookup, and ordered class list.
+
+        Called once on the first invocation of :meth:`_ensure_maps`.
+        Returns ``(label_map, sci_to_common, classes)``.
+
+        The class list comes from ``assets/labels.csv`` (preferred, no TF load)
+        or from ``model.class_list["labels"].classes`` (fallback).  Either way
+        the entries are **scientific names** in the same order as the logits
+        vector produced by :meth:`run_inference`.
         """
         # ── Step 1: BTO scientific_name → british_common_name ─────────────────
         bto_path = Path(__file__).parent / "species_bto_FINAL_filtered.json"
@@ -143,120 +195,66 @@ class PerchModel:
                 if sci and name:
                     sci_to_bto[sci] = name
 
-        # ── Step 2: parse the label CSV bundled in the Kaggle model dir ───────
-        # The CSV has one row per species with at minimum the eBird code.
-        # Scientific name and common name columns are present in the BirdCLEF
-        # dataset format used by Perch; handle column-name variants gracefully.
-        csv_rows: dict[str, dict[str, str]] = {}  # ebird_code → {sci, name}
-        model_dir = self._get_model_dir()
-        if model_dir is not None:
-            assets_dir = model_dir / "assets"
-            csv_candidates = (
-                list(assets_dir.glob("*.csv"))
-                if assets_dir.is_dir()
-                else []
-            )
-            for csv_path in csv_candidates:
-                try:
-                    with open(csv_path, newline="") as fh:
-                        reader = csv_mod.DictReader(fh)
-                        raw_fields = reader.fieldnames or []
-                        fields = [f.lower().strip() for f in raw_fields]
-
-                        def _col(*candidates: str) -> str | None:
-                            for c in candidates:
-                                if c in fields:
-                                    return c
-                            return None
-
-                        code_col = _col(
-                            "primary_label", "species_code", "ebird_code", "code"
-                        )
-                        sci_col  = _col("scientific_name", "sci_name")
-                        name_col = _col(
-                            "common_name", "english_name", "name", "species_name"
-                        )
-
-                        if code_col is None:
-                            continue  # not the right CSV
-
-                        for raw in reader:
-                            row  = {k.lower().strip(): v.strip() for k, v in raw.items()}
-                            code = row.get(code_col, "")
-                            if not code:
-                                continue
-                            csv_rows[code] = {
-                                "sci":  row.get(sci_col,  "") if sci_col  else "",
-                                "name": row.get(name_col, "") if name_col else "",
-                            }
-                    if csv_rows:
-                        logger.debug(
-                            "Perch label CSV loaded from %s (%d rows)",
-                            csv_path.name, len(csv_rows),
-                        )
-                        break  # use the first usable CSV
-                except Exception as exc:
-                    logger.debug("Could not parse %s: %s", csv_path, exc)
-
-        # ── Step 3: get the ordered eBird code list ───────────────────────────
-        # Prefer the CSV row order; fall back to the model's class list.
-        if csv_rows:
-            ebird_codes = list(csv_rows.keys())
-        else:
+        # ── Step 2: get the ordered scientific-name class list ────────────────
+        sci_names = self._sci_names_from_csv()
+        if not sci_names:
             logger.info(
-                "No Perch label CSV found — loading model to retrieve class list "
-                "(common names will be eBird codes unless BTO scientific-name "
-                "matching succeeds)."
+                "Perch labels.csv unavailable — loading TF model to retrieve "
+                "class list (BTO name matching still applied)."
             )
-            ebird_codes = self._ebird_codes_from_model()
+            sci_names = self._sci_names_from_model()
 
-        # ── Step 4: assemble the maps ─────────────────────────────────────────
-        label_map:     dict[str, str] = {}
-        code_to_common: dict[str, str] = {}
+        if not sci_names:
+            logger.warning("Perch: could not determine class list; label map will be empty.")
+            return {}, {}, []
 
-        for code in ebird_codes:
-            info      = csv_rows.get(code, {})
-            sci_lower = info.get("sci", "").lower()
-            csv_name  = info.get("name", "")
+        # ── Step 3: assemble the maps ─────────────────────────────────────────
+        label_map:      dict[str, str] = {}
+        sci_to_common:  dict[str, str] = {}
 
-            # Priority: BTO british name > CSV english name > eBird code
-            common = sci_to_bto.get(sci_lower) or csv_name or code
+        bto_hits = 0
+        for sci_name in sci_names:
+            sci_lower = sci_name.lower()
 
-            # Build a label string in BirdNET's "Scientific name_Common name"
-            # format so bou_filter's existing matching logic works unchanged.
-            sci_words    = sci_lower.split()
-            sci_display  = " ".join(
-                w.capitalize() for w in sci_words
-            ) if sci_words else code
-            label_map[common]     = f"{sci_display}_{common}"
-            code_to_common[code]  = common
+            # Priority: BTO british name > scientific name as last resort
+            bto_name = sci_to_bto.get(sci_lower)
+            if bto_name:
+                common = bto_name
+                bto_hits += 1
+            else:
+                common = sci_name
+
+            # label_map value: "Scientific name_Common name" — matches BirdNET
+            # format so bou_filter and seasonal_filter work unchanged.
+            label_map[common]         = f"{sci_name}_{common}"
+            sci_to_common[sci_name]   = common
 
         logger.info(
-            "Perch label map: %d species (%d matched to BTO names)",
+            "Perch label map: %d species (%d matched to BTO names, %d unmatched).",
             len(label_map),
-            sum(1 for c in ebird_codes
-                if sci_to_bto.get(csv_rows.get(c, {}).get("sci", "").lower())),
+            bto_hits,
+            len(sci_names) - bto_hits,
         )
-        return label_map, code_to_common
+        return label_map, sci_to_common, sci_names
 
     def _ensure_maps(self) -> None:
-        """Ensure label map and code→common lookup are built (once)."""
+        """Ensure label map, sci→common lookup, and class list are built (once)."""
         if self._label_map is not None:
             return
-        self._label_map, self._code_to_common = self._build_maps()
+        self._label_map, self._sci_to_common, self._classes = self._build_maps()
 
     # ── Public interface ──────────────────────────────────────────────────────
 
     def load_label_map(self) -> dict[str, str]:
         """Return ``{common_name: "Scientific name_Common name"}`` for all Perch species.
 
-        Building the map requires downloading (or locating the cached copy of)
-        the Kaggle model to access the bundled label CSV.  The TF model itself
-        is *not* loaded here — that happens lazily on the first
-        :meth:`run_inference` call.
+        Building the map reads ``assets/labels.csv`` from the Kaggle model cache
+        and the BTO species list.  The TF model itself is *not* loaded here —
+        that happens lazily on the first :meth:`run_inference` call.
 
-        The returned format is identical to :meth:`inference_birdnet.BirdNETModel.load_label_map`
-        so ``bou_filter`` and ``seasonal_filter`` work without modification.
+        The returned format is identical to
+        :meth:`inference_birdnet.BirdNETModel.load_label_map` so ``bou_filter``
+        and ``seasonal_filter`` work without modification.
         """
         self._ensure_maps()
         assert self._label_map is not None
@@ -282,8 +280,12 @@ class PerchModel:
         """
         from scipy.signal import resample_poly  # type: ignore[import]
 
-        self._ensure_maps()   # build code→common map before we need it
+        self._ensure_maps()   # build sci→common map and class list before we need them
         self._ensure_model()  # load TF model (no-op after first call)
+
+        if not self._classes:
+            logger.warning("Perch class list is empty; cannot run inference.")
+            return []
 
         noise_labels = cfg.defaults.noise_labels
 
@@ -319,43 +321,36 @@ class PerchModel:
         if not logits_dict:
             return []
 
-        # Pick the primary class list ("label" preferred, else first available)
+        # logits key is "label" (no 's'); class_list key is "labels" (with 's').
+        # We use self._classes (pre-built, aligned with logits) rather than
+        # re-accessing model.class_list to avoid the key mismatch at runtime.
         primary_key = (
             "label"
             if "label" in logits_dict
             else next(iter(logits_dict))
         )
-        logits: np.ndarray = logits_dict[primary_key]
+        logits: np.ndarray = np.array(logits_dict[primary_key])
 
         # Average over temporal frames if the model returned multiple windows
         if logits.ndim > 1:
             logits = logits.mean(axis=0)
         logits = logits.flatten()
 
+        if len(logits) != len(self._classes):
+            logger.warning(
+                "Perch class count mismatch: %d classes vs %d logits",
+                len(self._classes), len(logits),
+            )
+            return []
+
         # ── Softmax: raw logits → probabilities ───────────────────────────────
         shifted = logits - logits.max()
         probs   = np.exp(shifted) / np.exp(shifted).sum()
 
-        # ── Retrieve the ordered eBird class names ────────────────────────────
-        try:
-            classes: list[str] = list(
-                self._model.class_list[primary_key].classes  # type: ignore[index]
-            )
-        except Exception:
-            logger.warning("Could not retrieve Perch class list during inference.")
-            return []
-
-        if len(classes) != len(probs):
-            logger.warning(
-                "Perch class count mismatch: %d classes vs %d probabilities",
-                len(classes), len(probs),
-            )
-            return []
-
-        # ── Map eBird codes → common names and build results ──────────────────
+        # ── Map scientific names → common names and build results ─────────────
         results: list[tuple[str, float]] = []
-        for code, prob in zip(classes, probs):
-            common = self._code_to_common.get(code, code)  # fallback: eBird code
+        for sci_name, prob in zip(self._classes, probs):
+            common = self._sci_to_common.get(sci_name, sci_name)
             if common.lower() not in noise_labels:
                 results.append((common, float(prob)))
 
