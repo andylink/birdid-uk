@@ -42,17 +42,14 @@ class PathsConfig:
 class AudioConfig:
     sample_rate:             int
     hop_seconds:             int
-    window_seconds:          int
     device:                  int | None
     # Dual-buffer clip settings (see config.toml [audio] for documentation).
-    clip_seconds:            int   # total saved clip length (>= window_seconds)
+    clip_seconds:            int   # total saved clip length (>= model window + pre_capture)
     pre_capture_seconds:     int   # extra audio before the analysis window
     capture_buffer_seconds:  int   # ring buffer capacity (> clip_seconds + margin)
-
-    @property
-    def post_capture_seconds(self) -> int:
-        """Derived: how many seconds after the analysis window to include."""
-        return self.clip_seconds - self.window_seconds - self.pre_capture_seconds
+    # post_capture_seconds is NOT stored here — it depends on the active model's
+    # window length, which is not known at config-load time.  Computed in
+    # detector.main() once the model is selected.
 
 
 @dataclass(frozen=True)
@@ -248,20 +245,11 @@ def _load() -> Config:
     )
 
     a = raw["audio"]
-    _window  = int(a["window_seconds"])
-    _clip    = int(a.get("clip_seconds",           _window))  # default: clip == window (old behaviour)
-    _pre     = int(a.get("pre_capture_seconds",    0))
-    _post    = _clip - _window - _pre
-    if _post < 0:
-        raise ValueError(
-            f"[audio] clip_seconds ({_clip}) must be >= "
-            f"window_seconds ({_window}) + pre_capture_seconds ({_pre}); "
-            f"got post_capture_seconds = {_post}"
-        )
+    _clip = int(a.get("clip_seconds",        15))
+    _pre  = int(a.get("pre_capture_seconds",  0))
     audio = AudioConfig(
         sample_rate            = int(a["sample_rate"]),
         hop_seconds            = int(a["hop_seconds"]),
-        window_seconds         = _window,
         device                 = a.get("device"),  # None or int
         clip_seconds           = _clip,
         pre_capture_seconds    = _pre,

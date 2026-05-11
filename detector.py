@@ -127,7 +127,11 @@ def _deferred_save(
         fallback_audio: The 3-second raw PCM array from the best hit.
         bto_name:       BTO British name for the database row (may be None).
     """
-    post_capture = cfg.audio.post_capture_seconds
+    post_capture = (
+        cfg.audio.clip_seconds
+        - int(get_model().window_seconds)
+        - cfg.audio.pre_capture_seconds
+    )
     if post_capture > 0:
         time.sleep(post_capture)
 
@@ -400,6 +404,17 @@ def main() -> None:
         cfg.inference.model, model.window_seconds,
     )
 
+    # Validate clip geometry now that the model window length is known.
+    _model_window = int(model.window_seconds)
+    _post_capture = cfg.audio.clip_seconds - _model_window - cfg.audio.pre_capture_seconds
+    if _post_capture < 0:
+        raise ValueError(
+            f"[audio] clip_seconds ({cfg.audio.clip_seconds}) must be >= "
+            f"model window ({_model_window} s) + pre_capture_seconds "
+            f"({cfg.audio.pre_capture_seconds} s); "
+            f"got post_capture_seconds = {_post_capture}"
+        )
+
     # Build the BOU allowed set and BirdNET→BTO name map if the filter is enabled.
     bou_allowed:    frozenset[str] | None = None
     birdnet_to_bto: dict[str, str]        = {}
@@ -441,7 +456,7 @@ def main() -> None:
         cfg.audio.capture_buffer_seconds,
         cfg.audio.clip_seconds,
         cfg.audio.pre_capture_seconds,
-        cfg.audio.post_capture_seconds,
+        _post_capture,
     )
 
     rec = threading.Thread(target=_record_thread, daemon=True)

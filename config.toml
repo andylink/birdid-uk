@@ -28,21 +28,28 @@ db_path = "data/birds.db"
 
 
 [audio]
+# Recording sample rate in Hz.  This is the rate used to capture audio from
+# the microphone — it is NOT the model's input rate.  Both BirdNET (resamples
+# internally) and Perch (resampled explicitly in inference_perch.py) accept
+# audio at any rate, so this value should match whatever your hardware actually
+# supports.  48000 Hz is recommended and works with virtually all modern
+# microphones and USB audio interfaces; use 44100 only if your hardware
+# does not support 48000.
 sample_rate    = 48000
 hop_seconds    = 1      # advance the rolling window by this many seconds each step
-window_seconds = 3      # analysis window length (must match BirdNET training)
 
 # Dual-buffer clip settings.
-# Saved clips are longer than the 3-second analysis window, mirroring the
-# BirdNET-Go dual-buffer design.  The capture buffer (ring) records audio
-# continuously; when a detection fires, a deferred task reads a full-length
-# segment after sleeping for the post-capture period.
+# Saved clips are longer than the analysis window, mirroring the BirdNET-Go
+# dual-buffer design.  The capture buffer (ring) records audio continuously;
+# when a detection fires, a deferred task reads a full-length segment after
+# sleeping for the post-capture period.
 #
-#   clip layout:  |-- pre_capture (2 s) --|-- window (3 s) --|-- post_capture (10 s) --|
-#                 <----------------------------- clip_seconds (15 s) ------------------->
+#   clip layout:  |-- pre_capture --|-- model window (3 s or 5 s) --|-- post_capture --|
+#                 <--------------------- clip_seconds (15 s) ----------------------->
 #
-# post_capture_seconds is derived: clip_seconds - window_seconds - pre_capture_seconds
-# (must be >= 0).
+# post_capture = clip_seconds - model_window - pre_capture_seconds
+# This is computed at startup once the model is selected, so clip_seconds only
+# needs to be large enough to accommodate the model's window + pre_capture.
 clip_seconds            = 15   # total saved clip length in seconds
 pre_capture_seconds     = 2    # extra audio before the analysis window
 capture_buffer_seconds  = 30   # ring buffer size; must be > clip_seconds + margin
