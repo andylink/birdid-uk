@@ -350,8 +350,14 @@ class PerchModel:
         probs   = np.exp(shifted) / np.exp(shifted).sum()
 
         # ── Map scientific names → common names and build results ─────────────
+        # Apply a raw probability floor (0.01) consistent with BirdNET's
+        # min_conf=0.01 to avoid returning thousands of near-zero softmax
+        # entries for species that are not present in the audio.
+        _prob_floor = 0.01
         results: list[tuple[str, float]] = []
         for sci_name, prob in zip(self._classes, probs):
+            if prob < _prob_floor:
+                continue
             common = self._sci_to_common.get(sci_name, sci_name)
             if common.lower() not in noise_labels:
                 results.append((common, float(prob)))

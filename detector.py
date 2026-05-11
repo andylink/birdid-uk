@@ -200,12 +200,15 @@ def _classify_loop(
     For each window:
       1. Apply high-pass filter to a copy of the audio if enabled in config
          (the original array is kept untouched for clip saving).
-      2. Run inference — returns all detections above a raw 0.01 floor.
+      2. Run inference — returns detections above a raw floor (BirdNET: 0.01
+         via analyze(); Perch: 0.01 applied in run_inference()).
       3. Drop any species on the global exclude list.
-      3b. If the BOU filter is enabled, drop species not in the BOU allowlist.
-      3c. If the seasonal filter is enabled, drop species outside their expected
-          season for the current BirdNET week.
       4. Filter each detection by its per-species ``min_confidence``.
+         This runs before BOU/seasonal so low-confidence hits never appear
+         in the filter-suppressed log lines.
+      4b. If the BOU filter is enabled, drop species not in the BOU allowlist.
+      4c. If the seasonal filter is enabled, drop species outside their expected
+          season for the current BirdNET week.
       5. Cap the candidate list at the global ``top_n`` setting.
       6. Confirmation filter: each species accumulates hits in ``_pending``
          until it reaches ``min_detections`` within ``confirmation_window_seconds``.
@@ -281,6 +284,20 @@ def _classify_loop(
         if not candidates:
             continue
 
+        # ── Step 4: per-species confidence filter ─────────────────────────────
+        # Applied before BOU/seasonal so that low-confidence hits never reach
+        # the filter logging paths.  This is particularly important for Perch,
+        # which returns all 14 k+ softmax classes; applying the floor early
+        # keeps the BOU/seasonal stages to a manageable candidate set.
+        candidates = [
+            (species, conf)
+            for species, conf in candidates
+            if conf >= get_species_config(species).min_confidence
+        ]
+
+        if not candidates:
+            continue
+
         # ── Step 3b: BOU allowlist filter ─────────────────────────────────────
         if bou_allowed is not None:
             candidates = [
@@ -312,18 +329,8 @@ def _classify_loop(
         if not candidates:
             continue
 
-        # ── Step 4: per-species confidence filter ─────────────────────────────
-        passing = [
-            (species, conf)
-            for species, conf in candidates
-            if conf >= get_species_config(species).min_confidence
-        ]
-
-        if not passing:
-            continue
-
         # ── Step 5: cap to global top_n ───────────────────────────────────────
-        passing = passing[: cfg.defaults.top_n]
+        passing = candidates[: cfg.defaults.top_n]
 
         # ── Steps 6–8: confirmation filter + cooldown + deferred save ─────────
         now_mono     = time.monotonic()
