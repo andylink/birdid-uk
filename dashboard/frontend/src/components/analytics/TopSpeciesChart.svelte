@@ -106,7 +106,7 @@
 				scales: {
 					x: {
 						grid: { color: grid },
-						ticks: { color: tick },
+						ticks: { color: tick, precision: 0 },
 						beginAtZero: true,
 					},
 					y: {
