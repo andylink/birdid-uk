@@ -273,12 +273,46 @@ filter_json = "uk_seasonal_filter.json"
 model = "birdnet"
 
 
+[cross_validation]
+# Dual-model cross-validation: when enabled, every confirmed detection from
+# the primary model ([inference] model) is re-evaluated by the secondary model
+# (whichever of birdnet / perch is NOT the primary).  Both models must be
+# installed and configured for this to work.
+#
+# Species agreement is compared via BTO-resolved names so that label-namespace
+# differences between BirdNET (IOC English) and Perch (eBird) are bridged.
+#
+# When models agree, detections.confidence is set to the arithmetic mean of
+# both scores.  The raw primary score is always stored in
+# detections.primary_confidence for auditability.
+enabled = false
+
+# If primary model confidence >= skip_threshold, cross-validation is skipped
+# and the detection is saved unconditionally (high-confidence shortcut).
+# This avoids the cost of running the secondary model when the primary is
+# already very confident.
+skip_threshold = 0.90
+
+# Action when models disagree on species:
+#   "drop"  — silently discard the detection (default; maximises precision)
+#   "flag"  — save with flagged = true for manual review in the dashboard
+#
+# Per-species overrides: add  on_disagree = "flag"  inside a
+# [species."<name>"] block to override for specific species (e.g. rare or
+# nocturnal birds where a missed detection is costly).
+on_disagree = "drop"
+
+
 
 # ── Per-species overrides ──────────────────────────────────────────────────────
 # Any key from [defaults] can be overridden here for a specific species.
 # The species name must match the cleaned common name produced by the classifier
 # (i.e. what you see printed in the terminal).
 # Keys not listed here fall back to [defaults].
+#
+# Cross-validation override: add  on_disagree = "flag"  to flag disagreements
+# for review rather than dropping them.  Useful for rare or nocturnal species
+# where a missed detection matters more than a false positive.
 
 [species."House Sparrow"]
 min_confidence   = 0.90
@@ -286,6 +320,8 @@ cooldown_seconds = 90
 
 [species."Tawny Owl"]
 min_detections = 1
+on_disagree    = "flag"   # rare nocturnal: flag CV disagreements rather than drop
 
 [species."Barn Owl"]
 min_detections = 1
+on_disagree    = "flag"   # rare nocturnal: flag CV disagreements rather than drop

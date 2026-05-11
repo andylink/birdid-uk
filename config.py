@@ -64,6 +64,11 @@ class SpeciesConfig:
     # Set min_detections = 1 to disable confirmation and save on the first hit.
     min_detections:             int
     confirmation_window_seconds: float
+    # Cross-validation override: None means use the global [cross_validation]
+    # on_disagree setting.  Set to "drop" or "flag" here to override per-species
+    # (e.g. set "flag" for rare/nocturnal species so disagreements are reviewed
+    # rather than silently dropped).
+    on_disagree:                str | None = None
 
 
 @dataclass(frozen=True)
@@ -169,10 +174,43 @@ class InferenceConfig:
 
 
 @dataclass(frozen=True)
+class CrossValidationConfig:
+    """Controls dual-model cross-validation of confirmed detections.
+
+    When *enabled* is ``True``, every detection confirmed by the primary model
+    is re-evaluated by the secondary model (whichever of BirdNET / Perch is
+    *not* the primary).  The two models' top species are compared via their
+    BTO-resolved names; a match is counted as agreement.
+
+    *skip_threshold*: if the primary model's best confirmation confidence is
+    at or above this value, cross-validation is skipped and the detection is
+    saved unconditionally.  Use this to avoid the overhead of running the
+    secondary model when the primary is already highly confident.
+
+    *on_disagree*: global action when the two models identify different species:
+
+    * ``"drop"``  — silently discard the detection (maximises precision; default)
+    * ``"flag"``  — save with ``flagged = True`` for manual review
+
+    Per-species overrides are supported by adding ``on_disagree = "flag"``
+    inside a ``[species."<name>"]`` block in config.toml.
+
+    When models agree, ``detections.confidence`` is set to the arithmetic mean
+    of both scores.  When CV is skipped (high-confidence shortcut), the primary
+    score is used unchanged.  The raw primary score is always stored in
+    ``detections.primary_confidence`` for auditability.
+    """
+    enabled:        bool
+    skip_threshold: float   # primary best_confidence >= this → skip CV
+    on_disagree:    str     # "drop" | "flag"
+
+
+@dataclass(frozen=True)
 class Config:
     paths:           PathsConfig
     audio:           AudioConfig
     inference:       InferenceConfig
+    cross_validation: CrossValidationConfig
     filter:          FilterConfig
     retention:       RetentionConfig
     log:             LogConfig
@@ -212,6 +250,7 @@ class Config:
             ),
             min_detections              = overrides.get("min_detections",              d.min_detections),
             confirmation_window_seconds = overrides.get("confirmation_window_seconds", d.confirmation_window_seconds),
+            on_disagree                 = overrides.get("on_disagree",                 None),
         )
 
 
@@ -333,10 +372,18 @@ def _load() -> Config:
         model = str(inf.get("model", "birdnet")),
     )
 
+    cv = raw.get("cross_validation", {})
+    cross_validation_cfg = CrossValidationConfig(
+        enabled        = bool(cv.get("enabled",        False)),
+        skip_threshold = float(cv.get("skip_threshold", 0.90)),
+        on_disagree    = str(cv.get("on_disagree",     "drop")),
+    )
+
     return Config(
         paths              = paths,
         audio              = audio,
         inference          = inference_cfg,
+        cross_validation   = cross_validation_cfg,
         filter             = filter_cfg,
         retention          = retention_cfg,
         log                = log_cfg,

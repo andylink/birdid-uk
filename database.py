@@ -12,13 +12,23 @@ at init time; the backend ``type`` stays ``"postgresql"``.
 Schema
 ------
 detections
-    id          INTEGER  PK AUTOINCREMENT
-    timestamp   TIMESTAMPTZ  (DATETIME on SQLite)
-    species     TEXT     NOT NULL   (BirdNET common name, e.g. "European Robin")
-    bto_name    TEXT               (BTO British name, e.g. "Robin"; NULL if unmapped)
-    confidence  FLOAT    NOT NULL
-    clip_path   TEXT
-    model       TEXT               (inference backend, e.g. "birdnet" or "perch")
+    id                  INTEGER  PK AUTOINCREMENT
+    timestamp           TIMESTAMPTZ  (DATETIME on SQLite)
+    species             TEXT     NOT NULL   (primary model common name, e.g. "European Robin")
+    bto_name            TEXT               (BTO British name, e.g. "Robin"; NULL if unmapped)
+    confidence          FLOAT    NOT NULL   (ensemble mean when CV agreed; primary score otherwise)
+    clip_path           TEXT
+    model               TEXT               (primary inference backend, e.g. "birdnet" or "perch")
+
+    -- Cross-validation columns (all NULL when CV is disabled or not applicable)
+    primary_confidence  FLOAT              (raw primary model score; equals confidence when CV not run)
+    cross_validated     BOOLEAN            (NULL = CV disabled/not applicable; True/False = CV ran)
+    cv_secondary_model  TEXT               (secondary model name, e.g. "perch")
+    cv_species          TEXT               (raw label from secondary model's top result)
+    cv_bto_name         TEXT               (BTO-resolved name from secondary model)
+    cv_confidence       FLOAT              (secondary model's top confidence score)
+    cv_agree            BOOLEAN            (True if primary and secondary BTO names matched)
+    flagged             BOOLEAN            (True when disagreement + on_disagree = "flag")
 
 detection_results
     id           INTEGER  PK AUTOINCREMENT
@@ -43,11 +53,13 @@ species_info
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 
 import sqlalchemy as sa
 from sqlalchemy import (
+    Boolean,
     Column,
     Float,
     ForeignKey,
@@ -63,6 +75,8 @@ from sqlalchemy.engine import URL
 
 from config import cfg
 
+logger = logging.getLogger(__name__)
+
 _engine: sa.Engine | None = None
 
 _metadata = MetaData()
@@ -76,6 +90,15 @@ _detections = Table(
     Column("confidence", Float,   nullable=False),
     Column("clip_path",  String),
     Column("model",      String),
+    # Cross-validation columns — all nullable; NULL = CV not performed
+    Column("primary_confidence",  Float),
+    Column("cross_validated",     Boolean),
+    Column("cv_secondary_model",  String),
+    Column("cv_species",          String),
+    Column("cv_bto_name",         String),
+    Column("cv_confidence",       Float),
+    Column("cv_agree",            Boolean),
+    Column("flagged",             Boolean),
 )
 
 _detection_results = Table(
@@ -101,6 +124,20 @@ _species_info = Table(
     Column("group_name",                 String),
 )
 
+# ── Cross-validation columns added in this version ────────────────────────────
+# If the detections table already exists (created by an older version without
+# these columns), _migrate_detections_table() adds them via ALTER TABLE.
+_CV_COLUMNS: dict[str, str] = {
+    "primary_confidence":  "FLOAT",
+    "cross_validated":     "BOOLEAN",
+    "cv_secondary_model":  "TEXT",
+    "cv_species":          "TEXT",
+    "cv_bto_name":         "TEXT",
+    "cv_confidence":       "FLOAT",
+    "cv_agree":            "BOOLEAN",
+    "flagged":             "BOOLEAN",
+}
+
 
 def _engine_url() -> str | URL:
     """Build a SQLAlchemy connection URL from config."""
@@ -119,10 +156,41 @@ def _engine_url() -> str | URL:
     )
 
 
+def _migrate_detections_table(engine: sa.Engine) -> None:
+    """Add any missing cross-validation columns to an existing detections table.
+
+    SQLite does not support ``ALTER TABLE … ADD COLUMN IF NOT EXISTS`` so we
+    introspect the schema first and only issue ``ALTER TABLE`` for columns that
+    are genuinely absent.  Safe to call on a fresh database (no-op when all
+    columns already exist because ``create_all`` created them).
+    """
+    db_type = cfg.database.type
+    with engine.begin() as conn:
+        if db_type == "sqlite":
+            rows = conn.execute(text("PRAGMA table_info(detections)")).fetchall()
+            existing = {row[1] for row in rows}
+        else:
+            rows = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'detections'"
+            )).fetchall()
+            existing = {row[0] for row in rows}
+
+        for col_name, col_type in _CV_COLUMNS.items():
+            if col_name not in existing:
+                conn.execute(text(
+                    f"ALTER TABLE detections ADD COLUMN {col_name} {col_type}"
+                ))
+                logger.info("DB migration: added column detections.%s", col_name)
+
+
 def init_db() -> None:
     """
     Open the database, ensure the schema exists, and (when configured)
     initialise the TimescaleDB hypertable on *detections.timestamp*.
+
+    Also runs :func:`_migrate_detections_table` to add cross-validation
+    columns to any database created by an earlier version of the detector.
 
     Safe to call multiple times — ``CREATE TABLE IF NOT EXISTS`` is used and
     ``create_hypertable`` is called with ``if_not_exists => TRUE``.
@@ -145,6 +213,7 @@ def init_db() -> None:
         _engine = sa.create_engine(url)
 
     _metadata.create_all(_engine)
+    _migrate_detections_table(_engine)
 
     if cfg.database.timescaledb:
         with _engine.begin() as conn:
@@ -155,41 +224,77 @@ def init_db() -> None:
 
 
 def record_detection(
-    ts: datetime,
-    species: str,
+    ts:         datetime,
+    species:    str,
     confidence: float,
-    clip_path: Path,
-    secondary: list[tuple[str, float]],
-    bto_name: str | None = None,
+    clip_path:  Path,
+    secondary:  list[tuple[str, float]],
+    bto_name:   str | None = None,
     model_name: str | None = None,
+    # Cross-validation fields — all optional; omit entirely when CV is disabled
+    primary_confidence:  float | None = None,
+    cross_validated:     bool | None  = None,
+    cv_secondary_model:  str | None   = None,
+    cv_species:          str | None   = None,
+    cv_bto_name:         str | None   = None,
+    cv_confidence:       float | None = None,
+    cv_agree:            bool | None  = None,
+    flagged:             bool | None  = None,
 ) -> None:
     """
-    Persist one detection window to the database.
+    Persist one detection to the database.
 
     Inserts a row into ``detections`` for the top species, then one row per
     entry in *secondary* into ``detection_results`` (FK back to
     ``detections``).  Both inserts run in a single transaction.
 
+    When cross-validation was performed, pass the :class:`CrossValidationResult`
+    fields directly.  The ``confidence`` column should contain the *final*
+    confidence (ensemble mean when agreed, primary score otherwise); the raw
+    primary score is stored separately in ``primary_confidence``.
+
     Args:
-        bto_name:   The canonical BTO British common name for *species*
-                    (e.g. ``"Robin"`` when BirdNET returns ``"European Robin"``).
-                    Populated by translating via the BirdNET→BTO map built at
-                    startup.  If ``None``, the column is left NULL.
-        model_name: The inference backend that produced this detection
-                    (e.g. ``"birdnet"`` or ``"perch"``).  Taken from
-                    ``cfg.inference.model`` at detection time.
+        ts:                  UTC timestamp of the best-confidence hit.
+        species:             Primary model common name (e.g. "European Robin").
+        confidence:          Final headline confidence (ensemble mean if CV
+                             agreed, primary score otherwise).
+        clip_path:           Path to the saved WAV clip.
+        secondary:           Additional candidate species from the same window
+                             (written to ``detection_results``).
+        bto_name:            BTO British name (e.g. "Robin"); ``None`` if
+                             unmapped.
+        model_name:          Primary inference backend (e.g. ``"birdnet"``).
+        primary_confidence:  Raw primary model confidence before any ensemble
+                             averaging.  ``None`` when CV was not performed
+                             (``confidence`` already equals the primary score).
+        cross_validated:     ``True`` / ``False`` if CV ran; ``None`` if CV is
+                             disabled or the detection bypassed CV.
+        cv_secondary_model:  Name of the secondary model (e.g. ``"perch"``).
+        cv_species:          Secondary model's top species label.
+        cv_bto_name:         BTO-resolved name for ``cv_species``.
+        cv_confidence:       Secondary model's top confidence score.
+        cv_agree:            ``True`` if both BTO names matched.
+        flagged:             ``True`` when disagreement + ``on_disagree="flag"``.
     """
     if _engine is None:
         return
     with _engine.begin() as conn:
         result = conn.execute(
             _detections.insert().values(
-                timestamp  = ts,
-                species    = species,
-                bto_name   = bto_name,
-                confidence = confidence,
-                clip_path  = str(clip_path),
-                model      = model_name,
+                timestamp            = ts,
+                species              = species,
+                bto_name             = bto_name,
+                confidence           = confidence,
+                clip_path            = str(clip_path),
+                model                = model_name,
+                primary_confidence   = primary_confidence,
+                cross_validated      = cross_validated,
+                cv_secondary_model   = cv_secondary_model,
+                cv_species           = cv_species,
+                cv_bto_name          = cv_bto_name,
+                cv_confidence        = cv_confidence,
+                cv_agree             = cv_agree,
+                flagged              = flagged,
             )
         )
         detection_id = result.inserted_primary_key[0]
@@ -201,6 +306,7 @@ def record_detection(
                     for s, c in secondary
                 ],
             )
+
 
 
 def seed_species_info(json_path: Path) -> None:
