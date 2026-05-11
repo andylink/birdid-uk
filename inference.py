@@ -1,137 +1,119 @@
 """
-inference.py — BirdNET analysis and label-map utilities.
+inference.py — inference backend dispatcher.
 
-Uses the built-in BirdNET GLOBAL 6K V2.4 model shipped with
-*birdnet_analyzer*.  No custom classifier is loaded.
+Selects and exposes the active inference model based on
+``cfg.inference.model`` (``"birdnet"`` or ``"perch"``).
 
-Stock label format
-------------------
-The bundled labels file uses ``Scientific name_Common name`` (one underscore
-separator, space inside the scientific name), e.g.::
+Adding a new backend
+--------------------
+1. Create ``inference_<name>.py`` with a class that satisfies
+   :class:`Inferencer` (``window_seconds`` attribute, ``run_inference`` and
+   ``load_label_map`` methods).
+2. Add an ``elif cfg.inference.model == "<name>"`` branch in :func:`get_model`.
+3. Document the ``model`` key in ``config.toml`` and ``AGENTS.md``.
 
-    Erithacus rubecula_European Robin
-
-``load_label_map()`` returns ``{common_name: full_label_line}`` so that
-``save_pending_clip`` can create per-species folders with a consistent name.
-
-The ``analyze()`` CSV already contains the clean common name in the
-``Common name`` column, so no name conversion is needed at inference time.
-
-Label locale
-------------
-``cfg.inference.label_locale`` selects which common-name convention is used.
-``"en"`` (the default) uses the bundled global English labels in
-``checkpoints/V2.4/``.  Any other value (e.g. ``"en_uk"``) loads the
-matching translated file from ``labels/V2.4/`` and passes the locale to
-BirdNET's ``analyze()`` so inference results and the label map use the same
-naming convention.
+Backward compatibility
+----------------------
+Module-level :func:`run_inference` and :func:`load_label_map` functions are
+kept so that any code which did ``from inference import run_inference`` continues
+to work.  New code should call :func:`get_model` directly so it can also access
+``model.window_seconds``.
 """
 
 from __future__ import annotations
 
-import csv
-import io
-import pathlib
-import tempfile
-from contextlib import redirect_stdout
-from pathlib import Path
+from typing import Protocol
 
 import numpy as np
 
-from audio import save_wav
 from config import cfg
 
-# Path to the BirdNET labels file, respecting cfg.inference.label_locale.
-def _labels_path() -> Path:
-    import birdnet_analyzer
-    base = pathlib.Path(birdnet_analyzer.__file__).parent
-    locale = cfg.inference.label_locale
-    if locale and locale != "en":
-        # BirdNET label filenames use underscores (e.g. en_uk), but config may
-        # store the locale with a hyphen (e.g. "en-uk").  Normalise here.
-        locale_norm = locale.replace("-", "_")
-        # Translated labels live in labels/V2.4/
-        path = base / "labels" / "V2.4" / f"BirdNET_GLOBAL_6K_V2.4_Labels_{locale_norm}.txt"
-        if path.exists():
-            return path
-    # Default: global English labels in checkpoints/V2.4/
-    return base / "checkpoints" / "V2.4" / "BirdNET_GLOBAL_6K_V2.4_Labels.txt"
+
+# ── Model protocol ────────────────────────────────────────────────────────────
+
+class Inferencer(Protocol):
+    """Interface that every inference backend must satisfy.
+
+    ``window_seconds`` tells the classify loop how large a rolling audio
+    buffer to maintain.  Both methods must return results in the same format
+    regardless of which underlying model is used so that filters, confirmation
+    logic, and persistence are model-agnostic.
+    """
+
+    #: Length of audio window the model expects, in seconds.
+    window_seconds: float
+
+    def run_inference(self, audio: np.ndarray) -> list[tuple[str, float]]:
+        """Run the model on *audio* and return results.
+
+        Args:
+            audio: PCM array at ``cfg.audio.sample_rate``.  The backend is
+                responsible for any resampling required by its model.
+
+        Returns:
+            ``[(common_name, confidence), ...]`` sorted by confidence
+            descending.  Noise labels are removed; no threshold or top-N cap
+            is applied (the classify loop handles both).
+        """
+        ...
+
+    def load_label_map(self) -> dict[str, str]:
+        """Return a label map for building the BOU/seasonal filter sets.
+
+        Returns:
+            ``{common_name: "Scientific name_Common name"}`` — the same format
+            used by ``bou_filter.build_bou_allowed_set`` and
+            ``bou_filter.build_birdnet_to_bto_map``.
+        """
+        ...
 
 
-# ── Label map ─────────────────────────────────────────────────────────────────
+# ── Singleton ─────────────────────────────────────────────────────────────────
+
+_active_model: Inferencer | None = None
+
+
+def get_model() -> Inferencer:
+    """Return the configured inference backend (singleton, lazy initialisation).
+
+    The backend is selected by ``cfg.inference.model``:
+
+    * ``"birdnet"`` → :class:`inference_birdnet.BirdNETModel` (default)
+    * ``"perch"``   → :class:`inference_perch.PerchModel`
+
+    Raises:
+        ValueError: If ``cfg.inference.model`` is not a recognised value.
+        RuntimeError: If the selected backend's prerequisites are not installed
+            (e.g. ``perch-hoplite`` not present for Perch).
+    """
+    global _active_model
+    if _active_model is not None:
+        return _active_model
+
+    model_name = cfg.inference.model.lower().strip()
+
+    if model_name == "birdnet":
+        from inference_birdnet import BirdNETModel
+        _active_model = BirdNETModel()
+    elif model_name == "perch":
+        from inference_perch import PerchModel
+        _active_model = PerchModel()
+    else:
+        raise ValueError(
+            f"Unknown inference model {cfg.inference.model!r}. "
+            "Supported values: 'birdnet', 'perch'."
+        )
+
+    return _active_model
+
+
+# ── Backward-compatible module-level helpers ──────────────────────────────────
 
 def load_label_map() -> dict[str, str]:
-    """
-    Return ``{common_name: full_label_line}`` for all stock BirdNET species.
+    """Convenience wrapper — delegates to the active model's ``load_label_map``."""
+    return get_model().load_label_map()
 
-    The locale is controlled by ``cfg.inference.label_locale`` (see
-    :func:`_labels_path`).  Label lines have the form
-    ``Scientific name_Common name``, e.g.
-    ``Erithacus rubecula_European Robin``.  The common name matches the
-    ``Common name`` column returned by ``analyze()``.
-
-    Returns an empty dict if the labels file cannot be found.
-    """
-    labels_path = _labels_path()
-    if not labels_path.exists():
-        return {}
-
-    label_map: dict[str, str] = {}
-    for line in labels_path.read_text().splitlines():
-        label = line.strip()
-        if not label:
-            continue
-        _, _, common = label.partition("_")   # "Genus species_Common name" → common
-        if common:
-            label_map[common] = label
-    return label_map
-
-
-# ── Inference ─────────────────────────────────────────────────────────────────
 
 def run_inference(audio: np.ndarray) -> list[tuple[str, float]]:
-    """
-    Write *audio* to a temporary WAV, run BirdNET GLOBAL 6K V2.4, and return
-    ``[(common_name, confidence), ...]`` sorted by confidence descending.
-
-    Noise labels (``cfg.defaults.noise_labels``) are removed.  No confidence
-    threshold or top-N cap is applied — the classify loop handles those.
-
-    A raw floor of ``0.01`` is passed so near-zero scores are skipped without
-    suppressing any real detections.
-    """
-    from birdnet_analyzer.analyze.core import analyze  # lazy import
-
-    noise_labels = cfg.defaults.noise_labels
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        wav_path = Path(tmpdir) / "clip.wav"
-        save_wav(audio, wav_path)
-
-        # Normalise locale: BirdNET expects underscores (en_uk), not hyphens.
-        locale_norm = cfg.inference.label_locale.replace("-", "_")
-        with redirect_stdout(io.StringIO()):
-            analyze(
-                str(wav_path),
-                output=tmpdir,
-                min_conf=0.01,
-                rtype="csv",
-                merge_consecutive=1,
-                threads=1,
-                locale=locale_norm,
-            )
-
-        csv_path = Path(tmpdir) / "clip.BirdNET.results.csv"
-        if not csv_path.exists():
-            return []
-
-        results: list[tuple[str, float]] = []
-        with open(csv_path) as fh:
-            for row in csv.DictReader(fh):
-                common = row["Common name"].strip()
-                conf   = float(row["Confidence"])
-                if common.lower() not in noise_labels:
-                    results.append((common, conf))
-
-    results.sort(key=lambda x: x[1], reverse=True)
-    return results
+    """Convenience wrapper — delegates to the active model's ``run_inference``."""
+    return get_model().run_inference(audio)

@@ -50,7 +50,7 @@ capture_buffer_seconds  = 30   # ring buffer size; must be > clip_seconds + marg
 # Microphone device index (from `python -m sounddevice`).
 # Device 0 = HDA Intel PCH: CX8200 Analog (hw:0,0) — physical mic/line-in jack.
 # Set to 10 to use PipeWire instead if you need PipeWire routing.
-device = 0
+device = 1
 
 
 [defaults]
@@ -187,12 +187,26 @@ enabled = true
 #
 # This filter sits after the BOU allowlist (Step 3b) and before the
 # per-species confidence threshold (Step 4).
-enabled     = false
+enabled     = true
 filter_json = "uk_seasonal_filter.json"
 
 
 [inference]
+# model selects the active classifier backend.
+#
+# "birdnet" (default) — BirdNET GLOBAL 6K V2.4, bundled with birdnet-analyzer.
+#                       No extra setup required.
+# "perch"             — Google Perch v2, a TensorFlow model downloaded from
+#                       Kaggle on first run (~400 MB cached in ~/.cache/kagglehub).
+#                       Requires: pip install 'perch-hoplite[tf]'
+#                       Requires: Kaggle credentials (see requirements.txt).
+#                       Uses 5-second analysis windows at 32 kHz (audio is
+#                       resampled internally; recording always stays at
+#                       cfg.audio.sample_rate).
+model = "birdnet"
+
 # label_locale controls which BirdNET common-name convention is used.
+# Only applies when model = "birdnet".
 #
 #"en"    — default global English labels (US/international conventions, e.g.
 #           "Common Blackbird", "Eurasian Blue Tit").

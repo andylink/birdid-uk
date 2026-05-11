@@ -155,19 +155,26 @@ class SeasonalFilterConfig:
 
 @dataclass(frozen=True)
 class InferenceConfig:
-    """Controls BirdNET inference behaviour.
+    """Controls inference backend selection and BirdNET-specific options.
 
-    *label_locale* selects the common-name language used in BirdNET output and
-    the labels file loaded by :func:`inference.load_label_map`.
+    *model* selects the active classifier:
 
-    ``"en"`` (default) uses the bundled global English labels
-    (``checkpoints/V2.4/BirdNET_GLOBAL_6K_V2.4_Labels.txt``).
+    ``"birdnet"`` (default) uses the bundled BirdNET GLOBAL 6K V2.4 model
+    shipped with *birdnet-analyzer*.  No extra dependencies required.
 
-    Any other value, e.g. ``"en_uk"``, loads the corresponding translated file
-    from ``labels/V2.4/BirdNET_GLOBAL_6K_V2.4_Labels_{locale}.txt`` and passes
-    ``locale`` to BirdNET's ``analyze()`` so inference results use the same
-    common-name convention.
+    ``"perch"`` uses Google Perch v2, a TensorFlow-based model downloaded
+    from Kaggle on first run (~400 MB).  Requires ``perch-hoplite[tf]`` and
+    Kaggle credentials; see requirements.txt for installation notes.
+
+    *label_locale* only applies when *model* is ``"birdnet"``.  It selects
+    the common-name language returned by BirdNET and loaded by
+    :func:`inference_birdnet.BirdNETModel.load_label_map`.
+
+    ``"en"`` uses the bundled global English labels.  ``"en_uk"`` (recommended
+    for UK deployments) loads the British English label file and is required for
+    BOU filter name matching to work correctly.
     """
+    model:        str   # "birdnet" | "perch"
     label_locale: str
 
 
@@ -342,6 +349,7 @@ def _load() -> Config:
 
     inf = raw.get("inference", {})
     inference_cfg = InferenceConfig(
+        model        = str(inf.get("model",        "birdnet")),
         label_locale = str(inf.get("label_locale", "en")),
     )
 

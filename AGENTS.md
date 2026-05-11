@@ -1,83 +1,89 @@
 # AGENTS.md
 
-## What this is
+## Project
 
-Real-time garden bird detector for a Norfolk, UK garden. Two independently runnable processes:
-- **Detector** (`detect.py`): microphone → BirdNET TFLite inference → SQLite + WAV clips
-- **Dashboard** (`dashboard/`): FastAPI backend + Svelte SPA
+Real-time garden bird classifier: Python daemon (`detect.py`) → BirdNET inference → SQLite → FastAPI dashboard + SvelteKit frontend. UK-focused with BOU/BTO species allowlist and GBIF-derived seasonal filter.
 
-## Commands
+## Repo structure
 
-```bash
-# Detector
-python detect.py
+```
+detect.py                   # daemon entrypoint
+detector.py / audio.py / inference.py / database.py / …  # core modules
+inference.py                # dispatcher: reads cfg.inference.model, returns active Inferencer
+inference_birdnet.py        # BirdNET GLOBAL 6K V2.4 backend (default)
+inference_perch.py          # Google Perch v2 backend (optional, requires TF + Kaggle)
+config.toml                 # single source of truth for all settings
+dashboard/
+  app.py                    # FastAPI entrypoint
+  requirements.txt          # separate from root requirements.txt
+  frontend/                 # SvelteKit project (own package.json)
+    src/routes/             # file-based routes (+page.svelte)
+    src/components/
+    dist/                   # built output served by FastAPI (gitignored)
+data/
+  birds.db                  # SQLite (runtime, gitignored)
+  detections/               # saved WAV clips (runtime, gitignored)
+build_uk_seasonal_filter.py # codegen: regenerates uk_seasonal_filter.json
+```
 
-# Dashboard backend (dev, with auto-reload)
-uvicorn dashboard.app:app --host 0.0.0.0 --port 8080 --reload
+## Developer commands
 
-# Frontend dev server (port 5173, proxies /api /stream /spectrogram /audio → 8080)
-cd dashboard/frontend && npm run dev
+**Python detector**
+```sh
+# use the repo venv (Python 3.11)
+source venv/bin/activate
 
-# Build frontend for production (outputs to dashboard/frontend/dist/)
-cd dashboard/frontend && npm run build
+pip install -r requirements.txt           # detector deps
+pip install -r dashboard/requirements.txt # dashboard deps
 
-# TypeScript typecheck (Svelte)
-cd dashboard/frontend && npm run check
+python detect.py                          # run the detector daemon
 
-# List available audio input devices
+# find the correct audio device index for config.toml [audio] device
 python -m sounddevice
+
+# regenerate uk_seasonal_filter.json from GBIF data
+python build_uk_seasonal_filter.py
 ```
 
-No Makefile, Taskfile, pre-commit hooks, or CI workflows exist. No test suite.
-
-## Install
-
-```bash
-pip install -r requirements.txt
-pip install -r dashboard/requirements.txt
-
-# NOTE: librosa and matplotlib are missing from dashboard/requirements.txt
-# but are imported by dashboard/routes/media.py — install them separately:
-pip install librosa matplotlib
-
-# Optional PostgreSQL support
-pip install psycopg2-binary
-
-cd dashboard/frontend && npm install
+**Dashboard backend**
+```sh
+uvicorn dashboard.app:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-## Architecture notes
+**Frontend** (run from `dashboard/frontend/`)
+```sh
+npm install
+npm run dev          # Vite dev server; proxies API calls to localhost:8080
+npm run check        # svelte-kit sync + svelte-check (type-check)
+npm run build        # production build → dist/ (required for FastAPI to serve UI)
+```
 
-- **Unified database layer**: Both the detector (writes) and dashboard (reads) use SQLAlchemy, driven by the same `[database]` section in `config.toml`. `dashboard/database.py` creates its own read engine from `cfg` — separate instance from the write engine, which is safe under SQLite WAL. `dashboard/config.py` derives `DB_PATH` from `cfg.paths.db_path` (no longer hardcoded).
-- **WAL mode**: Detector enables SQLite WAL so the dashboard reader never blocks the writer.
-- **Config singleton**: All runtime config lives in `config.toml`. Loaded once at import time into a frozen dataclass hierarchy. Import with `from config import cfg`. Note: `cfg.database.type` (not `.backend`) is the backend key.
-- **Path resolution**: `config.py` loads `db_path` as a raw `Path` from `config.toml` (relative to CWD). `dashboard/database.py` and `dashboard/config.py` resolve it against `Path(__file__).parent.parent` so the dashboard works from any working directory.
-- **Inference via temp file**: `run_inference()` writes a temp WAV, calls BirdNET `analyze()` (stdout suppressed), reads back CSV. BirdNET analyzer is imported lazily inside the function.
+Override the proxy target: `API_BASE=http://other-host:8080 npm run dev`
 
-## Non-obvious conventions
+## No tests, no CI
 
-- **High-pass filter is inference-only**: Applied to a copy of the buffer. `save_clip()` always writes raw, unfiltered audio.
-- **Two clip types**: Detection clips are amplitude-normalised (full int16 range). Pending clips for retraining (`data/pending/`) are *not* normalised — this is intentional to match xeno-canto training data amplitude characteristics.
-- **Confidence threshold sync**: `dashboard/config.py` defines `CONF_HIGH = 0.9` / `CONF_MED = 0.7`. `dashboard/frontend/src/lib/confidence.ts` mirrors these manually — no codegen. Keep both in sync.
-- **Species name format**: Custom classifier labels are `Genus_species_Common_Name`. `clean_species_name()` strips the scientific prefix. Config keys must use the resulting common name (case-insensitive lookup).
-- **Location in config**: `[location]` section in `config.toml` holds `lat`/`lon` (WGS-84 decimal degrees). `dashboard/config.py` derives `SUN_LAT`/`SUN_LON` from `cfg.location`. `SPECIES_META` is UK-specific.
-- **paho-mqtt v1/v2 compat**: `mqtt.py` branches on `CallbackAPIVersion` availability to handle both API versions.
+There are no test files, no test framework, and no CI configuration anywhere in the repo. Don't look for them.
 
-## Key file map
+## Key architecture notes
 
-| File | Role |
-|---|---|
-| `detect.py` | Entry point (calls `detector.main()`) |
-| `detector.py` | Recording thread, classify loop, main loop |
-| `audio.py` | WAV I/O, clip saving, high-pass filter |
-| `inference.py` | BirdNET wrapper, label parsing, `clean_species_name()` |
-| `database.py` | SQLAlchemy multi-backend (detector writes) |
-| `config.py` | Typed config loader via `tomllib` |
-| `retention.py` | Background thread: age/disk cleanup |
-| `mqtt.py` | Optional paho-mqtt publish |
-| `dashboard/app.py` | FastAPI app factory |
-| `dashboard/database.py` | sqlite3 read-only helper (dashboard reads) |
-| `dashboard/routes/media.py` | Spectrogram generation (librosa, LRU 256 entries) |
-| `dashboard/frontend/src/lib/api.ts` | Typed fetch wrappers for all API endpoints |
-| `checkpoints/custom/` | TFLite classifier + labels (required at runtime) |
-| `data/` | Runtime data: `birds.db`, `detections/`, `pending/`, image cache |
+- **Single config file**: everything lives in `config.toml`. Do not add `.env` files or hardcode values; read `config.toml` through `config.py`.
+- **`dashboard/config.py` bug**: `lat`/`lon` are hardcoded there instead of reading from `config.toml`. Known issue — do not replicate this pattern.
+- **`label_locale = "en-uk"`** in `config.toml` is load-bearing for BirdNET: BOU filter matching depends on BirdNET returning British English names (e.g. "Blue Tit" not "Eurasian Blue Tit"). `label_locale` has no effect when `model = "perch"`.
+- **Inference model abstraction**: `inference.py` is a dispatcher. Each backend (`inference_birdnet.py`, `inference_perch.py`) exposes `window_seconds`, `run_inference()`, and `load_label_map()`. `detector.py` uses `model.window_seconds` to size its rolling audio buffer, so the buffer resizes automatically when the model changes (BirdNET: 3 s, Perch: 5 s). All downstream code (BOU filter, seasonal filter, DB writes) is model-agnostic.
+- **Database schema**: created automatically via `CREATE TABLE IF NOT EXISTS` on first run. No migrations framework. Schema changes require manual `ALTER TABLE` or deleting `data/birds.db`.
+- **`species_bto_FINAL_filtered.json`** is a checked-in data file (BTO species list). `uk_seasonal_filter.json` is generated by `build_uk_seasonal_filter.py` — edit the script, not the JSON directly.
+- **Production serving**: FastAPI mounts `dashboard/frontend/dist/` at `/`. Run `npm run build` before running the server in production; the `dist/` directory is gitignored.
+- **Vite dev proxy**: `/api/v1`, `/stream`, `/audio`, `/spectrogram`, `/healthz` are proxied to the FastAPI backend. `/api/v2/*` requests are swallowed silently (intentional workaround for OpenCode health-checks).
+- **Svelte 5 runes mode** is enabled project-wide (`svelte.config.js`). Use `$state`, `$derived`, `$effect` — not legacy `export let` / reactive statements.
+- **Frontend can import project-root JSON** (e.g. `species_bto_FINAL_filtered.json`) because `vite.config.ts` sets `server.fs.allow` to the repo root.
+
+## Optional features (disabled by default in config.toml)
+
+- PostgreSQL / TimescaleDB: set `[database] type = "postgresql"`, install `psycopg2-binary`
+- MQTT: set `[mqtt] enabled = true`, requires `paho-mqtt`
+- birdmap.co.uk forwarding: set `[birdmap] enabled = true`, requires API key
+- **Perch v2 model**: set `[inference] model = "perch"`. Requires:
+  1. `pip install 'perch-hoplite[tf]'` (~2 GB TF install)
+  2. Kaggle API token at `~/.config/kaggle/kaggle.json` — model (~400 MB) downloads on first run and is cached in `~/.cache/kagglehub/`
+  3. Perch uses 5-second windows; the rolling audio buffer resizes automatically
+  4. BOU filter works via scientific-name matching (eBird codes → BTO names via `species_bto_FINAL_filtered.json`); `label_locale` is ignored

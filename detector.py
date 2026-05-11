@@ -9,16 +9,26 @@ Dual-buffer design
 ------------------
 The recording thread feeds two consumers in parallel:
 
-  * ``audio_queue`` — used by :func:`_classify_loop` to maintain the 3-second
-    sliding analysis window that is passed to the BirdNET classifier.
+  * ``audio_queue`` — used by :func:`_classify_loop` to maintain a sliding
+    analysis window (length determined by the active inference model) that is
+    passed to the classifier.
   * ``_capture_buffer`` — a large ring buffer (default 30 s) that records
     audio continuously.  When a detection fires, a *deferred save task* is
     submitted to ``_executor``; it sleeps for ``post_capture_seconds`` (so
     the full post-detection audio is captured), then reads the complete clip
     segment from the ring buffer and persists it to disk.
 
-The benefit: saved clips are longer than the 3-second analysis window
-(default 15 s), exactly mirroring BirdNET-Go's CaptureBuffer behaviour.
+The benefit: saved clips are longer than the analysis window (default 15 s),
+exactly mirroring BirdNET-Go's CaptureBuffer behaviour.
+
+Inference model
+---------------
+The active model is selected by ``cfg.inference.model`` in ``config.toml``.
+``_classify_loop`` queries ``model.window_seconds`` at startup so the rolling
+buffer automatically resizes to suit the model (3 s for BirdNET, 5 s for
+Perch v2).  Audio is always recorded at ``cfg.audio.sample_rate``; any
+resampling needed by the model happens inside the model's
+``run_inference`` method.
 """
 
 from __future__ import annotations
@@ -41,7 +51,7 @@ from bou_filter import build_bou_allowed_set, build_birdnet_to_bto_map
 from capture_buffer import CaptureBuffer
 from config import cfg, get_species_config
 from database import init_db, record_detection, seed_species_info
-from inference import load_label_map, run_inference
+from inference import Inferencer, get_model
 from log_setup import setup_logging
 from mqtt import init_mqtt, publish_detection
 from retention import start_retention_thread
@@ -76,7 +86,7 @@ class _Pending:
     best_confidence:   float
     best_ts:           datetime
     best_begin_sample: int           # ring-buffer cursor at the best hit
-    best_fallback:     np.ndarray    # 3-second raw PCM copy from the best hit
+    best_fallback:     np.ndarray    # raw PCM copy (one analysis window) from the best hit
     hit_count:         int
 
 
@@ -137,7 +147,7 @@ def _deferred_save(
     if segment is None:
         logger.warning(
             "capture buffer miss for %s at sample %d (post_capture=%ds); "
-            "saving 3-second fallback clip",
+            "saving fallback clip (one analysis window)",
             species, begin_sample, post_capture,
         )
         segment = fallback_audio
@@ -177,6 +187,7 @@ def _classify_loop(
     bou_allowed:    frozenset[str] | None,
     birdnet_to_bto: dict[str, str],
     seasonal:       SeasonalFilter,
+    model:          Inferencer,
 ) -> None:
     """
     Consume audio chunks, maintain a rolling window, run inference, and
@@ -201,8 +212,8 @@ def _classify_loop(
       8. Submit a deferred-save task for each confirmed species.
     """
     buffer: list[np.ndarray] = []
-    window_blocks  = cfg.audio.window_seconds // cfg.audio.hop_seconds
-    window_samples = cfg.audio.window_seconds  * cfg.audio.sample_rate
+    window_blocks  = int(model.window_seconds) // cfg.audio.hop_seconds
+    window_samples = int(model.window_seconds)  * cfg.audio.sample_rate
     _window_count  = 0
 
     while not stop_event.is_set():
@@ -234,7 +245,7 @@ def _classify_loop(
             inference_audio = audio
 
         try:
-            candidates = run_inference(inference_audio)
+            candidates = model.run_inference(inference_audio)
         except Exception:
             logger.exception("inference error on window %d — skipping", _window_count)
             continue
@@ -382,7 +393,12 @@ def _classify_loop(
 def main() -> None:
     setup_logging()
 
-    label_map = load_label_map()
+    model     = get_model()
+    label_map = model.load_label_map()
+    logger.info(
+        "Inference model: %s  (window: %.0f s)",
+        cfg.inference.model, model.window_seconds,
+    )
 
     # Build the BOU allowed set and BirdNET→BTO name map if the filter is enabled.
     bou_allowed:    frozenset[str] | None = None
@@ -432,7 +448,7 @@ def main() -> None:
     rec.start()
 
     try:
-        _classify_loop(bou_allowed, birdnet_to_bto, seasonal)
+        _classify_loop(bou_allowed, birdnet_to_bto, seasonal, model)
     except KeyboardInterrupt:
         pass
     finally:

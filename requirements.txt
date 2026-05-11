@@ -6,3 +6,20 @@ sqlalchemy
 # psycopg2-binary  # uncomment when using type = "postgresql" in [database]
 paho-mqtt
 
+# ── Optional: Perch v2 inference backend ──────────────────────────────────────
+# Set [inference] model = "perch" in config.toml to enable.
+#
+# 1. Install the package (pulls in TensorFlow CPU; ~2 GB):
+#      pip install 'perch-hoplite[tf]'
+#    For GPU support use:
+#      pip install 'perch-hoplite[tf-cuda]'
+#
+# 2. Obtain Kaggle credentials so the model can be downloaded on first run
+#    (~400 MB, cached in ~/.cache/kagglehub/ afterwards):
+#      - Create an API token at https://www.kaggle.com/settings
+#      - Save it to ~/.config/kaggle/kaggle.json
+#        {"username":"<you>","key":"<token>"}
+#      - Or export KAGGLE_USERNAME and KAGGLE_KEY as environment variables.
+#
+# perch-hoplite[tf]
+
