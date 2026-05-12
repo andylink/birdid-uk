@@ -338,19 +338,6 @@
     "group_name": "Wildfowl"
   },
   {
-    "name": "Ruddy Shelduck",
-    "scientific_name": "Tadorna ferruginea",
-    "british_list_status": "Escaped, Former Visitor (Last Record 1946)",
-    "population_estimate": "1-10 Records",
-    "bto_2letter_code": "UD",
-    "bto_5letter_code": "RUDSH",
-    "species_status": "Rare",
-    "uk_bocc": null,
-    "birdfacts_url": "https://www.bto.org/understanding-birds/birdfacts/ruddy-shelduck",
-    "international_english_name": null,
-    "group_name": "Wildfowl"
-  },
-  {
     "name": "Mandarin Duck",
     "scientific_name": "Aix galericulata",
     "british_list_status": "Introduced Breeder",
@@ -845,19 +832,6 @@
     "group_name": "Nightjars"
   },
   {
-    "name": "Red-necked Nightjar",
-    "scientific_name": "Caprimulgus ruficollis",
-    "british_list_status": "Not Recorded since 1856",
-    "population_estimate": "",
-    "bto_2letter_code": "",
-    "bto_5letter_code": "RENNI",
-    "species_status": "Very rare",
-    "uk_bocc": null,
-    "birdfacts_url": "https://www.bto.org/understanding-birds/birdfacts/red-necked-nightjar",
-    "international_english_name": null,
-    "group_name": "Nightjars"
-  },
-  {
     "name": "Nightjar",
     "scientific_name": "Caprimulgus europaeus",
     "british_list_status": "Migrant Breeder, Passage Visitor",
@@ -973,19 +947,6 @@
     "birdfacts_url": "https://www.bto.org/understanding-birds/birdfacts/white-rumped-swift",
     "international_english_name": null,
     "group_name": "Swifts"
-  },
-  {
-    "name": "Ruby-throated Hummingbird",
-    "scientific_name": "Archilochus colubris",
-    "british_list_status": "Reported, but does not occur",
-    "population_estimate": "0 Records",
-    "bto_2letter_code": "",
-    "bto_5letter_code": "RUTHU",
-    "species_status": null,
-    "uk_bocc": null,
-    "birdfacts_url": "https://birdsoftheworld.org/bow/species/rthhum/cur/introduction",
-    "international_english_name": null,
-    "group_name": null
   },
   {
     "name": "Little Bustard",
@@ -3455,19 +3416,6 @@
     "uk_bocc": null,
     "birdfacts_url": "https://www.bto.org/understanding-birds/birdfacts/short-toed-eagle",
     "international_english_name": "Short-toed Snake Eagle",
-    "group_name": "Raptors"
-  },
-  {
-    "name": "Spotted Eagle",
-    "scientific_name": "Clanga clanga",
-    "british_list_status": "Not Recorded since 1915",
-    "population_estimate": "",
-    "bto_2letter_code": "",
-    "bto_5letter_code": "SPOEA",
-    "species_status": "Very rare",
-    "uk_bocc": null,
-    "birdfacts_url": "https://www.bto.org/understanding-birds/birdfacts/greater-spotted-eagle",
-    "international_english_name": "Greater Spotted Eagle",
     "group_name": "Raptors"
   },
   {
@@ -6762,7 +6710,7 @@
   {
     "name": "Serin",
     "scientific_name": "Serinus serinus",
-    "british_list_status": "Scarce Visitor, Has bred",
+    "british_list_status": "Scarce Visitor, Has Bred",
     "population_estimate": "10 - 100 Birds",
     "bto_2letter_code": "NS",
     "bto_5letter_code": "SERIN",

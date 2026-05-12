@@ -170,6 +170,25 @@ class NocturnalFilterConfig:
 
 
 @dataclass(frozen=True)
+class BouFilterConfig:
+    """Controls status-based exclusion from the BOU allowlist.
+
+    *exclude_status* is a list of status tokens to exclude.  Each species'
+    ``british_list_status`` field is split on commas and the resulting tokens
+    are compared case-insensitively against this list.  Any species whose status
+    contains a listed token is dropped from the allowlist before matching.
+
+    Examples::
+
+        exclude_status = ["Accidental"]           # suppress extreme vagrants
+        exclude_status = ["Accidental", "Escaped"] # also suppress escaped species
+
+    Leave empty (default) to accept all BTO-listed species.
+    """
+    exclude_status: tuple[str, ...]   # stored as tuple for hashability
+
+
+@dataclass(frozen=True)
 class InferenceConfig:
     """Controls inference backend selection.
 
@@ -237,6 +256,7 @@ class Config:
     birdmap:          BirdmapConfig
     seasonal_filter:  SeasonalFilterConfig
     nocturnal_filter: NocturnalFilterConfig
+    bou_filter:       BouFilterConfig
     defaults:         SpeciesConfig
     general:          GeneralConfig
     location:         LocationConfig
@@ -392,6 +412,11 @@ def _load() -> Config:
         filter_json = Path(nf.get("filter_json", "uk_nocturnal_filter.json")),
     )
 
+    bf = raw.get("bou_filter", {})
+    bou_filter_cfg = BouFilterConfig(
+        exclude_status = tuple(str(s) for s in bf.get("exclude_status", [])),
+    )
+
     inf = raw.get("inference", {})
     inference_cfg = InferenceConfig(
         model = str(inf.get("model", "birdnet")),
@@ -418,6 +443,7 @@ def _load() -> Config:
         birdmap            = birdmap_cfg,
         seasonal_filter    = seasonal_filter_cfg,
         nocturnal_filter   = nocturnal_filter_cfg,
+        bou_filter         = bou_filter_cfg,
         defaults           = defaults,
         general            = general_cfg,
         location           = location_cfg,

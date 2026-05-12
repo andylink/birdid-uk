@@ -45,7 +45,30 @@ logger = logging.getLogger(__name__)
 _BOU_JSON = Path(__file__).parent / "species_bto_FINAL_filtered.json"
 
 
-def build_birdnet_to_bto_map(label_map: dict[str, str]) -> dict[str, str]:
+def _status_excluded(status: str, exclude_tokens: frozenset[str]) -> bool:
+    """Return True if any comma-split token of *status* is in *exclude_tokens*.
+
+    Comparison is case-insensitive and strips surrounding whitespace.  The
+    ``/`` character is NOT treated as a separator (e.g. "Passage/Winter Visitor"
+    is a single concept).
+
+    Examples::
+
+        _status_excluded("Accidental, Has Bred", frozenset({"accidental"}))  # True
+        _status_excluded("Scarce Visitor",        frozenset({"accidental"}))  # False
+    """
+    if not exclude_tokens:
+        return False
+    for token in status.split(","):
+        if token.strip().lower() in exclude_tokens:
+            return True
+    return False
+
+
+def build_birdnet_to_bto_map(
+    label_map: dict[str, str],
+    exclude_status: list[str] | tuple[str, ...] = (),
+) -> dict[str, str]:
     """Return ``{birdnet_common_name: bto_british_name}`` for all BOU-listed species.
 
     Uses the same three-stage matching logic as :func:`build_bou_allowed_set`
@@ -56,6 +79,10 @@ def build_birdnet_to_bto_map(label_map: dict[str, str]) -> dict[str, str]:
     Args:
         label_map: ``{birdnet_common_name: full_label_line}`` as returned by
                    :func:`inference.load_label_map`.
+        exclude_status: status tokens that cause a species to be excluded.
+                        Matched case-insensitively against comma-split tokens of
+                        each species' ``british_list_status`` field.  An empty
+                        sequence (default) skips exclusion entirely.
 
     Returns:
         dict mapping each matched BirdNET common name to its BTO British name.
@@ -67,6 +94,8 @@ def build_birdnet_to_bto_map(label_map: dict[str, str]) -> dict[str, str]:
             "populated.  Check that the BirdNET labels file exists."
         )
         return {}
+
+    exclude_lower: frozenset[str] = frozenset(s.lower() for s in exclude_status)
 
     # Build reverse lookup: scientific_name_lower → birdnet_common_name
     sci_to_common: dict[str, str] = {}
@@ -84,8 +113,12 @@ def build_birdnet_to_bto_map(label_map: dict[str, str]) -> dict[str, str]:
         bou_species: list[dict] = json.load(fh)
 
     mapping: dict[str, str] = {}
+    n_excluded = 0
 
     for sp in bou_species:
+        if _status_excluded(sp.get("british_list_status", ""), exclude_lower):
+            n_excluded += 1
+            continue
         sci_raw = sp.get("scientific_name") or ""
         sci = sci_raw.strip().lower()
         bto_name = sp.get("name", "")
@@ -110,13 +143,17 @@ def build_birdnet_to_bto_map(label_map: dict[str, str]) -> dict[str, str]:
             continue
 
     logger.info(
-        "BOU name map: %d BirdNET → BTO name mappings built",
+        "BOU name map: %d BirdNET → BTO name mappings built%s",
         len(mapping),
+        f" ({n_excluded} excluded by status)" if n_excluded else "",
     )
     return mapping
 
 
-def build_bou_allowed_set(label_map: dict[str, str]) -> frozenset[str]:
+def build_bou_allowed_set(
+    label_map: dict[str, str],
+    exclude_status: list[str] | tuple[str, ...] = (),
+) -> frozenset[str]:
     """
     Return a frozenset of BirdNET common names for all BOU-listed species.
 
@@ -129,6 +166,10 @@ def build_bou_allowed_set(label_map: dict[str, str]) -> frozenset[str]:
                    :func:`inference.load_label_map`.  An empty dict (e.g. if
                    the labels file is missing) causes all detections to be
                    suppressed — log a warning in that case.
+        exclude_status: status tokens that cause a species to be excluded.
+                        Matched case-insensitively against comma-split tokens of
+                        each species' ``british_list_status`` field.  An empty
+                        sequence (default) skips exclusion entirely.
 
     Returns:
         frozenset of BirdNET common names that correspond to BOU species.
@@ -140,6 +181,8 @@ def build_bou_allowed_set(label_map: dict[str, str]) -> frozenset[str]:
             "labels file exists."
         )
         return frozenset()
+
+    exclude_lower: frozenset[str] = frozenset(s.lower() for s in exclude_status)
 
     # Build reverse lookup: scientific_name_lower → birdnet_common_name
     sci_to_common: dict[str, str] = {}
@@ -162,12 +205,18 @@ def build_bou_allowed_set(label_map: dict[str, str]) -> frozenset[str]:
     n_explicit = 0
     n_sci = 0
     n_common = 0
+    n_excluded = 0
     unmatched: list[str] = []
 
     for sp in bou_species:
         sci_raw = sp.get("scientific_name") or ""
         sci = sci_raw.strip().lower()
         bou_name = sp.get("name", "?")
+
+        # Status-based exclusion
+        if _status_excluded(sp.get("british_list_status", ""), exclude_lower):
+            n_excluded += 1
+            continue
 
         # Stage 0: explicit international_english_name in JSON
         birdnet_name = sp.get("international_english_name")
@@ -196,12 +245,13 @@ def build_bou_allowed_set(label_map: dict[str, str]) -> frozenset[str]:
 
     logger.info(
         "BOU filter: %d/%d BTO species matched to BirdNET labels "
-        "(%d explicit, %d by scientific name, %d by common name)",
+        "(%d explicit, %d by scientific name, %d by common name%s)",
         n_matched,
         n_bou,
         n_explicit,
         n_sci,
         n_common,
+        f", {n_excluded} excluded by status" if n_excluded else "",
     )
     if unmatched:
         logger.debug(

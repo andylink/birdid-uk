@@ -121,6 +121,16 @@ enabled     = true
 filter_json = "uk_nocturnal_filter.json"
 
 
+[bou_filter]
+# Exclude species from the BOU allowlist based on their british_list_status.
+# Tokens are matched against the comma-separated status field (case-insensitive).
+# Examples:
+#   exclude_status = ["Accidental"]          → excludes "Accidental" and "Accidental, Has Bred"
+#   exclude_status = ["Accidental", "Escaped"] → also excludes escaped/feral species
+# Leave empty (default) to accept all BTO-listed species.
+exclude_status = []
+
+
 [retention]
 # Automatic cleanup of data/detections/ clips.
 # The cleanup thread runs on startup and then every run_interval_seconds.
@@ -225,6 +235,6 @@ min_detections = 1
 min_detections = 1
 #on_disagree    = "flag"
 
-[species."Common Whitethroat"]
+[species."Greater Whitethroat"]
 min_confidence = 0.20
 min_detections = 1
