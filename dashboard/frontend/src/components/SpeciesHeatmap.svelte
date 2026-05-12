@@ -133,6 +133,12 @@
 
 	onMount(() => {
 		sse = createSSE('/stream/detections');
+
+		// Re-fetch the heatmap whenever the SSE reconnects (e.g. after a
+		// backend restart or DB wipe). The $effect handles the initial load,
+		// so this only fires on subsequent reconnects.
+		sse.on('open', () => void fetchData(selectedDate));
+
 		sse.on('detection', (raw) => {
 			const d = raw as Detection;
 			if (selectedDate !== todayStr()) return;

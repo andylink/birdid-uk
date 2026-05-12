@@ -43,6 +43,7 @@ export function createSSE(url: string, params?: Record<string, string>): SSEClie
 
 		es.onopen = () => {
 			retryDelay = 1000; // reset on successful connection
+			handlers.get('open')?.forEach((h) => h(null));
 		};
 	}
 

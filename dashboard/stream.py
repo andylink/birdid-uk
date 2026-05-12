@@ -36,28 +36,35 @@ async def detection_generator() -> AsyncGenerator[dict, None]:
         await conn.execute("PRAGMA journal_mode=WAL")
 
         # Seed last_id so we don't replay history on initial connect.
-        async with conn.execute("SELECT COALESCE(MAX(id), 0) FROM detections") as cur:
-            row = await cur.fetchone()
-            if row:
-                last_id = int(row[0])
+        # Guard against a race where detect.py hasn't created the schema yet.
+        try:
+            async with conn.execute("SELECT COALESCE(MAX(id), 0) FROM detections") as cur:
+                row = await cur.fetchone()
+                if row:
+                    last_id = int(row[0])
+        except aiosqlite.OperationalError:
+            pass  # table not yet created; last_id stays 0
 
         while True:
-            async with conn.execute(
-                """
-                SELECT d.id, d.timestamp, d.species, d.bto_name, d.confidence, d.clip_path,
-                       d.model,
-                       d.primary_confidence, d.cross_validated,
-                       d.cv_secondary_model, d.cv_species, d.cv_bto_name,
-                       d.cv_confidence, d.cv_agree, d.flagged,
-                       si.scientific_name, si.group_name, si.uk_bocc, si.species_status,
-                       si.bto_2letter_code, si.bto_5letter_code
-                FROM detections d
-                LEFT JOIN species_info si ON si.name = d.bto_name
-                WHERE d.id > ? ORDER BY d.id ASC
-                """,
-                (last_id,),
-            ) as cur:
-                rows = await cur.fetchall()
+            try:
+                async with conn.execute(
+                    """
+                    SELECT d.id, d.timestamp, d.species, d.bto_name, d.confidence, d.clip_path,
+                           d.model,
+                           d.primary_confidence, d.cross_validated,
+                           d.cv_secondary_model, d.cv_species, d.cv_bto_name,
+                           d.cv_confidence, d.cv_agree, d.flagged,
+                           si.scientific_name, si.group_name, si.uk_bocc, si.species_status,
+                           si.bto_2letter_code, si.bto_5letter_code
+                    FROM detections d
+                    LEFT JOIN species_info si ON si.name = d.bto_name
+                    WHERE d.id > ? ORDER BY d.id ASC
+                    """,
+                    (last_id,),
+                ) as cur:
+                    rows = await cur.fetchall()
+            except aiosqlite.OperationalError:
+                rows = []  # table not yet created; wait and retry next cycle
 
             for row in rows:
                 d = _row_to_dict(row)

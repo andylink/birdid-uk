@@ -5292,7 +5292,7 @@
   },
   {
     "name": "Whitethroat",
-    "scientific_name": "Sylvia communis",
+    "scientific_name": "Curruca communis",
     "british_list_status": "Migrant Breeder, Passage Visitor",
     "population_estimate": "1.1 million Territories",
     "bto_2letter_code": "WH",
@@ -5300,7 +5300,7 @@
     "species_status": "Common",
     "uk_bocc": "Amber",
     "birdfacts_url": "https://www.bto.org/understanding-birds/birdfacts/whitethroat",
-    "international_english_name": "Common Whitethroat",
+    "international_english_name": "Greater Whitethroat",
     "group_name": "Warblers"
   },
   {
