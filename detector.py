@@ -315,7 +315,7 @@ def _record_thread() -> None:
 
 
 def _classify_loop(
-    bou_allowed:    frozenset[str] | None,
+    bou_allowed:    frozenset[str],
     birdnet_to_bto: dict[str, str],
     seasonal:       SeasonalFilter,
     model:          Inferencer,
@@ -333,9 +333,11 @@ def _classify_loop(
       4. Filter each detection by its per-species ``min_confidence``.
          This runs before BOU/seasonal so low-confidence hits never appear
          in the filter-suppressed log lines.
-      4b. If the BOU filter is enabled, drop species not in the BOU allowlist.
-       4c. If the seasonal filter is enabled, drop species outside their expected
-           season for the current BirdNET week.
+       4. Filter each detection by its per-species ``min_confidence``.
+          This runs before BOU/seasonal so low-confidence hits never appear
+          in the filter-suppressed log lines.
+       4b. BOU allowlist filter: drop species not in the UK BOU species list.
+       4c. Seasonal filter: drop species outside their expected season.
        5. Confirmation filter: each species accumulates hits in ``_pending``
          until it reaches ``min_detections`` within ``confirmation_window_seconds``.
          Only confirmed species proceed; the highest-confidence hit's audio
@@ -424,18 +426,17 @@ def _classify_loop(
         if not candidates:
             continue
 
-        # ── Step 3b: BOU allowlist filter ─────────────────────────────────────
-        if bou_allowed is not None:
-            candidates = [
-                (species, conf)
-                for species, conf in candidates
-                if species in bou_allowed
-            ]
+        # ── Step 4b: BOU allowlist filter ─────────────────────────────────────
+        candidates = [
+            (species, conf)
+            for species, conf in candidates
+            if species in bou_allowed
+        ]
 
         if not candidates:
             continue
 
-        # ── Step 3c: seasonal presence filter ────────────────────────────────
+        # ── Step 4c: seasonal presence filter ────────────────────────────────
         if seasonal.enabled:
             week = current_iso_week(ts)
             filtered = [
@@ -547,15 +548,11 @@ def main() -> None:
                 f"got post_capture_seconds = {_post_capture}"
             )
 
-    # Build the BOU allowed set and BirdNET→BTO name map if the filter is enabled.
-    bou_allowed:    frozenset[str] | None = None
-    birdnet_to_bto: dict[str, str]        = {}
-    if cfg.bou_filter.enabled:
-        bou_allowed    = build_bou_allowed_set(label_map)
-        birdnet_to_bto = build_birdnet_to_bto_map(label_map)
-        logger.info("BOU filter enabled — non-BOU detections will be suppressed")
-    else:
-        logger.info("BOU filter disabled")
+    # Build the BOU allowed set and BirdNET→BTO name map.
+    # The BOU filter is always active — this detector is UK-specific.
+    bou_allowed    = build_bou_allowed_set(label_map)
+    birdnet_to_bto = build_birdnet_to_bto_map(label_map)
+    logger.info("BOU filter active — non-BOU species will be suppressed")
 
     # Build the seasonal presence filter.
     seasonal = SeasonalFilter(
@@ -574,12 +571,9 @@ def main() -> None:
         secondary_model = get_secondary_model()
         secondary_label_map = secondary_model.load_label_map()
 
-        # Build a BTO map for the secondary model using the same function as
-        # the primary.  When the BOU filter is disabled, pass an empty map
-        # (comparisons will fall back to raw common-name matching).
-        secondary_bto_map: dict[str, str] = {}
-        if cfg.bou_filter.enabled:
-            secondary_bto_map = build_birdnet_to_bto_map(secondary_label_map)
+        # Build a BTO map for the secondary model so CV name-matching bridges
+        # the label-namespace difference between BirdNET (IOC) and Perch (eBird).
+        secondary_bto_map = build_birdnet_to_bto_map(secondary_label_map)
 
         _cross_validator = CrossValidator(
             secondary_model      = secondary_model,

@@ -63,6 +63,7 @@ from pathlib import Path
 import numpy as np
 
 from config import cfg
+from constants import NOISE_LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -306,7 +307,7 @@ class PerchModel:
         """Resample *audio*, run Perch v2, and return results.
 
         Returns ``[(common_name, confidence), ...]`` sorted by confidence
-        descending.  Noise labels (``cfg.defaults.noise_labels``) are removed.
+        descending.  Entries in ``NOISE_LABELS`` (constants.py) are removed.
         No confidence threshold or top-N cap is applied.
 
         The input *audio* is expected at ``cfg.audio.sample_rate`` (48 kHz by
@@ -329,7 +330,6 @@ class PerchModel:
             logger.warning("Perch class list is empty; cannot run inference.")
             return []
 
-        noise_labels = cfg.defaults.noise_labels
         t0 = time.perf_counter()
 
         # ── Convert int16 PCM → float32 in [-1, 1] ───────────────────────────
@@ -400,7 +400,7 @@ class PerchModel:
             if prob < _prob_floor:
                 continue
             common = self._sci_to_common.get(sci_name, sci_name)
-            if common.lower() not in noise_labels:
+            if common.lower() not in NOISE_LABELS:
                 results.append((common, float(prob)))
 
         results.sort(key=lambda x: x[1], reverse=True)

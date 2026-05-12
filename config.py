@@ -59,19 +59,17 @@ class AudioConfig:
 @dataclass(frozen=True)
 class SpeciesConfig:
     """Merged defaults + any per-species overrides for a single species."""
-    min_confidence:             float
-    cooldown_seconds:           int
-    noise_labels:               frozenset[str]
-    # Confirmation filter: a species must be detected at least min_detections
-    # times within confirmation_window_seconds before a clip is saved.
-    # Set min_detections = 1 to disable confirmation and save on the first hit.
-    min_detections:             int
+    min_confidence:              float
+    cooldown_seconds:            int
+    # Confirmation filter: species must be detected min_detections times within
+    # confirmation_window_seconds before a clip is saved.  min_detections = 1
+    # disables confirmation and saves on the first hit.
+    min_detections:              int
     confirmation_window_seconds: float
-    # Cross-validation override: None means use the global [cross_validation]
-    # on_disagree setting.  Set to "drop" or "flag" here to override per-species
-    # (e.g. set "flag" for rare/nocturnal species so disagreements are reviewed
-    # rather than silently dropped).
-    on_disagree:                str | None = None
+    # Cross-validation override: None falls back to [cross_validation] on_disagree.
+    # Set to "flag" for rare/nocturnal species to review disagreements rather
+    # than silently dropping them.
+    on_disagree:                 str | None = None
 
 
 @dataclass(frozen=True)
@@ -129,17 +127,6 @@ class BirdmapConfig:
     api_key:      str
     station_id:   int
     upload_audio: bool
-
-
-@dataclass(frozen=True)
-class BouFilterConfig:
-    """Controls the BTO species allowlist filter.
-
-    When *enabled* is ``True``, the detect loop discards any detection whose
-    BirdNET common name could not be matched to a species in
-    ``species_bto_FINAL_filtered.json``.
-    """
-    enabled: bool
 
 
 @dataclass(frozen=True)
@@ -214,22 +201,21 @@ class CrossValidationConfig:
 
 @dataclass(frozen=True)
 class Config:
-    paths:           PathsConfig
-    audio:           AudioConfig
-    inference:       InferenceConfig
+    paths:            PathsConfig
+    audio:            AudioConfig
+    inference:        InferenceConfig
     cross_validation: CrossValidationConfig
-    filter:          FilterConfig
-    retention:       RetentionConfig
-    log:             LogConfig
-    database:        DatabaseConfig
-    mqtt:            MqttConfig
-    birdmap:         BirdmapConfig
-    bou_filter:      BouFilterConfig
-    seasonal_filter: SeasonalFilterConfig
-    defaults:        SpeciesConfig
-    general:         GeneralConfig
-    location:        LocationConfig
-    exclude:         frozenset[str]   # species names to permanently suppress (case-insensitive)
+    filter:           FilterConfig
+    retention:        RetentionConfig
+    log:              LogConfig
+    database:         DatabaseConfig
+    mqtt:             MqttConfig
+    birdmap:          BirdmapConfig
+    seasonal_filter:  SeasonalFilterConfig
+    defaults:         SpeciesConfig
+    general:          GeneralConfig
+    location:         LocationConfig
+    exclude:          frozenset[str]   # species names to permanently suppress (case-insensitive)
     # raw per-species override dicts, keyed by species common name
     _species_overrides: dict[str, dict] = field(default_factory=dict, repr=False)
 
@@ -251,9 +237,6 @@ class Config:
         return SpeciesConfig(
             min_confidence              = overrides.get("min_confidence",              d.min_confidence),
             cooldown_seconds            = overrides.get("cooldown_seconds",            d.cooldown_seconds),
-            noise_labels                = frozenset(
-                overrides.get("noise_labels", list(d.noise_labels))
-            ),
             min_detections              = overrides.get("min_detections",              d.min_detections),
             confirmation_window_seconds = overrides.get("confirmation_window_seconds", d.confirmation_window_seconds),
             on_disagree                 = overrides.get("on_disagree",                 None),
@@ -310,7 +293,6 @@ def _load() -> Config:
     defaults = SpeciesConfig(
         min_confidence              = float(d["min_confidence"]),
         cooldown_seconds            = int(d["cooldown_seconds"]),
-        noise_labels                = frozenset(s.lower() for s in d["noise_labels"]),
         min_detections              = int(d.get("min_detections",              3)),
         confirmation_window_seconds = float(d.get("confirmation_window_seconds", 9.0)),
     )
@@ -373,11 +355,6 @@ def _load() -> Config:
         upload_audio = bool(bm.get("upload_audio", True)),
     )
 
-    bf = raw.get("bou_filter", {})
-    bou_filter_cfg = BouFilterConfig(
-        enabled = bool(bf.get("enabled", False)),
-    )
-
     sf = raw.get("seasonal_filter", {})
     seasonal_filter_cfg = SeasonalFilterConfig(
         enabled     = bool(sf.get("enabled",     False)),
@@ -408,7 +385,6 @@ def _load() -> Config:
         database           = database_cfg,
         mqtt               = mqtt_cfg,
         birdmap            = birdmap_cfg,
-        bou_filter         = bou_filter_cfg,
         seasonal_filter    = seasonal_filter_cfg,
         defaults           = defaults,
         general            = general_cfg,

@@ -6,36 +6,22 @@ model downloads are required beyond the package itself.
 
 Label format
 ------------
-The bundled labels file uses ``Scientific name_Common name`` (one underscore
-separator, space inside the scientific name), e.g.::
+Labels file uses ``Scientific name_Common name`` (underscore separator), e.g.::
 
     Erithacus rubecula_European Robin
 
 :meth:`BirdNETModel.load_label_map` returns ``{common_name: full_label_line}``
 so that ``bou_filter`` can do its three-stage species matching.
 
-The ``analyze()`` CSV contains the common name in the ``Common name`` column;
-this is used directly as the species key throughout the detect loop.
-
 BTO name translation is handled downstream by ``bou_filter.build_birdnet_to_bto_map``,
-which maps BirdNET international English names (e.g. ``"European Robin"``) to
-BTO British names (e.g. ``"Robin"``) via the ``international_english_name``
-field in ``species_bto_FINAL_filtered.json``.  No name conversion is done here.
-
-Label locale
-------------
-``cfg.inference.label_locale`` is passed to BirdNET's ``analyze()`` and used
-to select the labels file.  The default ``"en"`` uses the bundled global
-English / IOC names from ``checkpoints/V2.4/``.  Non-default locales load from
-``labels/V2.4/``; the ``en_uk`` translation file exists but is incomplete, so
-``"en"`` with ``bou_filter`` name translation is preferred.
+which maps BirdNET IOC names (e.g. ``"European Robin"``) to BTO British names
+(e.g. ``"Robin"``) via ``species_bto_FINAL_filtered.json``.
 
 Window spec
 -----------
 BirdNET expects exactly 3-second windows.  ``window_seconds`` is exposed as a
 class attribute so the classify loop can size its rolling buffer appropriately.
-Audio is assumed to arrive at ``cfg.audio.sample_rate`` (48 kHz by default);
-no resampling is performed.
+Audio is assumed to arrive at ``cfg.audio.sample_rate``; no resampling is done.
 """
 
 from __future__ import annotations
@@ -53,6 +39,7 @@ import numpy as np
 
 from audio import save_wav
 from config import cfg
+from constants import NOISE_LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +88,7 @@ class BirdNETModel:
         """Write *audio* to a temporary WAV, run BirdNET, and return results.
 
         Returns ``[(common_name, confidence), ...]`` sorted by confidence
-        descending.  Noise labels (``cfg.defaults.noise_labels``) are removed.
+        descending.  Entries in ``NOISE_LABELS`` (constants.py) are removed.
         No confidence threshold or top-N cap is applied — the classify loop
         handles those.
 
@@ -114,7 +101,6 @@ class BirdNETModel:
         """
         from birdnet_analyzer.analyze.core import analyze  # lazy import
 
-        noise_labels = cfg.defaults.noise_labels
         t0 = time.perf_counter()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -140,7 +126,7 @@ class BirdNETModel:
                 for row in csv.DictReader(fh):
                     common = row["Common name"].strip()
                     conf   = float(row["Confidence"])
-                    if common.lower() not in noise_labels:
+                    if common.lower() not in NOISE_LABELS:
                         results.append((common, conf))
 
         results.sort(key=lambda x: x[1], reverse=True)
