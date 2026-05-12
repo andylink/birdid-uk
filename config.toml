@@ -123,10 +123,31 @@ filter_json = "uk_nocturnal_filter.json"
 
 [bou_filter]
 # Exclude species from the BOU allowlist based on their british_list_status.
-# Tokens are matched against the comma-separated status field (case-insensitive).
-# Examples:
-#   exclude_status = ["Accidental"]          → excludes "Accidental" and "Accidental, Has Bred"
-#   exclude_status = ["Accidental", "Escaped"] → also excludes escaped/feral species
+# Each species' status field is split on commas; any token that appears in
+# exclude_status (case-insensitive) causes the species to be dropped.
+#
+# Meaningful tokens to exclude (with species count and examples):
+#
+#   "Accidental"        — 255 species: one-off vagrants with no regular UK presence
+#                         (e.g. Falcated Duck, Cedar Waxwing, Sandhill Crane).
+#                         Most useful for a garden detector focused on regular UK birds.
+#
+#   "Introduced Breeder" — 10 species: non-native species deliberately introduced
+#                         (e.g. Pheasant, Red-legged Partridge, Canada Goose,
+#                         Mandarin Duck, Egyptian Goose, Ruddy Duck).
+#
+#   "Escaped Breeder"   — 4 species: feral birds of captive origin
+#                         (Barnacle Goose, Red-crested Pochard, Night Heron,
+#                         Eurasian Eagle-Owl).
+#                         Note: Barnacle Goose and Night Heron also have genuine
+#                         wild populations — exclude with care.
+#
+# Tokens NOT recommended for exclusion:
+#   "Re-introduced Breeder" — native UK birds reintroduced by conservation programmes
+#                             (Capercaillie, Goshawk, White-tailed Eagle).
+#   "Former Breeder"        — rare but genuine sightings (e.g. White Stork, Wryneck).
+#   "Former Scarce Breeder" — Spoonbill; actively re-colonising Norfolk.
+#
 # Leave empty (default) to accept all BTO-listed species.
 exclude_status = []
 
