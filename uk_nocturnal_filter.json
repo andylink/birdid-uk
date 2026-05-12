@@ -20,7 +20,7 @@
       "sunrise_offset_minutes": 60,
       "_note": "Strictly nocturnal. Begins hooting at dusk; occasional calls continue shortly after sunrise."
     },
-    "Western Barn Owl": {
+    "Barn Owl": {
       "type": "sunset_sunrise",
       "sunset_offset_minutes": -30,
       "sunrise_offset_minutes": 30,
