@@ -91,5 +91,9 @@ def setup_logging() -> None:
         root.addHandler(file_handler)
 
     # ── Suppress noisy third-party loggers ────────────────────────────────────
-    for noisy in ("birdnet_analyzer", "numba", "sounddevice", "tensorflow", "absl"):
+    for noisy in (
+        "birdnet_analyzer", "numba", "sounddevice", "tensorflow", "absl",
+        "aiosqlite",      # suppresses "executing functools.partial(...)" debug spam
+        "sse_starlette",  # suppresses SSE keep-alive ping log lines
+    ):
         logging.getLogger(noisy).setLevel(logging.WARNING)
