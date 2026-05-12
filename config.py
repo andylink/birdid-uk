@@ -44,9 +44,13 @@ class AudioConfig:
     hop_seconds:             int
     device:                  int | None
     # Dual-buffer clip settings (see config.toml [audio] for documentation).
-    clip_seconds:            int   # total saved clip length (>= model window + pre_capture)
-    pre_capture_seconds:     int   # extra audio before the analysis window
-    capture_buffer_seconds:  int   # ring buffer capacity (> clip_seconds + margin)
+    clip_seconds:            int   # total saved clip length — only used when clip_mode="full"
+    pre_capture_seconds:     int   # extra audio before the analysis window (clip_mode="full" only)
+    capture_buffer_seconds:  int   # ring buffer capacity (must exceed the longest clip + margin)
+    # Clip mode: "window" saves the model analysis window plus window_pad_seconds of
+    # leading audio.  "full" uses the legacy clip_seconds / pre_capture_seconds geometry.
+    clip_mode:               str   # "window" | "full"
+    window_pad_seconds:      float # seconds of leading audio before the window (clip_mode="window")
     # post_capture_seconds is NOT stored here — it depends on the active model's
     # window length, which is not known at config-load time.  Computed in
     # detector.main() once the model is selected.
@@ -281,8 +285,18 @@ def _load() -> Config:
     )
 
     a = raw["audio"]
-    _clip = int(a.get("clip_seconds",        15))
-    _pre  = int(a.get("pre_capture_seconds",  0))
+    _clip      = int(a.get("clip_seconds",        15))
+    _pre       = int(a.get("pre_capture_seconds",  0))
+    _clip_mode = str(a.get("clip_mode", "full"))
+    if _clip_mode not in ("window", "full"):
+        raise ValueError(
+            f"[audio] clip_mode must be 'window' or 'full', got: {_clip_mode!r}"
+        )
+    _pad = float(a.get("window_pad_seconds", 0.5))
+    if not (0.0 <= _pad <= 10.0):
+        raise ValueError(
+            f"[audio] window_pad_seconds must be between 0.0 and 10.0, got: {_pad}"
+        )
     audio = AudioConfig(
         sample_rate            = int(a["sample_rate"]),
         hop_seconds            = int(a["hop_seconds"]),
@@ -290,6 +304,8 @@ def _load() -> Config:
         clip_seconds           = _clip,
         pre_capture_seconds    = _pre,
         capture_buffer_seconds = int(a.get("capture_buffer_seconds", 30)),
+        clip_mode              = _clip_mode,
+        window_pad_seconds     = _pad,
     )
 
     d = raw["defaults"]

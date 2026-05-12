@@ -124,8 +124,10 @@ def _deferred_save(
     flagged according to config before any I/O is attempted.
 
     ``begin_sample`` points to the start of the best-confidence inference
-    window in the ring buffer.  The saved clip extends ``pre_capture_seconds``
-    before that point and ``post_capture_seconds`` after the window ends.
+    window in the ring buffer.  In ``"window"`` clip mode the saved clip is
+    ``window_pad_seconds`` before that point and exactly ``model.window_seconds``
+    long.  In ``"full"`` clip mode it extends ``pre_capture_seconds`` before
+    the window and ``post_capture_seconds`` after.
 
     If the ring buffer read fails (e.g. the segment was overwritten because
     the executor backlog was unusually deep), the function falls back to
@@ -140,16 +142,25 @@ def _deferred_save(
         bto_name:       BTO British name for the database row (may be None).
         model_name:     Inference backend that produced this detection.
     """
-    post_capture = (
-        cfg.audio.clip_seconds
-        - int(get_model().window_seconds)
-        - cfg.audio.pre_capture_seconds
-    )
-    if post_capture > 0:
-        time.sleep(post_capture)
+    window_samples = int(get_model().window_seconds) * cfg.audio.sample_rate
 
-    pre_samples  = cfg.audio.pre_capture_seconds * cfg.audio.sample_rate
-    clip_samples = cfg.audio.clip_seconds        * cfg.audio.sample_rate
+    if cfg.audio.clip_mode == "window":
+        # Save only the model analysis window plus a short leading pad.
+        # No post-capture sleep is needed — the detection window is already
+        # fully in the capture buffer by the time this task runs.
+        pre_samples  = int(cfg.audio.window_pad_seconds * cfg.audio.sample_rate)
+        clip_samples = window_samples + pre_samples
+    else:
+        # Legacy "full" mode: pre_capture + model window + post_capture.
+        post_capture = (
+            cfg.audio.clip_seconds
+            - int(get_model().window_seconds)
+            - cfg.audio.pre_capture_seconds
+        )
+        if post_capture > 0:
+            time.sleep(post_capture)
+        pre_samples  = cfg.audio.pre_capture_seconds * cfg.audio.sample_rate
+        clip_samples = cfg.audio.clip_seconds        * cfg.audio.sample_rate
 
     # The recording thread writes in 1-second chunks, so after sleeping exactly
     # post_capture_seconds the final samples may not have been committed yet.
@@ -163,9 +174,10 @@ def _deferred_save(
 
     if segment is None:
         logger.warning(
-            "capture buffer miss for %s at sample %d (post_capture=%ds); "
+            "capture buffer miss for %s at sample %d "
+            "(clip_mode=%s, pre=%d samples); "
             "saving fallback clip (one analysis window)",
-            species, begin_sample, post_capture,
+            species, begin_sample, cfg.audio.clip_mode, pre_samples,
         )
         segment = fallback_audio
 
@@ -528,14 +540,16 @@ def main() -> None:
 
     # Validate clip geometry now that the model window length is known.
     _model_window = int(model.window_seconds)
-    _post_capture = cfg.audio.clip_seconds - _model_window - cfg.audio.pre_capture_seconds
-    if _post_capture < 0:
-        raise ValueError(
-            f"[audio] clip_seconds ({cfg.audio.clip_seconds}) must be >= "
-            f"model window ({_model_window} s) + pre_capture_seconds "
-            f"({cfg.audio.pre_capture_seconds} s); "
-            f"got post_capture_seconds = {_post_capture}"
-        )
+    _post_capture = 0  # only meaningful when clip_mode = "full"
+    if cfg.audio.clip_mode == "full":
+        _post_capture = cfg.audio.clip_seconds - _model_window - cfg.audio.pre_capture_seconds
+        if _post_capture < 0:
+            raise ValueError(
+                f"[audio] clip_seconds ({cfg.audio.clip_seconds}) must be >= "
+                f"model window ({_model_window} s) + pre_capture_seconds "
+                f"({cfg.audio.pre_capture_seconds} s); "
+                f"got post_capture_seconds = {_post_capture}"
+            )
 
     # Build the BOU allowed set and BirdNET→BTO name map if the filter is enabled.
     bou_allowed:    frozenset[str] | None = None
@@ -612,13 +626,24 @@ def main() -> None:
         max_workers       = 4,
         thread_name_prefix = "clip_saver",
     )
-    logger.info(
-        "Capture buffer: %d s ring  |  clip: %d s  (pre=%d s, post=%d s)",
-        cfg.audio.capture_buffer_seconds,
-        cfg.audio.clip_seconds,
-        cfg.audio.pre_capture_seconds,
-        _post_capture,
-    )
+    if cfg.audio.clip_mode == "window":
+        _clip_total = cfg.audio.window_pad_seconds + _model_window
+        logger.info(
+            "Capture buffer: %d s ring  |  clip mode: window  "
+            "(%.1f s pad + %d s model window = %.1f s total)",
+            cfg.audio.capture_buffer_seconds,
+            cfg.audio.window_pad_seconds,
+            _model_window,
+            _clip_total,
+        )
+    else:
+        logger.info(
+            "Capture buffer: %d s ring  |  clip: %d s  (pre=%d s, post=%d s)",
+            cfg.audio.capture_buffer_seconds,
+            cfg.audio.clip_seconds,
+            cfg.audio.pre_capture_seconds,
+            _post_capture,
+        )
 
     rec = threading.Thread(target=_record_thread, daemon=True)
     rec.start()

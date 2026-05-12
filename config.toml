@@ -38,18 +38,25 @@ db_path = "data/birds.db"
 sample_rate    = 48000
 hop_seconds    = 1      # advance the rolling window by this many seconds each step
 
-# Dual-buffer clip settings.
-# Saved clips are longer than the analysis window, mirroring the BirdNET-Go
-# dual-buffer design.  The capture buffer (ring) records audio continuously;
-# when a detection fires, a deferred task reads a full-length segment after
-# sleeping for the post-capture period.
+# Clip mode controls how much audio is saved around each detection.
 #
-#   clip layout:  |-- pre_capture --|-- model window (3 s or 5 s) --|-- post_capture --|
-#                 <--------------------- clip_seconds (15 s) ----------------------->
+#   "window"  — save exactly the model analysis window plus window_pad_seconds
+#               of leading audio.  No post-detection audio is included.
+#                 BirdNET: 0.5 + 3 = 3.5 s   Perch: 0.5 + 5 = 5.5 s
+#               Recommended: produces clean single-species clips, ready for
+#               model fine-tuning, and uses ~5× less disk than "full".
 #
-# post_capture = clip_seconds - model_window - pre_capture_seconds
-# This is computed at startup once the model is selected, so clip_seconds only
-# needs to be large enough to accommodate the model's window + pre_capture.
+#   "full"    — legacy dual-buffer behaviour: save clip_seconds of audio
+#               centred on the detection (pre_capture_seconds before the window,
+#               the remainder after).  Useful for manual listening with context.
+#               clip layout: |-- pre_capture --|-- model window --|-- post_capture --|
+#                            <------------- clip_seconds (15 s) ------------------>
+#
+clip_mode           = "window"
+window_pad_seconds  = 0.5   # leading audio before the detection window (0.0–10.0 s)
+                             # only used when clip_mode = "window"
+
+# Settings used only when clip_mode = "full":
 clip_seconds            = 15   # total saved clip length in seconds
 pre_capture_seconds     = 2    # extra audio before the analysis window
 capture_buffer_seconds  = 30   # ring buffer size; must be > clip_seconds + margin
