@@ -145,7 +145,7 @@
   {
     "name": "Canada Goose",
     "scientific_name": "Branta canadensis",
-    "british_list_status": "Introduced Breeder, Accidental",
+    "british_list_status": "Introduced/Resident Breeder, Accidental",
     "population_estimate": "10,000 - 100,000 Pairs",
     "bto_2letter_code": "CG",
     "bto_5letter_code": "CANGO",
@@ -314,7 +314,7 @@
   {
     "name": "Egyptian Goose",
     "scientific_name": "Alopochen aegyptiaca",
-    "british_list_status": "Introduced Breeder",
+    "british_list_status": "Introduced/Resident Breeder",
     "population_estimate": "1,000 - 10,000 Pairs",
     "bto_2letter_code": "EG",
     "bto_5letter_code": "EGYGO",
@@ -338,22 +338,9 @@
     "group_name": "Wildfowl"
   },
   {
-    "name": "Ruddy Shelduck",
-    "scientific_name": "Tadorna ferruginea",
-    "british_list_status": "Escaped, Former Visitor (Last Record 1946)",
-    "population_estimate": "1-10 Records",
-    "bto_2letter_code": "UD",
-    "bto_5letter_code": "RUDSH",
-    "species_status": "Rare",
-    "uk_bocc": null,
-    "birdfacts_url": "https://www.bto.org/understanding-birds/birdfacts/ruddy-shelduck",
-    "international_english_name": null,
-    "group_name": "Wildfowl"
-  },
-  {
     "name": "Mandarin Duck",
     "scientific_name": "Aix galericulata",
-    "british_list_status": "Introduced Breeder",
+    "british_list_status": "Introduced/Resident Breeder",
     "population_estimate": "1,000 - 10,000 Pairs",
     "bto_2letter_code": "MN",
     "bto_5letter_code": "MANDA",
@@ -845,19 +832,6 @@
     "group_name": "Nightjars"
   },
   {
-    "name": "Red-necked Nightjar",
-    "scientific_name": "Caprimulgus ruficollis",
-    "british_list_status": "Not Recorded since 1856",
-    "population_estimate": "",
-    "bto_2letter_code": "",
-    "bto_5letter_code": "RENNI",
-    "species_status": "Very rare",
-    "uk_bocc": null,
-    "birdfacts_url": "https://www.bto.org/understanding-birds/birdfacts/red-necked-nightjar",
-    "international_english_name": null,
-    "group_name": "Nightjars"
-  },
-  {
     "name": "Nightjar",
     "scientific_name": "Caprimulgus europaeus",
     "british_list_status": "Migrant Breeder, Passage Visitor",
@@ -973,19 +947,6 @@
     "birdfacts_url": "https://www.bto.org/understanding-birds/birdfacts/white-rumped-swift",
     "international_english_name": null,
     "group_name": "Swifts"
-  },
-  {
-    "name": "Ruby-throated Hummingbird",
-    "scientific_name": "Archilochus colubris",
-    "british_list_status": "Reported, but does not occur",
-    "population_estimate": "0 Records",
-    "bto_2letter_code": "",
-    "bto_5letter_code": "RUTHU",
-    "species_status": null,
-    "uk_bocc": null,
-    "birdfacts_url": "https://birdsoftheworld.org/bow/species/rthhum/cur/introduction",
-    "international_english_name": null,
-    "group_name": null
   },
   {
     "name": "Little Bustard",
@@ -3226,7 +3187,7 @@
   {
     "name": "Spoonbill",
     "scientific_name": "Platalea leucorodia",
-    "british_list_status": "Former, but now Scarce, Breeder, Scarce Visitor",
+    "british_list_status": "Former Scarce Breeder, Scarce Visitor",
     "population_estimate": "10 - 100 Birds",
     "bto_2letter_code": "NB",
     "bto_5letter_code": "SPOON",
@@ -3458,19 +3419,6 @@
     "group_name": "Raptors"
   },
   {
-    "name": "Spotted Eagle",
-    "scientific_name": "Clanga clanga",
-    "british_list_status": "Not Recorded since 1915",
-    "population_estimate": "",
-    "bto_2letter_code": "",
-    "bto_5letter_code": "SPOEA",
-    "species_status": "Very rare",
-    "uk_bocc": null,
-    "birdfacts_url": "https://www.bto.org/understanding-birds/birdfacts/greater-spotted-eagle",
-    "international_english_name": "Greater Spotted Eagle",
-    "group_name": "Raptors"
-  },
-  {
     "name": "Golden Eagle",
     "scientific_name": "Aquila chrysaetos",
     "british_list_status": "Resident Breeder",
@@ -3681,7 +3629,7 @@
   {
     "name": "Eurasian Eagle-Owl",
     "scientific_name": "Bubo bubo",
-    "british_list_status": "Escaped (?) Breeder",
+    "british_list_status": "Escaped Breeder",
     "population_estimate": "",
     "bto_2letter_code": "EO",
     "bto_5letter_code": "EAGOW",
@@ -3720,7 +3668,7 @@
   {
     "name": "Little Owl",
     "scientific_name": "Athene noctua",
-    "british_list_status": "Introduced Breeder",
+    "british_list_status": "Introduced/Resident Breeder",
     "population_estimate": "1,000 - 10,000 Pairs",
     "bto_2letter_code": "LO",
     "bto_5letter_code": "LITOW",
@@ -4032,7 +3980,7 @@
   {
     "name": "Ring-necked Parakeet",
     "scientific_name": "Psittacula krameri",
-    "british_list_status": "Introduced Breeder",
+    "british_list_status": "Introduced/Resident Breeder",
     "population_estimate": "1,000 - 10,000 Pairs",
     "bto_2letter_code": "RI",
     "bto_5letter_code": "RINPA",
@@ -6762,7 +6710,7 @@
   {
     "name": "Serin",
     "scientific_name": "Serinus serinus",
-    "british_list_status": "Scarce Visitor, Has bred",
+    "british_list_status": "Scarce Visitor, Has Bred",
     "population_estimate": "10 - 100 Birds",
     "bto_2letter_code": "NS",
     "bto_5letter_code": "SERIN",

@@ -428,11 +428,19 @@ def _classify_loop(
             continue
 
         # ── Step 4b: BOU allowlist filter ─────────────────────────────────────
-        candidates = [
+        filtered = [
             (species, conf)
             for species, conf in candidates
             if species in bou_allowed
         ]
+        if len(filtered) < len(candidates):
+            for species, conf in candidates:
+                if species not in bou_allowed:
+                    logger.debug(
+                        "%-32s not in BOU allowlist — suppressed",
+                        species,
+                    )
+        candidates = filtered
 
         if not candidates:
             continue
@@ -570,8 +578,9 @@ def main() -> None:
 
     # Build the BOU allowed set and BirdNET→BTO name map.
     # The BOU filter is always active — this detector is UK-specific.
-    bou_allowed    = build_bou_allowed_set(label_map)
-    birdnet_to_bto = build_birdnet_to_bto_map(label_map)
+    _bou_force     = cfg.bou_override_species()
+    bou_allowed    = build_bou_allowed_set(label_map, exclude_status=cfg.bou_filter.exclude_status, force_include=_bou_force)
+    birdnet_to_bto = build_birdnet_to_bto_map(label_map, exclude_status=cfg.bou_filter.exclude_status, force_include=_bou_force)
     logger.info("BOU filter active — non-BOU species will be suppressed")
 
     # Build the seasonal presence filter.
@@ -607,7 +616,7 @@ def main() -> None:
 
         # Build a BTO map for the secondary model so CV name-matching bridges
         # the label-namespace difference between BirdNET (IOC) and Perch (eBird).
-        secondary_bto_map = build_birdnet_to_bto_map(secondary_label_map)
+        secondary_bto_map = build_birdnet_to_bto_map(secondary_label_map, exclude_status=cfg.bou_filter.exclude_status, force_include=_bou_force)
 
         _cross_validator = CrossValidator(
             secondary_model      = secondary_model,

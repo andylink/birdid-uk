@@ -121,6 +121,50 @@ enabled     = true
 filter_json = "uk_nocturnal_filter.json"
 
 
+[bou_filter]
+# Exclude species from the BOU allowlist based on their british_list_status.
+# Each species' status field is split on commas; any token that appears in
+# exclude_status (case-insensitive) causes the species to be dropped.
+#
+# Meaningful tokens to exclude (with species count and examples):
+#
+#   "Accidental"        — 255 species: one-off vagrants with no regular UK presence
+#                         (e.g. Falcated Duck, Cedar Waxwing, Sandhill Crane).
+#                         Most useful for a garden detector focused on regular UK birds.
+#
+#   "Introduced Breeder" — 5 species: non-native species still largely
+#                         dependent on releases or with tiny/declining populations
+#                         (Pheasant, Red-legged Partridge, Golden Pheasant,
+#                         Lady Amherst's Pheasant, Ruddy Duck).
+#                         Note: Canada Goose, Egyptian Goose, Mandarin Duck,
+#                         Ring-necked Parakeet and Little Owl are classified as
+#                         "Introduced/Resident Breeder" — naturalised self-sustaining
+#                         populations not caught by this token.
+#
+#   "Escaped Breeder"   — 4 species: feral birds of captive origin
+#                         (Barnacle Goose, Red-crested Pochard, Night Heron,
+#                         Eurasian Eagle-Owl).
+#                         Note: Barnacle Goose and Night Heron also have genuine
+#                         wild populations — exclude with care.
+#
+# Tokens NOT recommended for exclusion:
+#   "Re-introduced Breeder" — native UK birds reintroduced by conservation programmes
+#                             (Capercaillie, Goshawk, White-tailed Eagle).
+#   "Former Breeder"        — rare but genuine sightings (e.g. White Stork, Wryneck).
+#   "Former Scarce Breeder" — Spoonbill; actively re-colonising Norfolk.
+#
+# Leave empty (default) to accept all BTO-listed species.
+exclude_status = ["Accidental"]
+
+# Per-species admission override: add  bou_status_override = true  to a
+# [species."Name"] block to admit a species that would otherwise be suppressed
+# by exclude_status above.  Useful for known local vagrant populations.
+#
+# Example — a known local King Eider which is normally "Accidental":
+#   [species."King Eider"]
+#   bou_status_override = true
+
+
 [retention]
 # Automatic cleanup of data/detections/ clips.
 # The cleanup thread runs on startup and then every run_interval_seconds.
@@ -215,7 +259,7 @@ cv_min_confidence = 0.01
 
 [species."House Sparrow"]
 min_confidence   = 0.90
-cooldown_seconds = 90
+cooldown_seconds = 120
 
 [species."Tawny Owl"]
 min_detections = 1
@@ -225,6 +269,6 @@ min_detections = 1
 min_detections = 1
 #on_disagree    = "flag"
 
-[species."Common Whitethroat"]
-min_confidence = 0.20
-min_detections = 1
+[species."King Eider"]
+min_confidence = 0.1
+bou_status_override = true
