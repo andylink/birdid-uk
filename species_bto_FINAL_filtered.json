@@ -145,7 +145,7 @@
   {
     "name": "Canada Goose",
     "scientific_name": "Branta canadensis",
-    "british_list_status": "Introduced Breeder, Accidental",
+    "british_list_status": "Introduced/Resident Breeder, Accidental",
     "population_estimate": "10,000 - 100,000 Pairs",
     "bto_2letter_code": "CG",
     "bto_5letter_code": "CANGO",
@@ -314,7 +314,7 @@
   {
     "name": "Egyptian Goose",
     "scientific_name": "Alopochen aegyptiaca",
-    "british_list_status": "Introduced Breeder",
+    "british_list_status": "Introduced/Resident Breeder",
     "population_estimate": "1,000 - 10,000 Pairs",
     "bto_2letter_code": "EG",
     "bto_5letter_code": "EGYGO",
@@ -340,7 +340,7 @@
   {
     "name": "Mandarin Duck",
     "scientific_name": "Aix galericulata",
-    "british_list_status": "Introduced Breeder",
+    "british_list_status": "Introduced/Resident Breeder",
     "population_estimate": "1,000 - 10,000 Pairs",
     "bto_2letter_code": "MN",
     "bto_5letter_code": "MANDA",
@@ -3668,7 +3668,7 @@
   {
     "name": "Little Owl",
     "scientific_name": "Athene noctua",
-    "british_list_status": "Introduced Breeder",
+    "british_list_status": "Introduced/Resident Breeder",
     "population_estimate": "1,000 - 10,000 Pairs",
     "bto_2letter_code": "LO",
     "bto_5letter_code": "LITOW",
@@ -3980,7 +3980,7 @@
   {
     "name": "Ring-necked Parakeet",
     "scientific_name": "Psittacula krameri",
-    "british_list_status": "Introduced Breeder",
+    "british_list_status": "Introduced/Resident Breeder",
     "population_estimate": "1,000 - 10,000 Pairs",
     "bto_2letter_code": "RI",
     "bto_5letter_code": "RINPA",

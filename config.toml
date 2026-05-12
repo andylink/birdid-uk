@@ -132,9 +132,14 @@ filter_json = "uk_nocturnal_filter.json"
 #                         (e.g. Falcated Duck, Cedar Waxwing, Sandhill Crane).
 #                         Most useful for a garden detector focused on regular UK birds.
 #
-#   "Introduced Breeder" — 10 species: non-native species deliberately introduced
-#                         (e.g. Pheasant, Red-legged Partridge, Canada Goose,
-#                         Mandarin Duck, Egyptian Goose, Ruddy Duck).
+#   "Introduced Breeder" — 5 species: non-native species still largely
+#                         dependent on releases or with tiny/declining populations
+#                         (Pheasant, Red-legged Partridge, Golden Pheasant,
+#                         Lady Amherst's Pheasant, Ruddy Duck).
+#                         Note: Canada Goose, Egyptian Goose, Mandarin Duck,
+#                         Ring-necked Parakeet and Little Owl are classified as
+#                         "Introduced/Resident Breeder" — naturalised self-sustaining
+#                         populations not caught by this token.
 #
 #   "Escaped Breeder"   — 4 species: feral birds of captive origin
 #                         (Barnacle Goose, Red-crested Pochard, Night Heron,
