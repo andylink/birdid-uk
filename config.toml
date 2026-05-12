@@ -154,7 +154,15 @@ filter_json = "uk_nocturnal_filter.json"
 #   "Former Scarce Breeder" — Spoonbill; actively re-colonising Norfolk.
 #
 # Leave empty (default) to accept all BTO-listed species.
-exclude_status = []
+exclude_status = ["Accidental"]
+
+# Per-species admission override: add  bou_status_override = true  to a
+# [species."Name"] block to admit a species that would otherwise be suppressed
+# by exclude_status above.  Useful for known local vagrant populations.
+#
+# Example — a known local King Eider which is normally "Accidental":
+#   [species."King Eider"]
+#   bou_status_override = true
 
 
 [retention]
@@ -251,7 +259,7 @@ cv_min_confidence = 0.01
 
 [species."House Sparrow"]
 min_confidence   = 0.90
-cooldown_seconds = 90
+cooldown_seconds = 120
 
 [species."Tawny Owl"]
 min_detections = 1
@@ -261,6 +269,6 @@ min_detections = 1
 min_detections = 1
 #on_disagree    = "flag"
 
-[species."Greater Whitethroat"]
-min_confidence = 0.20
-min_detections = 1
+[species."King Eider"]
+min_confidence = 0.1
+bou_status_override = true

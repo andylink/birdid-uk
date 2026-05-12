@@ -68,6 +68,7 @@ def _status_excluded(status: str, exclude_tokens: frozenset[str]) -> bool:
 def build_birdnet_to_bto_map(
     label_map: dict[str, str],
     exclude_status: list[str] | tuple[str, ...] = (),
+    force_include: frozenset[str] = frozenset(),
 ) -> dict[str, str]:
     """Return ``{birdnet_common_name: bto_british_name}`` for all BOU-listed species.
 
@@ -83,6 +84,11 @@ def build_birdnet_to_bto_map(
                         Matched case-insensitively against comma-split tokens of
                         each species' ``british_list_status`` field.  An empty
                         sequence (default) skips exclusion entirely.
+        force_include: species names (matched case-insensitively against the BTO
+                       ``name`` and ``international_english_name`` fields) that are
+                       admitted even when their status would normally be excluded.
+                       Populated from ``bou_status_override = true`` entries in
+                       ``config.toml`` per-species blocks.
 
     Returns:
         dict mapping each matched BirdNET common name to its BTO British name.
@@ -96,6 +102,7 @@ def build_birdnet_to_bto_map(
         return {}
 
     exclude_lower: frozenset[str] = frozenset(s.lower() for s in exclude_status)
+    force_include_lower: frozenset[str] = frozenset(s.lower() for s in force_include)
 
     # Build reverse lookup: scientific_name_lower → birdnet_common_name
     sci_to_common: dict[str, str] = {}
@@ -114,11 +121,17 @@ def build_birdnet_to_bto_map(
 
     mapping: dict[str, str] = {}
     n_excluded = 0
+    n_overridden = 0
 
     for sp in bou_species:
         if _status_excluded(sp.get("british_list_status", ""), exclude_lower):
-            n_excluded += 1
-            continue
+            bto_lower  = sp.get("name", "").strip().lower()
+            intl_lower = (sp.get("international_english_name") or "").strip().lower()
+            if bto_lower not in force_include_lower and intl_lower not in force_include_lower:
+                n_excluded += 1
+                continue
+            n_overridden += 1   # bou_status_override — fall through to normal matching
+
         sci_raw = sp.get("scientific_name") or ""
         sci = sci_raw.strip().lower()
         bto_name = sp.get("name", "")
@@ -143,9 +156,10 @@ def build_birdnet_to_bto_map(
             continue
 
     logger.info(
-        "BOU name map: %d BirdNET → BTO name mappings built%s",
+        "BOU name map: %d BirdNET → BTO name mappings built%s%s",
         len(mapping),
         f" ({n_excluded} excluded by status)" if n_excluded else "",
+        f" ({n_overridden} status override(s))" if n_overridden else "",
     )
     return mapping
 
@@ -153,6 +167,7 @@ def build_birdnet_to_bto_map(
 def build_bou_allowed_set(
     label_map: dict[str, str],
     exclude_status: list[str] | tuple[str, ...] = (),
+    force_include: frozenset[str] = frozenset(),
 ) -> frozenset[str]:
     """
     Return a frozenset of BirdNET common names for all BOU-listed species.
@@ -170,6 +185,11 @@ def build_bou_allowed_set(
                         Matched case-insensitively against comma-split tokens of
                         each species' ``british_list_status`` field.  An empty
                         sequence (default) skips exclusion entirely.
+        force_include: species names (matched case-insensitively against the BTO
+                       ``name`` and ``international_english_name`` fields) that are
+                       admitted even when their status would normally be excluded.
+                       Populated from ``bou_status_override = true`` entries in
+                       ``config.toml`` per-species blocks.
 
     Returns:
         frozenset of BirdNET common names that correspond to BOU species.
@@ -183,6 +203,7 @@ def build_bou_allowed_set(
         return frozenset()
 
     exclude_lower: frozenset[str] = frozenset(s.lower() for s in exclude_status)
+    force_include_lower: frozenset[str] = frozenset(s.lower() for s in force_include)
 
     # Build reverse lookup: scientific_name_lower → birdnet_common_name
     sci_to_common: dict[str, str] = {}
@@ -206,6 +227,7 @@ def build_bou_allowed_set(
     n_sci = 0
     n_common = 0
     n_excluded = 0
+    n_overridden = 0
     unmatched: list[str] = []
 
     for sp in bou_species:
@@ -215,8 +237,12 @@ def build_bou_allowed_set(
 
         # Status-based exclusion
         if _status_excluded(sp.get("british_list_status", ""), exclude_lower):
-            n_excluded += 1
-            continue
+            bto_lower  = bou_name.strip().lower()
+            intl_lower = (sp.get("international_english_name") or "").strip().lower()
+            if bto_lower not in force_include_lower and intl_lower not in force_include_lower:
+                n_excluded += 1
+                continue
+            n_overridden += 1   # bou_status_override — fall through to normal matching
 
         # Stage 0: explicit international_english_name in JSON
         birdnet_name = sp.get("international_english_name")
@@ -245,13 +271,14 @@ def build_bou_allowed_set(
 
     logger.info(
         "BOU filter: %d/%d BTO species matched to BirdNET labels "
-        "(%d explicit, %d by scientific name, %d by common name%s)",
+        "(%d explicit, %d by scientific name, %d by common name%s%s)",
         n_matched,
         n_bou,
         n_explicit,
         n_sci,
         n_common,
         f", {n_excluded} excluded by status" if n_excluded else "",
+        f", {n_overridden} status override(s)" if n_overridden else "",
     )
     if unmatched:
         logger.debug(

@@ -264,6 +264,24 @@ class Config:
     # raw per-species override dicts, keyed by species common name
     _species_overrides: dict[str, dict] = field(default_factory=dict, repr=False)
 
+    def bou_override_species(self) -> frozenset[str]:
+        """Return the names of species with ``bou_status_override = true``.
+
+        These names are passed to :func:`bou_filter.build_bou_allowed_set` and
+        :func:`bou_filter.build_birdnet_to_bto_map` as ``force_include`` so that
+        the species are admitted even when their BOU status would normally be
+        excluded by ``[bou_filter] exclude_status``.
+
+        The returned names are the keys from ``[species."Name"]`` blocks in
+        ``config.toml`` and should match the BirdNET common name shown in the
+        terminal (or the BTO British name — both are tried during matching).
+        """
+        return frozenset(
+            name
+            for name, overrides in self._species_overrides.items()
+            if overrides.get("bou_status_override", False)
+        )
+
     def get_species_config(self, species: str) -> SpeciesConfig:
         """
         Return a SpeciesConfig for *species*, merging defaults with any
