@@ -72,10 +72,7 @@ device = 0
 min_confidence = 0.6
 
 # Minimum gap (seconds) between saved clips for the same species
-cooldown_seconds = 15
-
-# Maximum number of species to log / show per analysis window
-top_n = 3
+cooldown_seconds = 30
 
 # Confirmation filter: a species must be detected this many times within
 # confirmation_window_seconds before it is saved.  This filters transient
@@ -83,7 +80,7 @@ top_n = 3
 # Set min_detections = 1 to disable (save on first hit, original behaviour).
 # With hop_seconds = 1 and window_seconds = 3, each second produces one new
 # inference result, so min_detections = 3 requires ~3 s of repeated signal.
-min_detections             = 3
+min_detections             = 2
 confirmation_window_seconds = 9
 
 # Labels that are never surfaced as detections (case-insensitive).
@@ -155,7 +152,7 @@ noise_labels = [
 # Note: use the exact IOC common names returned by BirdNET (run the detector
 # and check terminal output to confirm names).
 # e.g. exclude = ["Common Wood-Pigeon", "Carrion Crow"]
-exclude = ["Northern Mockingbird", "Mourning Dove", "Eastern Kingbird"]
+exclude = []
 
 
 [filter]
@@ -342,8 +339,12 @@ cooldown_seconds = 90
 
 [species."Tawny Owl"]
 min_detections = 1
-on_disagree    = "flag"   # rare nocturnal: flag CV disagreements rather than drop
+#on_disagree    = "flag"   # rare nocturnal: flag CV disagreements rather than drop
 
 [species."Barn Owl"]
 min_detections = 1
-on_disagree    = "flag"   # rare nocturnal: flag CV disagreements rather than drop
+#on_disagree    = "flag"   # rare nocturnal: flag CV disagreements rather than drop
+
+[species."Common Whitethroat"]
+min_confidence = 0.20
+min_detections = 1

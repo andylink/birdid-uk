@@ -61,7 +61,6 @@ class SpeciesConfig:
     """Merged defaults + any per-species overrides for a single species."""
     min_confidence:             float
     cooldown_seconds:           int
-    top_n:                      int
     noise_labels:               frozenset[str]
     # Confirmation filter: a species must be detected at least min_detections
     # times within confirmation_window_seconds before a clip is saved.
@@ -252,7 +251,6 @@ class Config:
         return SpeciesConfig(
             min_confidence              = overrides.get("min_confidence",              d.min_confidence),
             cooldown_seconds            = overrides.get("cooldown_seconds",            d.cooldown_seconds),
-            top_n                       = overrides.get("top_n",                       d.top_n),
             noise_labels                = frozenset(
                 overrides.get("noise_labels", list(d.noise_labels))
             ),
@@ -312,7 +310,6 @@ def _load() -> Config:
     defaults = SpeciesConfig(
         min_confidence              = float(d["min_confidence"]),
         cooldown_seconds            = int(d["cooldown_seconds"]),
-        top_n                       = int(d["top_n"]),
         noise_labels                = frozenset(s.lower() for s in d["noise_labels"]),
         min_detections              = int(d.get("min_detections",              3)),
         confirmation_window_seconds = float(d.get("confirmation_window_seconds", 9.0)),

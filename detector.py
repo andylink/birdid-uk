@@ -334,16 +334,15 @@ def _classify_loop(
          This runs before BOU/seasonal so low-confidence hits never appear
          in the filter-suppressed log lines.
       4b. If the BOU filter is enabled, drop species not in the BOU allowlist.
-      4c. If the seasonal filter is enabled, drop species outside their expected
-          season for the current BirdNET week.
-      5. Cap the candidate list at the global ``top_n`` setting.
-      6. Confirmation filter: each species accumulates hits in ``_pending``
+       4c. If the seasonal filter is enabled, drop species outside their expected
+           season for the current BirdNET week.
+       5. Confirmation filter: each species accumulates hits in ``_pending``
          until it reaches ``min_detections`` within ``confirmation_window_seconds``.
          Only confirmed species proceed; the highest-confidence hit's audio
          and timestamp are used for the saved clip.
-      7. Cooldown check (at confirmation time): skip if the species was saved
-         too recently.  Cooldown clock starts when the save is submitted.
-      8. Submit a deferred-save task for each confirmed species.
+       6. Cooldown check (at confirmation time): skip if the species was saved
+          too recently.  Cooldown clock starts when the save is submitted.
+       7. Submit a deferred-save task for each confirmed species.
     """
     buffer: list[np.ndarray] = []
     window_blocks  = int(model.window_seconds) // cfg.audio.hop_seconds
@@ -456,14 +455,11 @@ def _classify_loop(
         if not candidates:
             continue
 
-        # ── Step 5: cap to global top_n ───────────────────────────────────────
-        passing = candidates[: cfg.defaults.top_n]
-
-        # ── Steps 6–8: confirmation filter + cooldown + deferred save ─────────
+        # ── Steps 5–7: confirmation filter + cooldown + deferred save ─────────
         now_mono     = time.monotonic()
         begin_sample = _capture_buffer.total_written - window_samples
 
-        for species, conf in passing:
+        for species, conf in candidates:
             sc = get_species_config(species)
             logger.info("%-32s %.2f", species, conf)
 
