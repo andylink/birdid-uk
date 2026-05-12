@@ -1,0 +1,40 @@
+# birddetector-capture.service — real-time audio capture and BirdNET inference
+#
+# Install:
+#   sudo cp systemd/birddetector-capture.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now birddetector-capture.service
+#
+# Adjust WorkingDirectory and the Python path below to match your deployment.
+# The venv Python is used directly so no `source venv/bin/activate` is needed.
+
+[Unit]
+Description=Bird Detector — audio capture and inference
+After=network.target sound.target
+PartOf=birddetector.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/andy/projects/vim4/bird-detector
+ExecStart=/home/andy/projects/vim4/bird-detector/venv/bin/python detect.py
+Restart=on-failure
+RestartSec=10
+
+# Give the audio device a moment to settle after a crash before retrying.
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+# Run as the deploying user so it can access the audio device and write to
+# data/.  Replace with a dedicated service account if desired.
+User=%i
+
+# Allow real-time audio scheduling (useful on RPi with low-latency kernels).
+AmbientCapabilities=CAP_SYS_NICE
+NoNewPrivileges=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=birddetector-capture
+
+[Install]
+WantedBy=birddetector.target

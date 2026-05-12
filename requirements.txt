@@ -1,13 +1,27 @@
+# ── Detector dependencies ──────────────────────────────────────────────────────
 birdnet-analyzer
 sounddevice
 soundfile
 scipy
 sqlalchemy
 astral>=3.2
-# psycopg2-binary  # uncomment when using type = "postgresql" in [database]
 paho-mqtt
 
-# ── Optional: Perch v2 inference backend ──────────────────────────────────────
+# ── Dashboard dependencies ─────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+sse-starlette>=1.8.2
+aiosqlite>=0.20.0
+httpx>=0.27.0
+librosa>=0.10.0
+matplotlib>=3.8.0
+numpy>=1.26.0
+
+# ── Optional: PostgreSQL backend ───────────────────────────────────────────────
+# Uncomment when [database] type = "postgresql" in config.toml:
+# psycopg2-binary
+
+# ── Optional: Perch v2 inference backend ───────────────────────────────────────
 # Set [inference] model = "perch" in config.toml to enable.
 #
 # 1. Install the package (pulls in TensorFlow CPU; ~2 GB):
@@ -23,4 +37,3 @@ paho-mqtt
 #      - Or export KAGGLE_USERNAME and KAGGLE_KEY as environment variables.
 #
 # perch-hoplite[tf]
-

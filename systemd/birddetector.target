@@ -1,0 +1,27 @@
+# birddetector.target — convenience target that manages both services together
+#
+# Install:
+#   sudo cp systemd/birddetector.target /etc/systemd/system/
+#   sudo cp systemd/birddetector-capture.service /etc/systemd/system/
+#   sudo cp systemd/birddetector-dashboard.service /etc/systemd/system/
+#
+#   # Replace <user> with the account that owns the project directory:
+#   sudo sed -i 's/%i/<user>/g' \
+#       /etc/systemd/system/birddetector-capture.service \
+#       /etc/systemd/system/birddetector-dashboard.service
+#
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now birddetector.target
+#
+# Once installed, manage both services with:
+#   sudo systemctl start birddetector.target
+#   sudo systemctl stop  birddetector.target
+#   journalctl -u birddetector-capture -u birddetector-dashboard -f
+
+[Unit]
+Description=Bird Detector (capture + dashboard)
+Wants=birddetector-capture.service birddetector-dashboard.service
+After=birddetector-capture.service birddetector-dashboard.service
+
+[Install]
+WantedBy=multi-user.target

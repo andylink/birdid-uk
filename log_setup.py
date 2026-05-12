@@ -44,10 +44,16 @@ def setup_logging() -> None:
       Set ``level = "DEBUG"`` in ``[log]`` to see seasonal/BOU filter decisions.
     * Third-party loggers that are excessively chatty (``birdnet_analyzer``,
       ``sounddevice``) are capped at WARNING so they don't pollute the output.
-    """
-    level = getattr(logging, cfg.log.level, logging.INFO)
 
+    Safe to call more than once — subsequent calls are a no-op so that
+    ``detector.main()`` and ``main.py`` can both call it without duplicating
+    handlers.
+    """
     root = logging.getLogger()
+    if root.handlers:
+        return  # already configured — avoid duplicate handlers
+
+    level = getattr(logging, cfg.log.level, logging.INFO)
     root.setLevel(level)
 
     # ── Console handler (always active) ───────────────────────────────────────
