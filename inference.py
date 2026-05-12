@@ -18,6 +18,13 @@ Module-level :func:`run_inference` and :func:`load_label_map` functions are
 kept so that any code which did ``from inference import run_inference`` continues
 to work.  New code should call :func:`get_model` directly so it can also access
 ``model.window_seconds``.
+
+Secondary model (cross-validation)
+-----------------------------------
+:func:`get_secondary_model` returns the model that is *not* the primary, used
+by :mod:`cross_validate` when ``cfg.cross_validation.enabled`` is ``True``.
+:func:`get_secondary_model_name` returns its name as a string (``"birdnet"``
+or ``"perch"``).
 """
 
 from __future__ import annotations
@@ -68,9 +75,10 @@ class Inferencer(Protocol):
         ...
 
 
-# ── Singleton ─────────────────────────────────────────────────────────────────
+# ── Singletons ────────────────────────────────────────────────────────────────
 
-_active_model: Inferencer | None = None
+_active_model:    Inferencer | None = None
+_secondary_model: Inferencer | None = None
 
 
 def get_model() -> Inferencer:
@@ -107,6 +115,60 @@ def get_model() -> Inferencer:
     return _active_model
 
 
+def get_secondary_model_name() -> str:
+    """Return the name of the secondary (cross-validation) model.
+
+    The secondary model is always whichever of ``"birdnet"`` / ``"perch"``
+    is *not* selected as ``cfg.inference.model``.
+
+    Raises:
+        ValueError: If the primary model name is not ``"birdnet"`` or
+            ``"perch"`` (no known secondary exists).
+    """
+    primary = cfg.inference.model.lower().strip()
+    if primary == "birdnet":
+        return "perch"
+    if primary == "perch":
+        return "birdnet"
+    raise ValueError(
+        f"Cannot determine secondary model for primary {primary!r}. "
+        "Supported primary values: 'birdnet', 'perch'."
+    )
+
+
+def get_secondary_model() -> Inferencer:
+    """Return the secondary inference backend (singleton, lazy initialisation).
+
+    Used by :class:`cross_validate.CrossValidator` when
+    ``cfg.cross_validation.enabled`` is ``True``.  The secondary model is the
+    model NOT selected as ``cfg.inference.model``.
+
+    Raises:
+        ValueError: If the primary model has no known secondary.
+        RuntimeError: If the secondary backend's prerequisites are not
+            installed (e.g. ``perch-hoplite`` not present when BirdNET is
+            primary and Perch is therefore secondary).
+    """
+    global _secondary_model
+    if _secondary_model is not None:
+        return _secondary_model
+
+    secondary_name = get_secondary_model_name()
+
+    if secondary_name == "birdnet":
+        from inference_birdnet import BirdNETModel
+        _secondary_model = BirdNETModel()
+    elif secondary_name == "perch":
+        from inference_perch import PerchModel
+        _secondary_model = PerchModel()
+    else:
+        raise ValueError(
+            f"Unknown secondary inference model {secondary_name!r}."
+        )
+
+    return _secondary_model
+
+
 # ── Backward-compatible module-level helpers ──────────────────────────────────
 
 def load_label_map() -> dict[str, str]:
@@ -117,3 +179,4 @@ def load_label_map() -> dict[str, str]:
 def run_inference(audio: np.ndarray) -> list[tuple[str, float]]:
     """Convenience wrapper — delegates to the active model's ``run_inference``."""
     return get_model().run_inference(audio)
+

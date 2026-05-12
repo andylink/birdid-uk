@@ -1,199 +1,134 @@
 # ── Bird Detector Configuration ───────────────────────────────────────────────
 
 [general]
-# IANA timezone name for the detector's location.
-# Timestamps are always stored in UTC; this setting controls how dates and
-# times are displayed in the dashboard and how "today" / period filters work.
-# UK users: "Europe/London" handles GMT (winter, UTC+0) and BST (summer, UTC+1)
-# automatically — no manual adjustment needed when the clocks change.
-timezone = "Europe/London"
+# IANA timezone for the detector location.  Used for display, date filters and
+# "today" boundaries in the dashboard.  "Europe/London" handles GMT/BST automatically.
+timezone     = "Europe/London"
 
-# Display name shown in the dashboard header. Leave empty to use the default
-# "BirdNet-UK".
+# Display name shown in the dashboard header (empty = default "BirdNet-UK").
 station_name = "TheCLinks"
 
 
 [location]
-# WGS-84 decimal degrees. Used for sunrise/sunset calculations.
+# WGS-84 decimal degrees — used for sunrise/sunset calculations.
 lat = 52.69867   # Norfolk, UK
 lon = 1.67531
 
 
 [paths]
-# Directory where detected audio clips are saved
+# Paths are relative to the project root (where detect.py is run from).
 detections_dir = "data/detections"
-
-# SQLite database file
-db_path = "data/birds.db"
+db_path        = "data/birds.db"
 
 
 [audio]
-# Recording sample rate in Hz.  This is the rate used to capture audio from
-# the microphone — it is NOT the model's input rate.  Both BirdNET (resamples
-# internally) and Perch (resampled explicitly in inference_perch.py) accept
-# audio at any rate, so this value should match whatever your hardware actually
-# supports.  48000 Hz is recommended and works with virtually all modern
-# microphones and USB audio interfaces; use 44100 only if your hardware
-# does not support 48000.
+# Recording sample rate (Hz).  This is the capture rate, not the model input rate.
+# Both BirdNET and Perch resample internally, so set this to whatever your hardware
+# supports.  48000 works with virtually all modern USB audio interfaces.
 sample_rate    = 48000
-hop_seconds    = 1      # advance the rolling window by this many seconds each step
 
-# Dual-buffer clip settings.
-# Saved clips are longer than the analysis window, mirroring the BirdNET-Go
-# dual-buffer design.  The capture buffer (ring) records audio continuously;
-# when a detection fires, a deferred task reads a full-length segment after
-# sleeping for the post-capture period.
+# Advance the rolling analysis window by this many seconds each step.
+hop_seconds    = 1
+
+# Clip mode controls what audio is saved around each detection.
 #
-#   clip layout:  |-- pre_capture --|-- model window (3 s or 5 s) --|-- post_capture --|
-#                 <--------------------- clip_seconds (15 s) ----------------------->
+#   "window" — save the model analysis window plus window_pad_seconds of leading
+#              audio.  No post-detection audio.  Produces clean single-species
+#              clips ideal for fine-tuning; ~5× smaller than "full".
+#                BirdNET: 0.5 + 3 = 3.5 s   Perch: 0.5 + 5 = 5.5 s
 #
-# post_capture = clip_seconds - model_window - pre_capture_seconds
-# This is computed at startup once the model is selected, so clip_seconds only
-# needs to be large enough to accommodate the model's window + pre_capture.
-clip_seconds            = 15   # total saved clip length in seconds
+#   "full"   — legacy mode: save clip_seconds centred on the detection
+#              (pre_capture_seconds before the window, remainder after).
+#
+clip_mode           = "window"
+window_pad_seconds  = 0.5   # leading audio before the window (0.0–10.0 s); "window" mode only
+
+# Settings used only when clip_mode = "full":
+clip_seconds            = 15   # total saved clip length
 pre_capture_seconds     = 2    # extra audio before the analysis window
 capture_buffer_seconds  = 30   # ring buffer size; must be > clip_seconds + margin
 
 # Microphone device index (from `python -m sounddevice`).
-# Device 0 = HDA Intel PCH: CX8200 Analog (hw:0,0) — physical mic/line-in jack.
-# Set to 0 to use PipeWire instead if you need PipeWire routing.
 device = 0
 
 
+[inference]
+# "birdnet" (default) — BirdNET GLOBAL 6K V2.4; no extra setup required.
+# "perch"             — Google Perch v2; requires pip install 'perch-hoplite[tf]'
+#                       and Kaggle credentials.  Model (~400 MB) downloads on first
+#                       run and is cached in ~/.cache/kagglehub/.  Uses 5-second windows.
+model = "birdnet"
+
+
 [defaults]
-# Detections with confidence below this value are suppressed
-min_confidence = 0.6
+# Minimum inference confidence to accept a detection.
+min_confidence   = 0.6
 
-# Minimum gap (seconds) between saved clips for the same species
-cooldown_seconds = 15
+# Minimum gap (seconds) between saved clips for the same species.
+cooldown_seconds = 30
 
-# Maximum number of species to log / show per analysis window
-top_n = 3
-
-# Confirmation filter: a species must be detected this many times within
-# confirmation_window_seconds before it is saved.  This filters transient
-# false positives without running inference more frequently.
-# Set min_detections = 1 to disable (save on first hit, original behaviour).
-# With hop_seconds = 1 and window_seconds = 3, each second produces one new
-# inference result, so min_detections = 3 requires ~3 s of repeated signal.
-min_detections             = 3
+# Confirmation filter: require this many hits within confirmation_window_seconds
+# before saving.  Filters transient false positives without slower inference.
+# Set min_detections = 1 to save on the first hit (original behaviour).
+min_detections              = 2
 confirmation_window_seconds = 9
 
-# Labels that are never surfaced as detections (case-insensitive).
-# Includes generic BirdNET labels and all 198 FSD50K non-bird sound classes
-# from the Perch v2 inat2024_fsd50k label namespace.  The BOU filter provides
-# an independent second line of defence, but listing them here means they are
-# dropped in run_inference() regardless of whether bou_filter is enabled.
-noise_labels = [
-  # Generic BirdNET labels
-  "background", "noise", "silence", "other",
-  # All Perch FSD50K non-bird sound classes (198 entries, auto-lowercased on load)
-  "Accelerating_and_revving_and_vroom", "Accordion", "Acoustic_guitar",
-  "Aircraft", "Alarm", "Animal", "Applause", "Bark", "Bass_drum",
-  "Bass_guitar", "Bathtub_(filling_or_washing)", "Bell", "Bicycle",
-  "Bicycle_bell", "Boat_and_Water_vehicle", "Boiling", "Boom",
-  "Bowed_string_instrument", "Brass_instrument", "Breathing",
-  "Burping_and_eructation", "Bus", "Buzz", "Camera", "Car",
-  "Car_passing_by", "Cat", "Chatter", "Cheering", "Chewing_and_mastication",
-  "Chicken_and_rooster", "Child_speech_and_kid_speaking", "Chime",
-  "Chink_and_clink", "Chirp_and_tweet", "Chuckle_and_chortle",
-  "Church_bell", "Clapping", "Clock", "Coin_(dropping)",
-  "Computer_keyboard", "Conversation", "Cough", "Cowbell", "Crack",
-  "Crackle", "Crash_cymbal", "Cricket", "Crow", "Crowd",
-  "Crumpling_and_crinkling", "Crushing", "Crying_and_sobbing",
-  "Cupboard_open_or_close", "Cutlery_and_silverware", "Cymbal",
-  "Dishes_and_pots_and_pans", "Dog", "Domestic_animals_and_pets",
-  "Domestic_sounds_and_home_sounds", "Door", "Doorbell",
-  "Drawer_open_or_close", "Drill", "Drip", "Drum", "Drum_kit",
-  "Electric_guitar", "Engine", "Engine_starting", "Explosion", "Fart",
-  "Female_singing", "Female_speech_and_woman_speaking",
-  "Fill_(with_liquid)", "Finger_snapping", "Fire", "Fireworks",
-  "Fixed-wing_aircraft_and_airplane", "Fowl", "Frog", "Frying_(food)",
-  "Gasp", "Giggle", "Glass", "Glockenspiel", "Gong", "Growling",
-  "Guitar", "Gull_and_seagull", "Gunshot_and_gunfire", "Gurgling",
-  "Hammer", "Hands", "Harmonica", "Harp", "Hi-hat", "Hiss",
-  "Human_group_actions", "Human_voice", "Idling", "Insect",
-  "Keyboard_(musical)", "Keys_jangling", "Knock", "Laughter", "Liquid",
-  "Livestock_and_farm_animals_and_working_animals", "Male_singing",
-  "Male_speech_and_man_speaking", "Mallet_percussion",
-  "Marimba_and_xylophone", "Mechanical_fan", "Mechanisms", "Meow",
-  "Microwave_oven", "Motor_vehicle_(road)", "Motorcycle", "Music",
-  "Musical_instrument", "Ocean", "Organ", "Packing_tape_and_duct_tape",
-  "Percussion", "Piano", "Plucked_string_instrument", "Pour",
-  "Power_tool", "Printer", "Purr", "Race_car_and_auto_racing",
-  "Rail_transport", "Rain", "Raindrop", "Ratchet_and_pawl", "Rattle",
-  "Rattle_(instrument)", "Respiratory_sounds", "Ringtone", "Run",
-  "Sawing", "Scissors", "Scratching_(performance_technique)", "Screaming",
-  "Screech", "Shatter", "Shout", "Sigh", "Singing",
-  "Sink_(filling_or_washing)", "Siren", "Skateboard", "Slam",
-  "Sliding_door", "Snare_drum", "Sneeze", "Speech", "Speech_synthesizer",
-  "Splash_and_splatter", "Squeak", "Stream", "Strum",
-  "Subway_and_metro_and_underground", "Tabla", "Tambourine", "Tap",
-  "Tearing", "Telephone", "Thump_and_thud", "Thunder", "Thunderstorm",
-  "Tick", "Tick-tock", "Toilet_flush", "Tools",
-  "Traffic_noise_and_roadway_noise", "Train", "Trickle_and_dribble",
-  "Truck", "Trumpet", "Typewriter", "Typing", "Vehicle",
-  "Vehicle_horn_and_car_horn_and_honking", "Walk_and_footsteps", "Water",
-  "Water_tap_and_faucet", "Waves_and_surf", "Whispering",
-  "Whoosh_and_swoosh_and_swish", "Wild_animals", "Wind", "Wind_chime",
-  "Wind_instrument_and_woodwind_instrument", "Wood", "Writing", "Yell",
-  "Zipper_(clothing)",
-  # Human non-vocal / power tools (legacy BirdNET labels kept for compatibility)
-  "Human non-vocal", "Power tools",
-]
-
-# Species to permanently suppress, regardless of confidence.
-# Distinct from noise_labels — use this for real species you simply don't want
-# recorded (e.g. abundant garden birds that flood the log).
-# Note: use the exact IOC common names returned by BirdNET (run the detector
-# and check terminal output to confirm names).
+# Species to permanently suppress regardless of confidence (exact IOC common names).
+# Use this for real species you don't want recorded (e.g. abundant garden birds).
+# Check the terminal output to confirm the exact name returned by the classifier.
 # e.g. exclude = ["Common Wood-Pigeon", "Carrion Crow"]
-exclude = ["Northern Mockingbird", "Mourning Dove", "Eastern Kingbird"]
+exclude = []
 
 
 [filter]
-# Set enabled = true to apply a high-pass filter to audio before inference.
-# Helps remove low-frequency noise (wind, traffic, HVAC) without affecting
-# saved clips — the raw unfiltered audio is always written to disk.
+# High-pass filter applied to audio before inference (not to saved clips).
+# Removes low-frequency noise (wind, traffic, HVAC).
 enabled   = true
-cutoff_hz = 150    # Hz — bird calls typically start well above this
-order     = 5      # Butterworth filter order; higher = steeper rolloff
+cutoff_hz = 150   # bird calls typically start well above 150 Hz
+order     = 5     # Butterworth order; higher = steeper rolloff
+
+
+[seasonal_filter]
+# ISO-week presence filter using uk_seasonal_filter.json (generated from GBIF
+# Great Britain occurrence data by build_uk_seasonal_filter.py).
+# Each detection's ISO 8601 week (1–52) is checked against the species' allowed
+# weeks.  Species absent from the JSON are assumed year-round.
+# Set enabled = false to disable (not recommended for UK operation).
+enabled     = true
+filter_json = "uk_seasonal_filter.json"
 
 
 [retention]
-# Clip retention / disk cleanup policy for data/detections/.
+# Automatic cleanup of data/detections/ clips.
 # The cleanup thread runs on startup and then every run_interval_seconds.
 enabled               = true
 max_age_days          = 30     # delete clips older than this (0 = disable age check)
-max_usage_percent     = 90.0   # also delete oldest clips when disk is this full
-min_clips_per_species = 5      # always keep at least this many clips per species
-run_interval_seconds  = 3600   # how often the cleanup thread checks (seconds)
+max_usage_percent     = 90.0   # also purge oldest clips when disk is this full
+min_clips_per_species = 5      # always retain at least this many clips per species
+run_interval_seconds  = 3600
 
 
 [log]
-# Set enabled = true to write output to a rotating log file in addition to stdout.
+# Rotating log file written alongside stdout.
 enabled  = true
 path     = "data/bird_detector.log"
 
-# Log verbosity level: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL".
-# "INFO" is recommended for normal use.  Switch to "DEBUG" temporarily to
-# see seasonal/BOU filter decisions (out-of-season and non-BOU suppression
-# are logged at DEBUG).
+# Verbosity: DEBUG | INFO | WARNING | ERROR | CRITICAL
+# DEBUG shows seasonal/BOU filter decisions for individual detections.
 level = "DEBUG"
 
-# rotation = "daily"  — new file each midnight; keeps backup_count previous files
-# rotation = "size"   — rotate when the file exceeds max_size_bytes
+# rotation = "daily" — new file each midnight; keeps backup_count previous files.
+# rotation = "size"  — rotate when the file exceeds max_size_bytes.
 rotation       = "daily"
 max_size_bytes = 10485760   # 10 MB — only used when rotation = "size"
-backup_count   = 7          # number of old log files to keep
+backup_count   = 7
 
 
 [database]
-# Backend type: "sqlite" (default, zero config) or "postgresql".
-# For TimescaleDB, keep type = "postgresql" and set timescaledb = true —
-# this runs create_hypertable on detections.timestamp at init time.
-# psycopg2-binary must be installed when using postgresql:
-#   pip install psycopg2-binary
+# "sqlite" (default, zero config) or "postgresql".
+# For TimescaleDB: keep type = "postgresql" and set timescaledb = true.
+# Note: the dashboard always reads the SQLite file directly — postgresql affects
+# the detector only.  psycopg2-binary required for postgresql.
 type        = "sqlite"
 host        = "localhost"
 port        = 5432
@@ -204,8 +139,8 @@ timescaledb = false
 
 
 [mqtt]
-# Set enabled = true to publish each detection as JSON to an MQTT broker.
-# paho-mqtt must be installed: pip install paho-mqtt
+# Publish each detection as JSON to an MQTT broker.
+# Requires: pip install paho-mqtt
 enabled  = false
 broker   = "localhost"
 port     = 1883
@@ -216,69 +151,39 @@ retain   = false
 
 
 [birdmap]
-# Set enabled = true to forward detections to birdmap.co.uk.
-# Register an account at birdmap.co.uk, create a station, and paste the
-# returned API key and station ID here.
+# Forward detections to birdmap.co.uk.
+# Register at birdmap.co.uk to obtain an API key and station ID.
 enabled      = false
 api_url      = "http://localhost:8000"
 api_key      = "bm_RMeuZyv7jmZo07h89zMZnJuPo0I0hguyw14SUAW9UJb8yBDK"
-station_id   = 1                # assigned by server on registration
-upload_audio = true         # include base64-encoded WAV clip in each POST (max 2 MB)
+station_id   = 1
+upload_audio = true   # include base64-encoded WAV clip in each POST (max 2 MB)
 
 
-[bou_filter]
-# Set enabled = true to restrict detections to species on the BTO
-# UK checklist (species_bto_FINAL_filtered.json).
-#
-# Species are matched to BirdNET labels via the explicit international_english_name
-# field in the JSON, with scientific-name and common-name fallbacks.  Any
-# detection whose BirdNET common name cannot be mapped to a listed species is
-# silently discarded.  On startup the number of matched species is logged so
-# you can verify coverage.
-#
-enabled = true
+[cross_validation]
+# Re-evaluate each confirmed detection with the secondary model (whichever of
+# birdnet/perch is not the primary).  Both models must be installed.
+# Species agreement is compared via BTO-resolved names to bridge label-namespace
+# differences.  When models agree, confidence is set to the arithmetic mean.
+enabled        = true
+skip_threshold = 0.90   # primary confidence >= this → skip CV (high-confidence shortcut)
 
+# Action when models disagree on species:
+#   "drop" — discard the detection (default; maximises precision)
+#   "flag" — save with flagged = true for manual dashboard review
+on_disagree = "drop"
 
-[seasonal_filter]
-# Set enabled = true to suppress out-of-season detections using the
-# ISO-week-based presence data in uk_seasonal_filter.json (generated by
-# build_uk_seasonal_filter.py from GBIF Great Britain occurrence data).
-#
-# For each detection the current ISO 8601 week (1–52) is compared against
-# the species' allowed-weeks set.  Species absent from the JSON are assumed
-# year-round (safe default).  Species listed but outside their allowed
-# weeks are silently dropped, leaving a note at DEBUG level.
-#
-# To customise, copy uk_seasonal_filter.json, edit it, and point filter_json
-# at the copy.
-#
-# This filter sits after the BOU allowlist (Step 3b) and before the
-# per-species confidence threshold (Step 4).
-enabled     = true
-filter_json = "uk_seasonal_filter.json"
-
-
-[inference]
-# model selects the active classifier backend.
-#
-# "birdnet" (default) — BirdNET GLOBAL 6K V2.4, bundled with birdnet-analyzer.
-#                       No extra setup required.
-# "perch"             — Google Perch v2, a TensorFlow model downloaded from
-#                       Kaggle on first run (~400 MB cached in ~/.cache/kagglehub).
-#                       Requires: pip install 'perch-hoplite[tf]'
-#                       Requires: Kaggle credentials (see requirements.txt).
-#                       Uses 5-second analysis windows at 32 kHz (audio is
-#                       resampled internally; recording always stays at
-#                       cfg.audio.sample_rate).
-model = "birdnet"
-
+# Minimum secondary-model confidence to count as a candidate.
+# Keep low (≈ 0.01) because Perch softmax probabilities over ~10 000+ classes
+# are far smaller than BirdNET logistic scores; a clear Perch match may only
+# reach 0.03–0.08.
+cv_min_confidence = 0.01
 
 
 # ── Per-species overrides ──────────────────────────────────────────────────────
-# Any key from [defaults] can be overridden here for a specific species.
-# The species name must match the cleaned common name produced by the classifier
-# (i.e. what you see printed in the terminal).
-# Keys not listed here fall back to [defaults].
+# Override any [defaults] key for a specific species.  The name must match the
+# common name printed in the terminal.  Keys not listed fall back to [defaults].
+# Add on_disagree = "flag" to review CV disagreements for rare/nocturnal species.
 
 [species."House Sparrow"]
 min_confidence   = 0.90
@@ -286,6 +191,12 @@ cooldown_seconds = 90
 
 [species."Tawny Owl"]
 min_detections = 1
+#on_disagree    = "flag"
 
 [species."Barn Owl"]
+min_detections = 1
+#on_disagree    = "flag"
+
+[species."Common Whitethroat"]
+min_confidence = 0.20
 min_detections = 1

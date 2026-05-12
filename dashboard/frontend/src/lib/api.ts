@@ -79,11 +79,22 @@ export const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 
 export interface Detection extends SpeciesInfo {
 	id: number;
-	timestamp: string;       // ISO 8601
+	timestamp: string;           // ISO 8601
 	species: string;
 	bto_name: string | null;
-	confidence: number;      // 0–1
-	filename: string | null; // basename of clip_path; null if no clip saved
+	confidence: number;          // 0–1 (mean when CV agrees; primary otherwise)
+	filename: string | null;     // basename of clip_path; null if no clip saved
+	// ── Inference model ─────────────────────────────────────────────────────
+	model: string | null;        // "birdnet" | "perch" | null (legacy rows)
+	// ── Cross-validation ────────────────────────────────────────────────────
+	primary_confidence: number | null;  // raw primary model score
+	cross_validated: number | null;     // 1 if CV ran, 0/null otherwise
+	cv_secondary_model: string | null;  // secondary model that validated
+	cv_species: string | null;          // species name returned by secondary
+	cv_bto_name: string | null;         // BTO name from secondary
+	cv_confidence: number | null;       // secondary model confidence
+	cv_agree: number | null;            // 1 = agree, 0 = disagree
+	flagged: number | null;             // 1 = CV disagreed but kept (on_disagree=flag)
 }
 
 // ── Shared species metadata (from species_info table) ─────────────────────

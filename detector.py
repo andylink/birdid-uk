@@ -29,6 +29,15 @@ buffer automatically resizes to suit the model (3 s for BirdNET, 5 s for
 Perch v2).  Audio is always recorded at ``cfg.audio.sample_rate``; any
 resampling needed by the model happens inside the model's
 ``run_inference`` method.
+
+Cross-validation
+----------------
+When ``cfg.cross_validation.enabled`` is ``True``, a
+:class:`~cross_validate.CrossValidator` is initialised in :func:`main` and
+stored as the module-level ``_cross_validator`` variable.  Each deferred-save
+task invokes the validator before writing to disk so that the audio clip and
+database row are only created if the secondary model agrees (or the primary
+confidence clears the skip threshold).
 """
 
 from __future__ import annotations
@@ -50,8 +59,9 @@ import birdmap
 from bou_filter import build_bou_allowed_set, build_birdnet_to_bto_map
 from capture_buffer import CaptureBuffer
 from config import cfg, get_species_config
+from cross_validate import CrossValidationResult, CrossValidator
 from database import init_db, record_detection, seed_species_info
-from inference import Inferencer, get_model
+from inference import Inferencer, get_model, get_secondary_model, get_secondary_model_name
 from log_setup import setup_logging
 from mqtt import init_mqtt, publish_detection
 from retention import start_retention_thread
@@ -66,8 +76,9 @@ stop_event:      threading.Event     = threading.Event()
 _last_detected:  dict[str, datetime] = {}   # species → time of last saved detection
 
 # Initialised in main() after config is loaded.
-_capture_buffer: CaptureBuffer
-_executor:       ThreadPoolExecutor
+_capture_buffer:  CaptureBuffer
+_executor:        ThreadPoolExecutor
+_cross_validator: CrossValidator | None = None   # None when CV is disabled
 
 
 @dataclass
@@ -106,44 +117,54 @@ def _deferred_save(
     bto_name:       str | None,
     model_name:     str,
 ) -> None:
-    """Sleep for the post-capture period, read the full clip, then persist.
+    """Sleep for the post-capture period, cross-validate, then persist.
 
-    Runs on a worker thread from ``_executor``.  All downstream writes
-    (clip file, database row, MQTT publish, Birdmap POST) happen here so
-    that the classify loop is never blocked waiting for I/O.
+    Runs on a worker thread from ``_executor``.  If cross-validation is
+    enabled and the two models disagree, the detection may be dropped or
+    flagged according to config before any I/O is attempted.
 
     ``begin_sample`` points to the start of the best-confidence inference
-    window in the ring buffer.  The saved clip extends ``pre_capture_seconds``
-    before that point and ``post_capture_seconds`` after the window ends.
+    window in the ring buffer.  In ``"window"`` clip mode the saved clip is
+    ``window_pad_seconds`` before that point and exactly ``model.window_seconds``
+    long.  In ``"full"`` clip mode it extends ``pre_capture_seconds`` before
+    the window and ``post_capture_seconds`` after.
 
     If the ring buffer read fails (e.g. the segment was overwritten because
     the executor backlog was unusually deep), the function falls back to
-    saving the 3-second analysis window that was captured at detection time.
+    saving the analysis window that was captured at detection time.
 
     Args:
         ts:             Wall-clock timestamp of the best-confidence hit.
-        species:        BirdNET common name of the confirmed species.
-        conf:           Confidence of the best hit.
+        species:        Primary model common name of the confirmed species.
+        conf:           Confidence of the best hit (primary model).
         begin_sample:   Absolute sample index where the analysis window started.
-        fallback_audio: The 3-second raw PCM array from the best hit.
+        fallback_audio: Raw PCM array from the best hit (one analysis window).
         bto_name:       BTO British name for the database row (may be None).
-        model_name:     Inference backend that produced this detection
-                        (e.g. ``"birdnet"`` or ``"perch"``).
+        model_name:     Inference backend that produced this detection.
     """
-    post_capture = (
-        cfg.audio.clip_seconds
-        - int(get_model().window_seconds)
-        - cfg.audio.pre_capture_seconds
-    )
-    if post_capture > 0:
-        time.sleep(post_capture)
+    window_samples = int(get_model().window_seconds) * cfg.audio.sample_rate
 
-    pre_samples  = cfg.audio.pre_capture_seconds * cfg.audio.sample_rate
-    clip_samples = cfg.audio.clip_seconds        * cfg.audio.sample_rate
+    if cfg.audio.clip_mode == "window":
+        # Save only the model analysis window plus a short leading pad.
+        # No post-capture sleep is needed — the detection window is already
+        # fully in the capture buffer by the time this task runs.
+        pre_samples  = int(cfg.audio.window_pad_seconds * cfg.audio.sample_rate)
+        clip_samples = window_samples + pre_samples
+    else:
+        # Legacy "full" mode: pre_capture + model window + post_capture.
+        post_capture = (
+            cfg.audio.clip_seconds
+            - int(get_model().window_seconds)
+            - cfg.audio.pre_capture_seconds
+        )
+        if post_capture > 0:
+            time.sleep(post_capture)
+        pre_samples  = cfg.audio.pre_capture_seconds * cfg.audio.sample_rate
+        clip_samples = cfg.audio.clip_seconds        * cfg.audio.sample_rate
 
     # The recording thread writes in 1-second chunks, so after sleeping exactly
     # post_capture_seconds the final samples may not have been committed yet.
-    # Retry up to 10 times (≤1 s total) before falling back to the 3-second clip.
+    # Retry up to 10 times (≤1 s total) before falling back to the analysis clip.
     segment: np.ndarray | None = None
     for _attempt in range(10):
         segment = _capture_buffer.read_segment(begin_sample - pre_samples, clip_samples)
@@ -153,16 +174,119 @@ def _deferred_save(
 
     if segment is None:
         logger.warning(
-            "capture buffer miss for %s at sample %d (post_capture=%ds); "
+            "capture buffer miss for %s at sample %d "
+            "(clip_mode=%s, pre=%d samples); "
             "saving fallback clip (one analysis window)",
-            species, begin_sample, post_capture,
+            species, begin_sample, cfg.audio.clip_mode, pre_samples,
         )
         segment = fallback_audio
 
+    # ── Cross-validation ──────────────────────────────────────────────────────
+    cv_result: CrossValidationResult | None = None
+    effective_conf = conf   # may be updated to ensemble mean if CV agrees
+
+    if _cross_validator is not None:
+        sample_rate   = cfg.audio.sample_rate
+        cv_win_samp   = int(_cross_validator.window_seconds * sample_rate)
+        cv_start      = pre_samples
+
+        if len(segment) >= cv_start + cv_win_samp:
+            cv_audio = segment[cv_start : cv_start + cv_win_samp]
+        else:
+            # Segment shorter than required — use the whole segment and let
+            # the secondary model handle variable-length input gracefully.
+            logger.debug(
+                "CV: audio segment shorter than secondary window "
+                "(%d < %d samples); using full segment",
+                len(segment), cv_start + cv_win_samp,
+            )
+            cv_audio = segment
+
+        # Apply the same high-pass filter that was used for primary inference
+        # so both models see the same pre-processed audio.
+        if cfg.filter.enabled:
+            try:
+                cv_audio = apply_highpass(
+                    cv_audio,
+                    sample_rate,
+                    cfg.filter.cutoff_hz,
+                    cfg.filter.order,
+                )
+            except Exception:
+                logger.warning(
+                    "high-pass filter failed for CV audio on %s — "
+                    "using raw audio for secondary model",
+                    species,
+                )
+
+        cv_result = _cross_validator.validate(
+            audio            = cv_audio,
+            primary_species  = species,
+            primary_bto_name = bto_name,
+            primary_conf     = conf,
+            species_name     = species,
+        )
+
+        if cv_result.action == "drop":
+            logger.info(
+                "%-32s CV DROP   primary_bto=%-20s  secondary=%s (%.2f)",
+                species,
+                bto_name or "?",
+                cv_result.secondary_bto_name or cv_result.secondary_species or "none",
+                cv_result.secondary_confidence or 0.0,
+            )
+            return   # discard — no clip saved, no DB row
+
+        if cv_result.action == "flag":
+            logger.info(
+                "%-32s CV FLAG   primary_bto=%-20s  secondary=%s (%.2f)",
+                species,
+                bto_name or "?",
+                cv_result.secondary_bto_name or cv_result.secondary_species or "none",
+                cv_result.secondary_confidence or 0.0,
+            )
+        else:
+            # "save" — log agreement for monitoring
+            if cv_result.performed and cv_result.agree:
+                logger.info(
+                    "%-32s CV AGREE  primary_bto=%-20s  secondary=%s "
+                    "(mean_conf=%.2f)",
+                    species,
+                    bto_name or "?",
+                    cv_result.secondary_bto_name or cv_result.secondary_species or "?",
+                    cv_result.final_confidence,
+                )
+
+        effective_conf = cv_result.final_confidence
+
+    # ── Persist ───────────────────────────────────────────────────────────────
     clip_path = save_clip(segment, ts, species)
-    record_detection(ts, species, conf, clip_path, [], bto_name, model_name)
-    publish_detection(ts, species, conf, clip_path, [])
-    birdmap.post_detection(ts, species, conf, clip_path)
+
+    # Build cross-validation keyword args for record_detection only when CV ran.
+    cv_kwargs: dict = {}
+    if cv_result is not None:
+        cv_kwargs = dict(
+            primary_confidence  = conf,
+            cross_validated     = cv_result.performed,
+            cv_secondary_model  = cv_result.secondary_model_name,
+            cv_species          = cv_result.secondary_species,
+            cv_bto_name         = cv_result.secondary_bto_name,
+            cv_confidence       = cv_result.secondary_confidence,
+            cv_agree            = cv_result.agree,
+            flagged             = (cv_result.action == "flag") or None,
+        )
+        # Store None instead of False for flagged when it's not actually flagged,
+        # keeping the column sparse for normal (non-flagged) rows.
+        if cv_kwargs["flagged"] is False:
+            cv_kwargs["flagged"] = None
+
+    record_detection(
+        ts, species, effective_conf, clip_path, [],
+        bto_name, model_name,
+        **cv_kwargs,
+    )
+    publish_detection(ts, species, effective_conf, clip_path, [])
+    birdmap.post_detection(ts, species, effective_conf, clip_path)
 
 
 # ── Threads ───────────────────────────────────────────────────────────────────
@@ -191,7 +315,7 @@ def _record_thread() -> None:
 
 
 def _classify_loop(
-    bou_allowed:    frozenset[str] | None,
+    bou_allowed:    frozenset[str],
     birdnet_to_bto: dict[str, str],
     seasonal:       SeasonalFilter,
     model:          Inferencer,
@@ -209,17 +333,18 @@ def _classify_loop(
       4. Filter each detection by its per-species ``min_confidence``.
          This runs before BOU/seasonal so low-confidence hits never appear
          in the filter-suppressed log lines.
-      4b. If the BOU filter is enabled, drop species not in the BOU allowlist.
-      4c. If the seasonal filter is enabled, drop species outside their expected
-          season for the current BirdNET week.
-      5. Cap the candidate list at the global ``top_n`` setting.
-      6. Confirmation filter: each species accumulates hits in ``_pending``
+       4. Filter each detection by its per-species ``min_confidence``.
+          This runs before BOU/seasonal so low-confidence hits never appear
+          in the filter-suppressed log lines.
+       4b. BOU allowlist filter: drop species not in the UK BOU species list.
+       4c. Seasonal filter: drop species outside their expected season.
+       5. Confirmation filter: each species accumulates hits in ``_pending``
          until it reaches ``min_detections`` within ``confirmation_window_seconds``.
          Only confirmed species proceed; the highest-confidence hit's audio
          and timestamp are used for the saved clip.
-      7. Cooldown check (at confirmation time): skip if the species was saved
-         too recently.  Cooldown clock starts when the save is submitted.
-      8. Submit a deferred-save task for each confirmed species.
+       6. Cooldown check (at confirmation time): skip if the species was saved
+          too recently.  Cooldown clock starts when the save is submitted.
+       7. Submit a deferred-save task for each confirmed species.
     """
     buffer: list[np.ndarray] = []
     window_blocks  = int(model.window_seconds) // cfg.audio.hop_seconds
@@ -301,18 +426,17 @@ def _classify_loop(
         if not candidates:
             continue
 
-        # ── Step 3b: BOU allowlist filter ─────────────────────────────────────
-        if bou_allowed is not None:
-            candidates = [
-                (species, conf)
-                for species, conf in candidates
-                if species in bou_allowed
-            ]
+        # ── Step 4b: BOU allowlist filter ─────────────────────────────────────
+        candidates = [
+            (species, conf)
+            for species, conf in candidates
+            if species in bou_allowed
+        ]
 
         if not candidates:
             continue
 
-        # ── Step 3c: seasonal presence filter ────────────────────────────────
+        # ── Step 4c: seasonal presence filter ────────────────────────────────
         if seasonal.enabled:
             week = current_iso_week(ts)
             filtered = [
@@ -332,14 +456,11 @@ def _classify_loop(
         if not candidates:
             continue
 
-        # ── Step 5: cap to global top_n ───────────────────────────────────────
-        passing = candidates[: cfg.defaults.top_n]
-
-        # ── Steps 6–8: confirmation filter + cooldown + deferred save ─────────
+        # ── Steps 5–7: confirmation filter + cooldown + deferred save ─────────
         now_mono     = time.monotonic()
         begin_sample = _capture_buffer.total_written - window_samples
 
-        for species, conf in passing:
+        for species, conf in candidates:
             sc = get_species_config(species)
             logger.info("%-32s %.2f", species, conf)
 
@@ -416,24 +537,22 @@ def main() -> None:
 
     # Validate clip geometry now that the model window length is known.
     _model_window = int(model.window_seconds)
-    _post_capture = cfg.audio.clip_seconds - _model_window - cfg.audio.pre_capture_seconds
-    if _post_capture < 0:
-        raise ValueError(
-            f"[audio] clip_seconds ({cfg.audio.clip_seconds}) must be >= "
-            f"model window ({_model_window} s) + pre_capture_seconds "
-            f"({cfg.audio.pre_capture_seconds} s); "
-            f"got post_capture_seconds = {_post_capture}"
-        )
+    _post_capture = 0  # only meaningful when clip_mode = "full"
+    if cfg.audio.clip_mode == "full":
+        _post_capture = cfg.audio.clip_seconds - _model_window - cfg.audio.pre_capture_seconds
+        if _post_capture < 0:
+            raise ValueError(
+                f"[audio] clip_seconds ({cfg.audio.clip_seconds}) must be >= "
+                f"model window ({_model_window} s) + pre_capture_seconds "
+                f"({cfg.audio.pre_capture_seconds} s); "
+                f"got post_capture_seconds = {_post_capture}"
+            )
 
-    # Build the BOU allowed set and BirdNET→BTO name map if the filter is enabled.
-    bou_allowed:    frozenset[str] | None = None
-    birdnet_to_bto: dict[str, str]        = {}
-    if cfg.bou_filter.enabled:
-        bou_allowed    = build_bou_allowed_set(label_map)
-        birdnet_to_bto = build_birdnet_to_bto_map(label_map)
-        logger.info("BOU filter enabled — non-BOU detections will be suppressed")
-    else:
-        logger.info("BOU filter disabled")
+    # Build the BOU allowed set and BirdNET→BTO name map.
+    # The BOU filter is always active — this detector is UK-specific.
+    bou_allowed    = build_bou_allowed_set(label_map)
+    birdnet_to_bto = build_birdnet_to_bto_map(label_map)
+    logger.info("BOU filter active — non-BOU species will be suppressed")
 
     # Build the seasonal presence filter.
     seasonal = SeasonalFilter(
@@ -444,6 +563,42 @@ def main() -> None:
         logger.info("Seasonal filter enabled — out-of-season detections will be suppressed")
     else:
         logger.info("Seasonal filter disabled")
+
+    # ── Cross-validation setup ────────────────────────────────────────────────
+    global _cross_validator
+    if cfg.cross_validation.enabled:
+        secondary_name  = get_secondary_model_name()
+        secondary_model = get_secondary_model()
+        secondary_label_map = secondary_model.load_label_map()
+
+        # Build a BTO map for the secondary model so CV name-matching bridges
+        # the label-namespace difference between BirdNET (IOC) and Perch (eBird).
+        secondary_bto_map = build_birdnet_to_bto_map(secondary_label_map)
+
+        _cross_validator = CrossValidator(
+            secondary_model      = secondary_model,
+            secondary_bto_map    = secondary_bto_map,
+            secondary_model_name = secondary_name,
+            min_conf_threshold   = cfg.cross_validation.cv_min_confidence,
+        )
+        logger.info(
+            "Cross-validation enabled — secondary model: %s (window: %.0f s)  "
+            "skip_threshold=%.2f  on_disagree=%s  cv_min_confidence=%.3f",
+            secondary_name, secondary_model.window_seconds,
+            cfg.cross_validation.skip_threshold, cfg.cross_validation.on_disagree,
+            cfg.cross_validation.cv_min_confidence,
+        )
+
+        # Eagerly load the secondary model's TF graph now so the first live CV
+        # call doesn't stall a deferred-save worker thread.  run_inference()
+        # triggers _ensure_model() on first call; calling it here with a silent
+        # dummy array moves that startup cost to before the classify loop begins.
+        logger.info("Pre-warming secondary model (%s) — loading TF graph…", secondary_name)
+        _warmup_samples = int(secondary_model.window_seconds * cfg.audio.sample_rate)
+        secondary_model.run_inference(np.zeros(_warmup_samples, dtype=np.float32))
+        logger.info("Secondary model (%s) pre-warm complete.", secondary_name)
+    else:
+        logger.info("Cross-validation disabled")
 
     init_db()
     seed_species_info(Path(__file__).parent / "species_bto_FINAL_filtered.json")
@@ -461,13 +616,24 @@ def main() -> None:
         max_workers       = 4,
         thread_name_prefix = "clip_saver",
     )
-    logger.info(
-        "Capture buffer: %d s ring  |  clip: %d s  (pre=%d s, post=%d s)",
-        cfg.audio.capture_buffer_seconds,
-        cfg.audio.clip_seconds,
-        cfg.audio.pre_capture_seconds,
-        _post_capture,
-    )
+    if cfg.audio.clip_mode == "window":
+        _clip_total = cfg.audio.window_pad_seconds + _model_window
+        logger.info(
+            "Capture buffer: %d s ring  |  clip mode: window  "
+            "(%.1f s pad + %d s model window = %.1f s total)",
+            cfg.audio.capture_buffer_seconds,
+            cfg.audio.window_pad_seconds,
+            _model_window,
+            _clip_total,
+        )
+    else:
+        logger.info(
+            "Capture buffer: %d s ring  |  clip: %d s  (pre=%d s, post=%d s)",
+            cfg.audio.capture_buffer_seconds,
+            cfg.audio.clip_seconds,
+            cfg.audio.pre_capture_seconds,
+            _post_capture,
+        )
 
     rec = threading.Thread(target=_record_thread, daemon=True)
     rec.start()
@@ -479,3 +645,4 @@ def main() -> None:
     finally:
         stop_event.set()
         _executor.shutdown(wait=True)
+

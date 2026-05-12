@@ -63,6 +63,7 @@ from pathlib import Path
 import numpy as np
 
 from config import cfg
+from constants import NOISE_LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,46 @@ class PerchModel:
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
+    def _deduplicate_ebird_csv(self) -> None:
+        """Pre-deduplicate ``perch_v2_ebird_classes.csv`` in the Kaggle cache.
+
+        Perch v2 ships with a ``perch_v2_ebird_classes.csv`` that contains
+        duplicate entries.  When ``model_configs.load_model_by_name`` loads the
+        model it reads this file and emits a noisy
+        "Failed to load class list … duplicate entries in class list" warning.
+        The warning is non-fatal (the model still loads) and does not affect our
+        inference because we use ``assets/labels.csv`` for class ordering rather
+        than ``model.class_list``.  However, deduplicating the file once prevents
+        the warning on all subsequent runs.
+        """
+        model_dir = self._get_model_dir()
+        if model_dir is None:
+            return
+        ebird_csv = model_dir / "assets" / "perch_v2_ebird_classes.csv"
+        if not ebird_csv.exists():
+            return
+        try:
+            lines = ebird_csv.read_text(encoding="utf-8").splitlines()
+            seen: set[str] = set()
+            deduped: list[str] = []
+            for line in lines:
+                if line not in seen:
+                    seen.add(line)
+                    deduped.append(line)
+            if len(deduped) < len(lines):
+                logger.debug(
+                    "Perch: deduplicating perch_v2_ebird_classes.csv "
+                    "(%d → %d entries to silence Perch class-list warning)",
+                    len(lines), len(deduped),
+                )
+                ebird_csv.write_text("\n".join(deduped), encoding="utf-8")
+        except Exception:
+            logger.debug(
+                "Perch: could not pre-process perch_v2_ebird_classes.csv "
+                "(non-fatal — model will still load)",
+                exc_info=True,
+            )
+
     def _ensure_model(self) -> None:
         """Lazy-load the Perch v2 TF model (downloads from Kaggle if needed)."""
         if self._model is not None:
@@ -107,6 +148,7 @@ class PerchModel:
             "Loading Perch v2 model — first run downloads ~400 MB from Kaggle "
             "(cached in ~/.cache/kagglehub/ afterwards)…"
         )
+        self._deduplicate_ebird_csv()
         self._model = model_configs.load_model_by_name("perch_v2")
         logger.info("Perch v2 model ready.")
 
@@ -265,7 +307,7 @@ class PerchModel:
         """Resample *audio*, run Perch v2, and return results.
 
         Returns ``[(common_name, confidence), ...]`` sorted by confidence
-        descending.  Noise labels (``cfg.defaults.noise_labels``) are removed.
+        descending.  Entries in ``NOISE_LABELS`` (constants.py) are removed.
         No confidence threshold or top-N cap is applied.
 
         The input *audio* is expected at ``cfg.audio.sample_rate`` (48 kHz by
@@ -288,7 +330,6 @@ class PerchModel:
             logger.warning("Perch class list is empty; cannot run inference.")
             return []
 
-        noise_labels = cfg.defaults.noise_labels
         t0 = time.perf_counter()
 
         # ── Convert int16 PCM → float32 in [-1, 1] ───────────────────────────
@@ -359,7 +400,7 @@ class PerchModel:
             if prob < _prob_floor:
                 continue
             common = self._sci_to_common.get(sci_name, sci_name)
-            if common.lower() not in noise_labels:
+            if common.lower() not in NOISE_LABELS:
                 results.append((common, float(prob)))
 
         results.sort(key=lambda x: x[1], reverse=True)
