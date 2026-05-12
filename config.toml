@@ -98,6 +98,29 @@ enabled     = true
 filter_json = "uk_seasonal_filter.json"
 
 
+[nocturnal_filter]
+# Time-of-day gate for nocturnal and crepuscular species.
+# Detections of listed species outside their active window (i.e. in the middle
+# of the day) are discarded as likely false positives.
+#
+# uk_nocturnal_filter.json covers: Tawny Owl, Western Barn Owl, Long-eared Owl,
+# European Nightjar, Eurasian Woodcock, Corn Crake, Black-crowned Night Heron.
+#
+# Two window types are supported (set in the JSON or via per-species overrides):
+#   "sunset_sunrise" — active from (sunset + offset) to (sunrise + offset).
+#                      Negative offset = before the event, positive = after.
+#                      Uses [location] lat/lon for sunrise/sunset calculation.
+#   "fixed"         — fixed local clock range, e.g. {start = "21:00", end = "05:00"}.
+#                      Windows spanning midnight (start > end) are handled correctly.
+#
+# Per-species override example (add to any [species."Name"] block):
+#   active_hours = {type = "sunset_sunrise", sunset_offset_minutes = -30, sunrise_offset_minutes = 60}
+#   active_hours = {type = "fixed", start = "21:00", end = "05:00"}
+#
+enabled     = true
+filter_json = "uk_nocturnal_filter.json"
+
+
 [retention]
 # Automatic cleanup of data/detections/ clips.
 # The cleanup thread runs on startup and then every run_interval_seconds.
@@ -183,7 +206,12 @@ cv_min_confidence = 0.01
 # ── Per-species overrides ──────────────────────────────────────────────────────
 # Override any [defaults] key for a specific species.  The name must match the
 # common name printed in the terminal.  Keys not listed fall back to [defaults].
-# Add on_disagree = "flag" to review CV disagreements for rare/nocturnal species.
+#
+# active_hours overrides the nocturnal filter window for this species:
+#   active_hours = {type = "sunset_sunrise", sunset_offset_minutes = -30, sunrise_offset_minutes = 60}
+#   active_hours = {type = "fixed", start = "21:00", end = "05:00"}
+#
+# Add on_disagree = "flag" to review CV disagreements rather than silently dropping.
 
 [species."House Sparrow"]
 min_confidence   = 0.90

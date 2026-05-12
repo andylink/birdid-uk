@@ -146,6 +146,30 @@ class SeasonalFilterConfig:
 
 
 @dataclass(frozen=True)
+class NocturnalFilterConfig:
+    """Controls the time-of-day filter for nocturnal and crepuscular species.
+
+    When *enabled* is ``True``, the detect loop drops detections of listed
+    species that occur outside their defined active window (i.e. in the middle
+    of the day).
+
+    Two window types are supported (see ``nocturnal_filter.py`` for details):
+
+    * ``sunset_sunrise`` — window relative to today's sunrise/sunset, computed
+      from [location] lat/lon.  Supports per-event offsets in minutes.
+    * ``fixed`` — fixed local clock-time range (HH:MM strings), spanning
+      midnight if start > end.
+
+    Per-species overrides can be set in ``[species."Name"]`` blocks using the
+    ``active_hours`` key (takes priority over the JSON data file).
+
+    *filter_json* defaults to ``uk_nocturnal_filter.json``.
+    """
+    enabled:     bool
+    filter_json: Path
+
+
+@dataclass(frozen=True)
 class InferenceConfig:
     """Controls inference backend selection.
 
@@ -212,6 +236,7 @@ class Config:
     mqtt:             MqttConfig
     birdmap:          BirdmapConfig
     seasonal_filter:  SeasonalFilterConfig
+    nocturnal_filter: NocturnalFilterConfig
     defaults:         SpeciesConfig
     general:          GeneralConfig
     location:         LocationConfig
@@ -361,6 +386,12 @@ def _load() -> Config:
         filter_json = Path(sf.get("filter_json", "uk_seasonal_filter.json")),
     )
 
+    nf = raw.get("nocturnal_filter", {})
+    nocturnal_filter_cfg = NocturnalFilterConfig(
+        enabled     = bool(nf.get("enabled",     True)),
+        filter_json = Path(nf.get("filter_json", "uk_nocturnal_filter.json")),
+    )
+
     inf = raw.get("inference", {})
     inference_cfg = InferenceConfig(
         model = str(inf.get("model", "birdnet")),
@@ -386,6 +417,7 @@ def _load() -> Config:
         mqtt               = mqtt_cfg,
         birdmap            = birdmap_cfg,
         seasonal_filter    = seasonal_filter_cfg,
+        nocturnal_filter   = nocturnal_filter_cfg,
         defaults           = defaults,
         general            = general_cfg,
         location           = location_cfg,

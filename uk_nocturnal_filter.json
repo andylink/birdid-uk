@@ -1,0 +1,60 @@
+{
+  "_metadata": {
+    "description": "Active time-window restrictions for UK nocturnal and crepuscular species. Detections outside the window (i.e. in the middle of the day) are discarded as likely false positives. Keys are BirdNET common names (IOC English).",
+    "window_types": {
+      "sunset_sunrise": "Active window spans from (sunset + sunset_offset_minutes) to (sunrise + sunrise_offset_minutes). Negative offset = before the event. Requires [location] lat/lon in config.toml.",
+      "fixed": "Active window is a fixed local clock-time range. start/end are HH:MM strings. Windows that span midnight (start > end) are handled correctly."
+    },
+    "notes": [
+      "Species absent from this file are unaffected (no time restriction).",
+      "Per-species overrides in config.toml [species.\"Name\"] active_hours take priority over entries here.",
+      "Short-eared Owl is intentionally omitted — it is a diurnal hunter.",
+      "Common Nightingale is intentionally omitted — it sings extensively by day as well as at night.",
+      "Little Owl is intentionally omitted — it is substantially diurnal and crepuscular."
+    ]
+  },
+  "species": {
+    "Tawny Owl": {
+      "type": "sunset_sunrise",
+      "sunset_offset_minutes": -30,
+      "sunrise_offset_minutes": 60,
+      "_note": "Strictly nocturnal. Begins hooting at dusk; occasional calls continue shortly after sunrise."
+    },
+    "Western Barn Owl": {
+      "type": "sunset_sunrise",
+      "sunset_offset_minutes": -30,
+      "sunrise_offset_minutes": 30,
+      "_note": "Crepuscular to nocturnal. Often starts hunting before sunset, especially in winter when days are short."
+    },
+    "Long-eared Owl": {
+      "type": "sunset_sunrise",
+      "sunset_offset_minutes": 0,
+      "sunrise_offset_minutes": 30,
+      "_note": "Strictly nocturnal. Roosts silently and cryptically by day; any daytime detection is almost certainly noise."
+    },
+    "European Nightjar": {
+      "type": "sunset_sunrise",
+      "sunset_offset_minutes": -15,
+      "sunrise_offset_minutes": 30,
+      "_note": "Strictly crepuscular/nocturnal. Churring begins just after sunset and ceases before full daylight. Summer visitor (May-Sep)."
+    },
+    "Eurasian Woodcock": {
+      "type": "sunset_sunrise",
+      "sunset_offset_minutes": -15,
+      "sunrise_offset_minutes": 15,
+      "_note": "Roding display flight (and associated calls) occurs strictly at dusk and dawn. Daytime vocalisations are very rare."
+    },
+    "Corn Crake": {
+      "type": "sunset_sunrise",
+      "sunset_offset_minutes": -60,
+      "sunrise_offset_minutes": 120,
+      "_note": "Calls mainly after dark but also at dusk and through to mid-morning. Wide window used to avoid false negatives on this scarce species."
+    },
+    "Black-crowned Night Heron": {
+      "type": "sunset_sunrise",
+      "sunset_offset_minutes": -15,
+      "sunrise_offset_minutes": 30,
+      "_note": "Strictly nocturnal forager; roosts hidden in dense vegetation by day. Daytime detections are almost certainly noise."
+    }
+  }
+}

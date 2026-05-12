@@ -3,6 +3,7 @@ sounddevice
 soundfile
 scipy
 sqlalchemy
+astral>=3.2
 # psycopg2-binary  # uncomment when using type = "postgresql" in [database]
 paho-mqtt
 

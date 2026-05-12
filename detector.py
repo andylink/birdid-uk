@@ -65,6 +65,7 @@ from inference import Inferencer, get_model, get_secondary_model, get_secondary_
 from log_setup import setup_logging
 from mqtt import init_mqtt, publish_detection
 from retention import start_retention_thread
+from nocturnal_filter import NocturnalFilter
 from seasonal_filter import SeasonalFilter, current_iso_week
 
 logger = logging.getLogger(__name__)
@@ -318,6 +319,7 @@ def _classify_loop(
     bou_allowed:    frozenset[str],
     birdnet_to_bto: dict[str, str],
     seasonal:       SeasonalFilter,
+    nocturnal:      NocturnalFilter,
     model:          Inferencer,
 ) -> None:
     """
@@ -333,18 +335,17 @@ def _classify_loop(
       4. Filter each detection by its per-species ``min_confidence``.
          This runs before BOU/seasonal so low-confidence hits never appear
          in the filter-suppressed log lines.
-       4. Filter each detection by its per-species ``min_confidence``.
-          This runs before BOU/seasonal so low-confidence hits never appear
-          in the filter-suppressed log lines.
-       4b. BOU allowlist filter: drop species not in the UK BOU species list.
-       4c. Seasonal filter: drop species outside their expected season.
-       5. Confirmation filter: each species accumulates hits in ``_pending``
+      4b. BOU allowlist filter: drop species not in the UK BOU species list.
+      4c. Seasonal filter: drop species outside their expected season.
+      4d. Nocturnal filter: drop nocturnal/crepuscular species detected outside
+          their active time window (configurable per-species).
+      5. Confirmation filter: each species accumulates hits in ``_pending``
          until it reaches ``min_detections`` within ``confirmation_window_seconds``.
          Only confirmed species proceed; the highest-confidence hit's audio
          and timestamp are used for the saved clip.
-       6. Cooldown check (at confirmation time): skip if the species was saved
-          too recently.  Cooldown clock starts when the save is submitted.
-       7. Submit a deferred-save task for each confirmed species.
+      6. Cooldown check (at confirmation time): skip if the species was saved
+         too recently.  Cooldown clock starts when the save is submitted.
+      7. Submit a deferred-save task for each confirmed species.
     """
     buffer: list[np.ndarray] = []
     window_blocks  = int(model.window_seconds) // cfg.audio.hop_seconds
@@ -450,6 +451,25 @@ def _classify_loop(
                         logger.debug(
                             "%-32s out of season (week %d) — suppressed",
                             species, week,
+                        )
+            candidates = filtered
+
+        if not candidates:
+            continue
+
+        # ── Step 4d: nocturnal/crepuscular time-of-day filter ─────────────────
+        if nocturnal.enabled:
+            filtered = [
+                (species, conf)
+                for species, conf in candidates
+                if nocturnal.check(species, ts)
+            ]
+            if len(filtered) < len(candidates):
+                for species, conf in candidates:
+                    if not nocturnal.check(species, ts):
+                        logger.debug(
+                            "%-32s outside active hours — suppressed",
+                            species,
                         )
             candidates = filtered
 
@@ -564,6 +584,20 @@ def main() -> None:
     else:
         logger.info("Seasonal filter disabled")
 
+    # Build the nocturnal/crepuscular time-of-day filter.
+    nocturnal = NocturnalFilter(
+        enabled           = cfg.nocturnal_filter.enabled,
+        json_path         = cfg.nocturnal_filter.filter_json,
+        lat               = cfg.location.lat,
+        lon               = cfg.location.lon,
+        timezone_str      = cfg.general.timezone,
+        species_overrides = cfg._species_overrides,
+    )
+    if cfg.nocturnal_filter.enabled:
+        logger.info("Nocturnal filter enabled — out-of-hours detections will be suppressed")
+    else:
+        logger.info("Nocturnal filter disabled")
+
     # ── Cross-validation setup ────────────────────────────────────────────────
     global _cross_validator
     if cfg.cross_validation.enabled:
@@ -639,7 +673,7 @@ def main() -> None:
     rec.start()
 
     try:
-        _classify_loop(bou_allowed, birdnet_to_bto, seasonal, model)
+        _classify_loop(bou_allowed, birdnet_to_bto, seasonal, nocturnal, model)
     except KeyboardInterrupt:
         pass
     finally:
