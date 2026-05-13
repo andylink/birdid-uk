@@ -17,10 +17,9 @@ librosa>=0.10.0
 matplotlib>=3.8.0
 numpy>=1.26.0
 
-# ── Optional: PostgreSQL backend ───────────────────────────────────────────────
-# Uncomment when [database] type = "postgresql" in config.toml:
-# psycopg2-binary   ← sync driver used by the detector
-# asyncpg           ← async driver used by the dashboard
+# ── PostgreSQL backend (also installed for SQLite deployments; small overhead) ─
+psycopg2-binary   # sync driver used by the detector
+asyncpg           # async driver used by the dashboard
 
 # ── Test dependencies ──────────────────────────────────────────────────────────
 pytest>=8.0.0
