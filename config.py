@@ -227,6 +227,23 @@ class WeatherPwsMeteobridgeConfig:
 
 
 @dataclass(frozen=True)
+class WeatherPwsTempestConfig:
+    """Credentials for the Tempest WeatherFlow personal weather station.
+
+    The Tempest cloud API requires a numeric *station_id* and a personal
+    access token (*token*) generated on https://tempestwx.com under
+    *Settings → Data Authorizations*.
+
+    This plugin calls the ``better_forecast`` endpoint which returns named
+    JSON fields and a human-readable ``conditions`` string (e.g. "Clear",
+    "Partly Cloudy", "Light Rain").  Units are fixed to metric (°C, m/s,
+    hPa, mm).
+    """
+    station_id: int   # numeric station ID shown in the tempestwx.com URL
+    token:      str   # personal access token from tempestwx.com
+
+
+@dataclass(frozen=True)
 class WeatherConfig:
     """Controls weather metadata capture for each detection.
 
@@ -243,8 +260,10 @@ class WeatherConfig:
     * ``"pws"``            — Personal Weather Station; *pws_plugin* names the
                              provider module (``weather_pws_<plugin>.py``).
 
-    Built-in PWS plugin: ``weather_pws_meteobridge.py`` — configure the
-    station address and credentials in ``[weather.pws_meteobridge]``.
+    Built-in PWS plugins:
+
+    * ``weather_pws_meteobridge.py`` — configure in ``[weather.pws_meteobridge]``.
+    * ``weather_pws_tempest.py``     — configure in ``[weather.pws_tempest]``.
     """
     enabled:         bool
     provider:        str   # "open_meteo" | "yr_no" | "openweathermap" | "pws"
@@ -252,6 +271,7 @@ class WeatherConfig:
     cache_seconds:   int   # reuse the same reading within this window (seconds)
     pws_plugin:      str   # plugin name when provider = "pws"
     pws_meteobridge: WeatherPwsMeteobridgeConfig
+    pws_tempest:     WeatherPwsTempestConfig
 
 
 @dataclass(frozen=True)
@@ -503,6 +523,7 @@ def _load() -> Config:
         "[th0temp-act];[th0hum-act];[wind0avgspd-act];"
         "[wind0dir-act];[msl0press-act];[rain0rate-act]"
     )
+    tempest = w.get("pws_tempest", {})
     weather_cfg = WeatherConfig(
         enabled        = bool(w.get("enabled",       False)),
         provider       = str(w.get("provider",       "open_meteo")),
@@ -516,6 +537,10 @@ def _load() -> Config:
             password        = str(mb.get("password",        "meteobridge")),
             template        = str(mb.get("template",        _default_mb_template)),
             wind_speed_unit = str(mb.get("wind_speed_unit", "ms")),
+        ),
+        pws_tempest = WeatherPwsTempestConfig(
+            station_id = int(tempest.get("station_id", 0)),
+            token      = str(tempest.get("token",      "")),
         ),
     )
 

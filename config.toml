@@ -326,3 +326,21 @@ username        = "meteobridge"
 password        = "meteobridge"
 wind_speed_unit = "ms"
 template        = "[th0temp-act];[th0hum-act];[wind0avgspd-act];[wind0dir-act];[msl0press-act];[rain0rate-act]"
+
+# ── Tempest WeatherFlow PWS plugin ─────────────────────────────────────────────
+# WeatherFlow Tempest smart weather station via the cloud API.
+# Requires a numeric station_id and a personal access token from:
+#   https://tempestwx.com → Settings → Data Authorizations
+#
+# To use:
+#   [weather]
+#   provider   = "pws"
+#   pws_plugin = "tempest"
+#
+# Returns temperature (°C), humidity (%), wind speed (m/s), wind direction (°),
+# sea-level pressure (hPa), precipitation last hour (mm), and a human-readable
+# sky condition string (e.g. "Clear", "Partly Cloudy", "Light Rain").
+
+[weather.pws_tempest]
+station_id = 0               # numeric station ID from tempestwx.com
+token      = ""              # personal access token from tempestwx.com
