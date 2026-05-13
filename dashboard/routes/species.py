@@ -1,5 +1,5 @@
 """
-dashboard/routes/species.py — per-species statistics and Wikimedia image cache.
+dashboard/routes/species.py — per-species statistics and AviCommons image cache.
 """
 
 from __future__ import annotations
@@ -29,12 +29,10 @@ IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 IMAGE_TTL_DAYS = 30     # re-fetch positive cache after this many days
 NEGATIVE_TTL_DAYS = 1   # retry failed lookups after this many days
 
-_WM_UA = "bird-detector/1.0 (local garden monitor; contact via github)"
+_UA = "bird-detector/1.0 (local garden monitor; contact via github)"
 
-# Limit concurrent outbound Wikimedia requests to avoid 429s.
-# Images for a full grid of species cards are requested in parallel by the
-# browser; this semaphore serialises the actual Wikimedia fetches.
-_WM_SEM = asyncio.Semaphore(2)
+# Limit concurrent outbound requests to avoid hammering the CDN.
+_IMG_SEM = asyncio.Semaphore(4)
 
 SORT_COLS = {
     "detections_desc":        "detections DESC",
@@ -74,65 +72,28 @@ def _age_days(path: Path) -> float:
     return (datetime.now() - datetime.fromtimestamp(path.stat().st_mtime)).days
 
 
-async def _wikimedia_image_bytes(species: str) -> bytes | None:
-    """Fetch a species thumbnail from Wikipedia. Returns JPEG bytes or None."""
-    async with _WM_SEM:
-        async with httpx.AsyncClient(headers={"User-Agent": _WM_UA}, timeout=10) as client:
-
-            async def page_image(title: str) -> str | None:
-                for attempt in range(3):
-                    r = await client.get(
-                        "https://en.wikipedia.org/w/api.php",
-                        params={
-                            "action": "query", "format": "json",
-                            "titles": title, "prop": "pageimages",
-                            "pithumbsize": "400", "redirects": "1",
-                        },
-                    )
-                    if r.status_code == 429:
-                        await asyncio.sleep(2 ** attempt)
-                        continue
-                    r.raise_for_status()
-                    pages = r.json().get("query", {}).get("pages", {})
-                    pid, page = next(iter(pages.items()))
-                    if pid == "-1":
-                        return None
-                    return page.get("thumbnail", {}).get("source")
-                return None  # exhausted retries
-
-            # 1. Direct title match
-            url = await page_image(species)
-
-            # 2. Fall back to a Wikipedia search
-            if not url:
-                r2 = await client.get(
-                    "https://en.wikipedia.org/w/api.php",
-                    params={
-                        "action": "query", "format": "json",
-                        "list": "search", "srsearch": f"{species} bird", "srlimit": "1",
-                    },
-                )
-                r2.raise_for_status()
-                results = r2.json().get("query", {}).get("search", [])
-                if results:
-                    url = await page_image(results[0]["title"])
-
-            if not url:
-                return None
-
-            img = await client.get(url)
-            img.raise_for_status()
-            return img.content
+async def _fetch_image_bytes(url: str) -> bytes | None:
+    """Fetch image bytes from a URL. Returns JPEG bytes or None on failure."""
+    async with _IMG_SEM:
+        async with httpx.AsyncClient(headers={"User-Agent": _UA}, timeout=15) as client:
+            r = await client.get(url)
+            if r.status_code == 200:
+                return r.content
+            return None
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("/api/v1/species/image")
-async def species_image(name: str = Query(..., description="Common species name")):
-    """Serve a cached species photo sourced from Wikimedia Commons.
+async def species_image(
+    name: str = Query(..., description="BTO common species name"),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """Serve a cached species photo sourced from AviCommons.
 
     Images are stored in data/species_images/ and refreshed every 30 days.
-    A .none sentinel file is written on failed lookups (retried daily).
+    A .none sentinel file is written when no AviCommons URL is available or
+    the fetch fails (retried daily).
     """
     img_path = _img_path(name)
     neg_path = _neg_path(name)
@@ -141,23 +102,33 @@ async def species_image(name: str = Query(..., description="Common species name"
     if img_path.exists() and _age_days(img_path) < IMAGE_TTL_DAYS:
         return FileResponse(str(img_path), media_type="image/jpeg")
 
-    # Negative cache — don't hammer Wikimedia for known-missing species
+    # Negative cache — don't retry failed lookups too often
     if neg_path.exists() and _age_days(neg_path) < NEGATIVE_TTL_DAYS:
         raise HTTPException(status_code=404, detail="No image available")
 
-    # Fetch from Wikimedia
+    # Look up AviCommons image URL from species_info
+    rows = await db.execute_fetchall(
+        "SELECT avicommons_image_url FROM species_info WHERE name = ? LIMIT 1",
+        [name],
+    )
+    avi_url: str | None = rows[0]["avicommons_image_url"] if rows else None
+
+    if not avi_url:
+        neg_path.touch()
+        raise HTTPException(status_code=404, detail="No image available for this species")
+
+    # Fetch from AviCommons CDN
     try:
-        data = await _wikimedia_image_bytes(name)
+        data = await _fetch_image_bytes(avi_url)
     except Exception:
         neg_path.touch()
         raise HTTPException(status_code=404, detail="Image fetch failed")
 
     if data is None:
         neg_path.touch()
-        raise HTTPException(status_code=404, detail="No image on Wikipedia")
+        raise HTTPException(status_code=404, detail="No image at AviCommons CDN")
 
     img_path.write_bytes(data)
-    # Remove stale negative sentinel if it existed
     neg_path.unlink(missing_ok=True)
     return FileResponse(str(img_path), media_type="image/jpeg")
 

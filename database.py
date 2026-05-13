@@ -48,6 +48,8 @@ species_info
     birdfacts_url            TEXT
     international_english_name TEXT
     group_name               TEXT
+    ebird_code               TEXT  (eBird species code, e.g. "robin1")
+    avicommons_image_url     TEXT  (AviCommons CDN image URL; NULL if unmatched)
 """
 
 from __future__ import annotations
@@ -122,6 +124,8 @@ _species_info = Table(
     Column("birdfacts_url",              String),
     Column("international_english_name", String),
     Column("group_name",                 String),
+    Column("ebird_code",                 String),
+    Column("avicommons_image_url",       String),
 )
 
 # ── Cross-validation columns added in this version ────────────────────────────
@@ -136,6 +140,12 @@ _CV_COLUMNS: dict[str, str] = {
     "cv_confidence":       "FLOAT",
     "cv_agree":            "BOOLEAN",
     "flagged":             "BOOLEAN",
+}
+
+# ── species_info columns added after initial schema ───────────────────────────
+_SPECIES_INFO_COLUMNS: dict[str, str] = {
+    "ebird_code":           "TEXT",
+    "avicommons_image_url": "TEXT",
 }
 
 
@@ -184,6 +194,32 @@ def _migrate_detections_table(engine: sa.Engine) -> None:
                 logger.info("DB migration: added column detections.%s", col_name)
 
 
+def _migrate_species_info_table(engine: sa.Engine) -> None:
+    """Add any missing columns to an existing species_info table.
+
+    Mirrors :func:`_migrate_detections_table` — safe to call on a fresh
+    database (no-op when the columns already exist from ``create_all``).
+    """
+    db_type = cfg.database.type
+    with engine.begin() as conn:
+        if db_type == "sqlite":
+            rows = conn.execute(text("PRAGMA table_info(species_info)")).fetchall()
+            existing = {row[1] for row in rows}
+        else:
+            rows = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'species_info'"
+            )).fetchall()
+            existing = {row[0] for row in rows}
+
+        for col_name, col_type in _SPECIES_INFO_COLUMNS.items():
+            if col_name not in existing:
+                conn.execute(text(
+                    f"ALTER TABLE species_info ADD COLUMN {col_name} {col_type}"
+                ))
+                logger.info("DB migration: added column species_info.%s", col_name)
+
+
 def init_db() -> None:
     """
     Open the database, ensure the schema exists, and (when configured)
@@ -214,6 +250,7 @@ def init_db() -> None:
 
     _metadata.create_all(_engine)
     _migrate_detections_table(_engine)
+    _migrate_species_info_table(_engine)
 
     if cfg.database.timescaledb:
         with _engine.begin() as conn:
@@ -311,8 +348,11 @@ def record_detection(
 def seed_species_info(json_path: Path) -> None:
     """Populate ``species_info`` from the BTO JSON file.
 
-    Idempotent: skips seeding if the table already contains rows.  To force
-    a re-seed, truncate the table first::
+    Runs an upsert on every startup so that newly-added columns (e.g.
+    ``ebird_code``, ``avicommons_image_url``) are back-filled into existing
+    databases without requiring a manual truncate.
+
+    To force a full reset (e.g. to remove deleted species)::
 
         DELETE FROM species_info;
 
@@ -321,13 +361,6 @@ def seed_species_info(json_path: Path) -> None:
     """
     if _engine is None:
         return
-
-    with _engine.begin() as conn:
-        count = conn.execute(
-            sa.select(sa.func.count()).select_from(_species_info)
-        ).scalar()
-        if count:
-            return  # already seeded
 
     with json_path.open(encoding="utf-8") as fh:
         entries: list[dict] = json.load(fh)
@@ -345,6 +378,8 @@ def seed_species_info(json_path: Path) -> None:
             "birdfacts_url":              e.get("birdfacts_url"),
             "international_english_name": e.get("international_english_name"),
             "group_name":                 e.get("group_name"),
+            "ebird_code":                 e.get("ebird_code") or None,
+            "avicommons_image_url":       e.get("avicommons_image_url") or None,
         }
         for e in entries
         if e.get("name")
@@ -362,11 +397,13 @@ def seed_species_info(json_path: Path) -> None:
                     "INSERT OR REPLACE INTO species_info "
                     "(name, scientific_name, british_list_status, population_estimate, "
                     " bto_2letter_code, bto_5letter_code, species_status, uk_bocc, "
-                    " birdfacts_url, international_english_name, group_name) "
+                    " birdfacts_url, international_english_name, group_name, "
+                    " ebird_code, avicommons_image_url) "
                     "VALUES (:name, :scientific_name, :british_list_status, "
                     " :population_estimate, :bto_2letter_code, :bto_5letter_code, "
                     " :species_status, :uk_bocc, :birdfacts_url, "
-                    " :international_english_name, :group_name)"
+                    " :international_english_name, :group_name, "
+                    " :ebird_code, :avicommons_image_url)"
                 ),
                 rows,
             )
