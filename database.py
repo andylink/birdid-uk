@@ -16,7 +16,7 @@ detections
     timestamp           TIMESTAMPTZ  (DATETIME on SQLite)
     species             TEXT     NOT NULL   (primary model common name, e.g. "European Robin")
     bto_name            TEXT               (BTO British name, e.g. "Robin"; NULL if unmapped)
-    confidence          FLOAT    NOT NULL   (ensemble mean when CV agreed; primary score otherwise)
+    confidence          FLOAT    NOT NULL   (primary model confidence score)
     clip_path           TEXT
     model               TEXT               (primary inference backend, e.g. "birdnet" or "perch")
 
@@ -249,15 +249,14 @@ def record_detection(
     ``detections``).  Both inserts run in a single transaction.
 
     When cross-validation was performed, pass the :class:`CrossValidationResult`
-    fields directly.  The ``confidence`` column should contain the *final*
-    confidence (ensemble mean when agreed, primary score otherwise); the raw
-    primary score is stored separately in ``primary_confidence``.
+    fields directly.  The ``confidence`` column contains the primary model
+    confidence score; the raw primary score is also stored in
+    ``primary_confidence``.
 
     Args:
         ts:                  UTC timestamp of the best-confidence hit.
         species:             Primary model common name (e.g. "European Robin").
-        confidence:          Final headline confidence (ensemble mean if CV
-                             agreed, primary score otherwise).
+        confidence:          Primary model confidence score.
         clip_path:           Path to the saved WAV clip.
         secondary:           Additional candidate species from the same window
                              (written to ``detection_results``).

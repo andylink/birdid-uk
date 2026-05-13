@@ -258,8 +258,12 @@ cv_min_confidence = 0.01
 # Add on_disagree = "flag" to review CV disagreements rather than silently dropping.
 
 [species."House Sparrow"]
-min_confidence   = 0.90
+min_confidence   = 0.70
 cooldown_seconds = 120
+
+[species."Eurasian Skylark"]
+min_confidence   = 0.40
+min_detections = 1
 
 [species."Tawny Owl"]
 min_detections = 1

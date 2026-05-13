@@ -20,9 +20,7 @@ Outcome
   confidence); all ``None`` when CV was not performed
 * ``agree``      — ``True`` if both models resolved to the same BTO name
 * ``action``     — ``"save"`` | ``"drop"`` | ``"flag"``
-* ``final_confidence`` — the confidence value to write to the database:
-  arithmetic mean of primary + secondary when models agree, primary score
-  otherwise
+* ``final_confidence`` — the primary model confidence value to write to the database;
 
 The :class:`CrossValidator` class is instantiated once in ``detector.main()``
 and stored as a module-level variable so it is shared across all deferred-save
@@ -93,9 +91,6 @@ class CrossValidationResult:
     #: * ``"flag"``  — save but mark ``flagged = True`` for manual review
     action: str
 
-    #: Confidence to write to ``detections.confidence``:
-    #: arithmetic mean of primary + secondary when models agree, primary
-    #: score in all other cases.
     final_confidence: float
 
 
@@ -249,7 +244,7 @@ class CrossValidator:
         # ── Determine action ──────────────────────────────────────────────────
         if agree:
             action           = "save"
-            final_confidence = (primary_conf + sec_confidence) / 2.0
+            final_confidence = primary_conf
         else:
             # Look up per-species on_disagree override; fall back to global.
             lookup_name = species_name or primary_species
@@ -261,7 +256,7 @@ class CrossValidator:
             else:
                 action = "drop"
 
-            final_confidence = primary_conf   # don't penalise with disagreeing score
+            final_confidence = primary_conf
 
         return CrossValidationResult(
             performed            = True,

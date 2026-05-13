@@ -184,7 +184,7 @@ def _deferred_save(
 
     # ── Cross-validation ──────────────────────────────────────────────────────
     cv_result: CrossValidationResult | None = None
-    effective_conf = conf   # may be updated to ensemble mean if CV agrees
+    effective_conf = conf   # may be updated by CV result (always primary conf)
 
     if _cross_validator is not None:
         sample_rate   = cfg.audio.sample_rate
