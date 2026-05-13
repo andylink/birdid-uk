@@ -209,47 +209,79 @@
 				<div class="empty-det">No recordings found.</div>
 			{:else}
 				<div class="det-surface">
-					{#each detections as det (det.id)}
-						{@const isNotable = det.uk_bocc === 'Red' || det.species_status === 'Rare' || det.species_status === 'Very rare'}
-						{@const badgeClass = confidenceBadgeClass(det.confidence)}
-						<div class="det-row" class:det-notable={isNotable} class:det-normal={!isNotable}>
-							<!-- Confidence bar -->
-							<div class="conf-bar-wrap">
+				{#each detections as det (det.id)}
+					{@const isNotable   = det.uk_bocc === 'Red' || det.species_status === 'Rare' || det.species_status === 'Very rare'}
+					{@const isFlagged   = det.flagged === 1}
+					{@const cvRan       = det.cross_validated === 1}
+					{@const cvAgreed    = cvRan && det.cv_agree === 1}
+					{@const cvDisagreed = cvRan && det.cv_agree === 0}
+					{@const badgeClass  = confidenceBadgeClass(det.confidence)}
+					<div
+						class="det-row"
+						class:det-notable={isNotable}
+						class:det-flagged={isFlagged && !isNotable}
+						class:det-normal={!isNotable && !isFlagged}
+					>
+						<!-- Confidence bar -->
+						<div class="conf-bar-wrap">
+							<div
+								class="conf-bar-track"
+								aria-label="Confidence {formatConfidence(det.confidence)}"
+							>
 								<div
-									class="conf-bar-track"
-									aria-label="Confidence {formatConfidence(det.confidence)}"
-								>
-									<div
-										class="conf-bar-fill"
-										class:conf-bar-notable={isNotable}
-										style="height: {det.confidence * 100}%"
-									></div>
-								</div>
-							</div>
-
-							<!-- Content -->
-							<div class="det-content">
-								<div class="det-meta">
-									<div class="det-meta-left">
-										<time class="det-time tabular" datetime={det.timestamp}>
-											{formatTime(det.timestamp)}
-										</time>
-										<span class="det-date">{formatDate(det.timestamp)}</span>
-										<span class="{badgeClass}">{formatConfidence(det.confidence)}</span>
-										{#if isNotable}
-											<span
-												class="notable-pill"
-												style="background-color: {BOCC_COLOR.Red}22; color: {BOCC_COLOR.Red}"
-											>
-												{det.uk_bocc === 'Red' ? 'Red List' : det.species_status === 'Very rare' ? 'Very rare' : 'Rare'}
-											</span>
-										{/if}
-									</div>
-								</div>
-								<Spectrogram filename={det.filename} species={det.species} />
+									class="conf-bar-fill"
+									class:conf-bar-notable={isNotable}
+									class:conf-bar-flagged={isFlagged && !isNotable}
+									style="height: {det.confidence * 100}%"
+								></div>
 							</div>
 						</div>
-					{/each}
+
+						<!-- Content -->
+						<div class="det-content">
+							<div class="det-meta">
+								<div class="det-meta-left">
+									<time class="det-time tabular" datetime={det.timestamp}>
+										{formatTime(det.timestamp)}
+									</time>
+									<span class="det-date">{formatDate(det.timestamp)}</span>
+									<span class="{badgeClass}">{formatConfidence(det.confidence)}</span>
+									{#if isNotable}
+										<span
+											class="notable-pill"
+											style="background-color: {BOCC_COLOR.Red}22; color: {BOCC_COLOR.Red}"
+										>
+											{det.uk_bocc === 'Red' ? 'Red List' : det.species_status === 'Very rare' ? 'Very rare' : 'Rare'}
+										</span>
+									{/if}
+									{#if isFlagged}
+										<span class="micro-badge flagged-badge">Flagged</span>
+									{:else if cvAgreed}
+										<span class="micro-badge cv-agree-badge">CV ✓</span>
+									{/if}
+								</div>
+							</div>
+							<Spectrogram filename={det.filename} species={det.species} />
+							{#if cvRan}
+								<div class="cv-detail">
+									<span>primary: <span class="tabular">{det.model ?? '—'}</span>
+										{det.primary_confidence != null ? formatConfidence(det.primary_confidence) : ''}</span>
+									{#if cvAgreed}
+										<span class="cv-agree">
+											{det.cv_secondary_model} agrees
+											{det.cv_confidence != null ? formatConfidence(det.cv_confidence) : ''}
+										</span>
+									{:else if cvDisagreed}
+										<span class="cv-disagree">
+											{det.cv_secondary_model} → {det.cv_species ?? 'no match'}
+											{det.cv_confidence != null ? formatConfidence(det.cv_confidence) : ''}
+										</span>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/each}
 				</div>
 
 				<!-- Pagination -->
@@ -438,6 +470,10 @@
 		border-left: 2px solid #ef4444;
 		background: rgba(239, 68, 68, 0.04);
 	}
+	.det-flagged {
+		border-left: 2px solid #f59e0b;
+		background: rgba(245, 158, 11, 0.03);
+	}
 
 	/* Confidence bar */
 	.conf-bar-wrap {
@@ -464,9 +500,8 @@
 		border-radius: 9999px;
 		background: var(--color-accent);
 	}
-	.conf-bar-notable {
-		background: #ef4444;
-	}
+	.conf-bar-notable { background: #ef4444; }
+	.conf-bar-flagged { background: #f59e0b; }
 
 	/* Detection content */
 	.det-content {
@@ -497,6 +532,35 @@
 		padding: 0.0625rem 0.375rem;
 		border-radius: 0.25rem;
 	}
+
+	/* Micro badges */
+	.micro-badge {
+		font-size: 0.5625rem;
+		font-weight: 700;
+		padding: 0.0625rem 0.375rem;
+		border-radius: 0.25rem;
+	}
+	.flagged-badge {
+		background: rgba(245, 158, 11, 0.15);
+		color: #f59e0b;
+	}
+	.cv-agree-badge {
+		background: rgba(16, 185, 129, 0.15);
+		color: #10b981;
+		font-weight: 500;
+	}
+
+	/* CV detail row */
+	.cv-detail {
+		margin-top: 0.375rem;
+		font-size: 0.625rem;
+		color: var(--color-text-dim);
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 0.75rem;
+	}
+	.cv-agree    { color: #34d399; }
+	.cv-disagree { color: #fbbf24; }
 
 	/* Loading skeletons */
 	.det-skel-row {
