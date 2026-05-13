@@ -43,6 +43,9 @@ from config import (
     RetentionConfig,
     SeasonalFilterConfig,
     SpeciesConfig,
+    WeatherConfig,
+    WeatherPwsMeteobridgeConfig,
+    WeatherPwsTempestConfig,
 )
 
 
@@ -137,6 +140,25 @@ def test_cfg(tmp_path: Path) -> Config:
         location=LocationConfig(lat=51.5074, lon=-0.1278),  # London
         exclude=frozenset(),
         _species_overrides={},
+        weather=WeatherConfig(
+            enabled=False,
+            provider="open_meteo",
+            api_key="",
+            cache_seconds=300,
+            pws_plugin="",
+            pws_meteobridge=WeatherPwsMeteobridgeConfig(
+                host="",
+                port=80,
+                username="",
+                password="",
+                template="",
+                wind_speed_unit="ms",
+            ),
+            pws_tempest=WeatherPwsTempestConfig(
+                station_id=0,
+                token="",
+            ),
+        ),
     )
 
 

@@ -136,24 +136,24 @@ class TestPeriodClause:
     def test_all_returns_trivially_true(self):
         clause, params = period_clause("all")
         assert clause == "1=1"
-        assert params == []
+        assert params == {}
 
     def test_unknown_period_falls_back_to_all(self):
         clause, params = period_clause("bogus_period")
         assert clause == "1=1"
-        assert params == []
+        assert params == {}
 
     def test_today_has_two_params(self):
         clause, params = period_clause("today")
-        assert "timestamp >= ?" in clause
-        assert "timestamp < ?" in clause
+        assert "timestamp >= :start" in clause
+        assert "timestamp < :end" in clause
         assert len(params) == 2
         # start < end
-        assert params[0] < params[1]
+        assert params["start"] < params["end"]
 
     def test_7d_has_one_param(self):
         clause, params = period_clause("7d")
-        assert "timestamp >= ?" in clause
+        assert "timestamp >= :start" in clause
         assert len(params) == 1
 
     def test_30d_has_one_param(self):
@@ -172,27 +172,27 @@ class TestPeriodClause:
         clause, params = period_clause(
             "custom", date_from="2026-01-01", date_to="2026-01-07"
         )
-        assert "timestamp >= ?" in clause
-        assert "timestamp < ?" in clause
+        assert "timestamp >= :start" in clause
+        assert "timestamp < :end" in clause
         assert len(params) == 2
         # In UTC: 2026-01-01 00:00:00 → 2026-01-07 23:59:59 (end of day 7)
-        assert params[0] == "2026-01-01 00:00:00"
-        assert params[1] == "2026-01-08 00:00:00"
+        assert params["start"] == "2026-01-01 00:00:00"
+        assert params["end"] == "2026-01-08 00:00:00"
 
     def test_custom_missing_dates_falls_back_to_all(self):
         clause, params = period_clause("custom")  # no date_from/date_to
         assert clause == "1=1"
-        assert params == []
+        assert params == {}
 
     def test_custom_col_param_used(self):
         clause, params = period_clause("7d", col="created_at")
-        assert "created_at >= ?" in clause
+        assert "created_at >= :start" in clause
 
     def test_7d_start_is_6_days_ago(self):
         """7d window covers today + the 6 preceding days (7 days total)."""
         clause, params = period_clause("7d")
-        # params[0] is the start of 6 days ago in UTC
-        start_dt = datetime.fromisoformat(params[0])
+        # params["start"] is the start of 6 days ago in UTC
+        start_dt = datetime.fromisoformat(params["start"])
         today_utc = datetime.now(UTC).replace(tzinfo=None).date()
         start_date = start_dt.date()
         delta_days = (today_utc - start_date).days
@@ -200,7 +200,7 @@ class TestPeriodClause:
 
     def test_30d_start_is_29_days_ago(self):
         clause, params = period_clause("30d")
-        start_dt = datetime.fromisoformat(params[0])
+        start_dt = datetime.fromisoformat(params["start"])
         today_utc = datetime.now(UTC).replace(tzinfo=None).date()
         delta_days = (today_utc - start_dt.date()).days
         assert delta_days == 29
@@ -208,7 +208,7 @@ class TestPeriodClause:
     def test_today_start_is_midnight_utc(self):
         """In UTC timezone, today's start should be 00:00:00 today."""
         clause, params = period_clause("today")
-        start, end = params
+        start, end = params["start"], params["end"]
         today_str = datetime.now(UTC).strftime("%Y-%m-%d")
         assert start.startswith(today_str)
         assert start.endswith("00:00:00")

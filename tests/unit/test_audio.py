@@ -179,6 +179,7 @@ class TestSaveClip:
             general=test_cfg.general,
             location=test_cfg.location,
             exclude=test_cfg.exclude,
+            weather=test_cfg.weather,
         )
         monkeypatch.setattr(audio, "cfg", new_cfg)
         ts = datetime(2026, 5, 13, 12, 0, 0, tzinfo=timezone.utc)

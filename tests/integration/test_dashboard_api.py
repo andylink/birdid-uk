@@ -21,6 +21,7 @@ from typing import AsyncGenerator
 import aiosqlite
 import httpx
 import pytest
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from dashboard.app import app
 from dashboard.database import get_db
@@ -124,11 +125,11 @@ async def test_db(tmp_path) -> Path:
 
 @pytest.fixture
 def api_client(test_db):
-    """Override get_db and return an httpx.AsyncClient bound to the test app."""
-    async def _override_get_db() -> AsyncGenerator[aiosqlite.Connection, None]:
-        async with aiosqlite.connect(str(test_db)) as conn:
-            conn.row_factory = aiosqlite.Row
-            await conn.execute("PRAGMA journal_mode=WAL")
+    """Override get_db with a SQLAlchemy AsyncConnection and return an httpx.AsyncClient."""
+    engine = create_async_engine(f"sqlite+aiosqlite:///{test_db}")
+
+    async def _override_get_db() -> AsyncGenerator:
+        async with engine.connect() as conn:
             yield conn
 
     app.dependency_overrides[get_db] = _override_get_db

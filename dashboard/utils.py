@@ -123,6 +123,8 @@ def to_utc_iso(ts: str | datetime | None) -> str | None:
     """
     if ts is None:
         return None
+    if not ts:
+        return ts
     if isinstance(ts, datetime):
         # asyncpg returns tz-aware datetimes; normalise to UTC ISO string.
         return ts.astimezone(timezone.utc).isoformat()
