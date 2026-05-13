@@ -1,5 +1,5 @@
 """
-tests/unit/test_bou_filter.py — unit tests for bou_filter.py
+tests/unit/test_species_filter.py — unit tests for species_filter.py
 
 The three-stage matching logic is tested with a small synthetic BOU JSON
 injected via monkeypatching the module-level ``_BOU_JSON`` path.
@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-import bou_filter
-from bou_filter import (
+import species_filter
+from species_filter import (
     _status_excluded,
     build_bou_allowed_set,
     build_birdnet_to_bto_map,
@@ -65,7 +65,7 @@ _TEST_BOU_JSON: list[dict] = [
         "scientific_name": "Bubulcus ibis",
         "british_list_status": "Accidental",
     },
-    # Force-include override: status would be excluded but bou_status_override saves it
+    # Force-include override: status would be excluded but species_status_override saves it
     {
         "name": "Rüppell's Vulture",
         "scientific_name": "Gyps rueppelli",
@@ -92,7 +92,7 @@ def bou_json_path(tmp_path: Path) -> Path:
 @pytest.fixture(autouse=True)
 def patch_bou_json(bou_json_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Replace _BOU_JSON with our synthetic test file for every test in this module."""
-    monkeypatch.setattr(bou_filter, "_BOU_JSON", bou_json_path)
+    monkeypatch.setattr(species_filter, "_BOU_JSON", bou_json_path)
 
 
 # ── _status_excluded ──────────────────────────────────────────────────────────

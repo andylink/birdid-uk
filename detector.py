@@ -56,7 +56,7 @@ import sounddevice as sd
 
 from audio import apply_highpass, save_clip
 import birdmap
-from bou_filter import build_bou_allowed_set, build_birdnet_to_bto_map
+from species_filter import build_bou_allowed_set, build_birdnet_to_bto_map
 from capture_buffer import CaptureBuffer
 from config import cfg, get_species_config
 from cross_validate import CrossValidationResult, CrossValidator
@@ -579,8 +579,8 @@ def main() -> None:
     # Build the BOU allowed set and BirdNET→BTO name map.
     # The BOU filter is always active — this detector is UK-specific.
     _bou_force     = cfg.bou_override_species()
-    bou_allowed    = build_bou_allowed_set(label_map, exclude_status=cfg.bou_filter.exclude_status, force_include=_bou_force)
-    birdnet_to_bto = build_birdnet_to_bto_map(label_map, exclude_status=cfg.bou_filter.exclude_status, force_include=_bou_force)
+    bou_allowed    = build_bou_allowed_set(label_map, exclude_status=cfg.species_filter.exclude_status, force_include=_bou_force)
+    birdnet_to_bto = build_birdnet_to_bto_map(label_map, exclude_status=cfg.species_filter.exclude_status, force_include=_bou_force)
     logger.info("BOU filter active — non-BOU species will be suppressed")
 
     # Build the seasonal presence filter.
@@ -616,7 +616,7 @@ def main() -> None:
 
         # Build a BTO map for the secondary model so CV name-matching bridges
         # the label-namespace difference between BirdNET (IOC) and Perch (eBird).
-        secondary_bto_map = build_birdnet_to_bto_map(secondary_label_map, exclude_status=cfg.bou_filter.exclude_status, force_include=_bou_force)
+        secondary_bto_map = build_birdnet_to_bto_map(secondary_label_map, exclude_status=cfg.species_filter.exclude_status, force_include=_bou_force)
 
         _cross_validator = CrossValidator(
             secondary_model      = secondary_model,
@@ -644,7 +644,7 @@ def main() -> None:
         logger.info("Cross-validation disabled")
 
     init_db()
-    seed_species_info(Path(__file__).parent / "species_bto_FINAL_filtered.json")
+    seed_species_info(Path(__file__).parent / "uk_species_filter.json")
     init_mqtt()
 
     start_retention_thread()

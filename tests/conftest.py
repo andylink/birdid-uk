@@ -28,7 +28,7 @@ import pytest
 from config import (
     AudioConfig,
     BirdmapConfig,
-    BouFilterConfig,
+    SpeciesFilterConfig,
     Config,
     CrossValidationConfig,
     DatabaseConfig,
@@ -126,7 +126,7 @@ def test_cfg(tmp_path: Path) -> Config:
             enabled=False,
             filter_json=Path("uk_nocturnal_filter.json"),
         ),
-        bou_filter=BouFilterConfig(exclude_status=()),
+        species_filter=SpeciesFilterConfig(exclude_status=()),
         defaults=SpeciesConfig(
             min_confidence=0.7,
             cooldown_seconds=60,

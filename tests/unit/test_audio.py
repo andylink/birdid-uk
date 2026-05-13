@@ -174,7 +174,7 @@ class TestSaveClip:
             birdmap=test_cfg.birdmap,
             seasonal_filter=test_cfg.seasonal_filter,
             nocturnal_filter=test_cfg.nocturnal_filter,
-            bou_filter=test_cfg.bou_filter,
+            species_filter=test_cfg.species_filter,
             defaults=test_cfg.defaults,
             general=test_cfg.general,
             location=test_cfg.location,

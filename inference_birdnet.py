@@ -11,11 +11,11 @@ Labels file uses ``Scientific name_Common name`` (underscore separator), e.g.::
     Erithacus rubecula_European Robin
 
 :meth:`BirdNETModel.load_label_map` returns ``{common_name: full_label_line}``
-so that ``bou_filter`` can do its three-stage species matching.
+so that ``species_filter`` can do its three-stage species matching.
 
-BTO name translation is handled downstream by ``bou_filter.build_birdnet_to_bto_map``,
+BTO name translation is handled downstream by ``species_filter.build_birdnet_to_bto_map``,
 which maps BirdNET IOC names (e.g. ``"European Robin"``) to BTO British names
-(e.g. ``"Robin"``) via ``species_bto_FINAL_filtered.json``.
+(e.g. ``"Robin"``) via ``uk_species_filter.json``.
 
 Window spec
 -----------

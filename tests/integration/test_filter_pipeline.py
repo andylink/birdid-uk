@@ -23,11 +23,11 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-import bou_filter
-from bou_filter import build_bou_allowed_set, build_birdnet_to_bto_map
+import species_filter
+from species_filter import build_bou_allowed_set, build_birdnet_to_bto_map
 from seasonal_filter import SeasonalFilter, current_iso_week
 from nocturnal_filter import NocturnalFilter
-from config import BouFilterConfig, SpeciesConfig
+from config import SpeciesFilterConfig, SpeciesConfig
 
 
 # ── Shared label map used across all tests ───────────────────────────────────
@@ -91,7 +91,7 @@ class TestBouAllowlistIntegration:
                 "uk_bocc": "Red",
             },
         ])
-        monkeypatch.setattr(bou_filter, "_BOU_JSON", json_path)
+        monkeypatch.setattr(species_filter, "_BOU_JSON", json_path)
 
     def test_allowed_species_in_set(self):
         allowed = build_bou_allowed_set(_LABEL_MAP)
@@ -267,7 +267,7 @@ class TestFullPipelineIntegration:
                 "british_list_status": "Accidental",   # will be excluded
             },
         ])
-        monkeypatch.setattr(bou_filter, "_BOU_JSON", bou_json)
+        monkeypatch.setattr(species_filter, "_BOU_JSON", bou_json)
 
         # Seasonal filter JSON
         seasonal_json = tmp_path / "seasonal.json"

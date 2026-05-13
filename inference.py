@@ -69,8 +69,8 @@ class Inferencer(Protocol):
 
         Returns:
             ``{common_name: "Scientific name_Common name"}`` — the same format
-            used by ``bou_filter.build_bou_allowed_set`` and
-            ``bou_filter.build_birdnet_to_bto_map``.
+            used by ``species_filter.build_bou_allowed_set`` and
+            ``species_filter.build_birdnet_to_bto_map``.
         """
         ...
 

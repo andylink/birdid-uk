@@ -166,17 +166,17 @@ Per-species overrides allow tighter thresholds for common false-positive species
 
 ### 7. BOU Allowlist Filter
 
-**File:** `bou_filter.py` → `build_bou_allowed_set`\
-**Config:** `[bou_filter] exclude_status`, `[species."Name"] bou_status_override`
+**File:** `species_filter.py` → `build_bou_allowed_set`\
+**Config:** `[species_filter] exclude_status`, `[species."Name"] species_status_override`
 
-Always active. Restricts detections to species on the British Ornithologists' Union (BOU) UK list, cross-referenced against the BTO species list (`species_bto_FINAL_filtered.json`). This filters out the ~8,000 non-UK species that BirdNET and Perch know about.
+Always active. Restricts detections to species on the British Ornithologists' Union (BOU) UK list, cross-referenced against the BTO species list (`uk_species_filter.json`). This filters out the ~8,000 non-UK species that BirdNET and Perch know about.
 
 Matching uses a three-stage lookup per species:
 1. International English name field
 2. Scientific name (case-insensitive)
 3. British common name
 
-Species can be further excluded by their BOU list status (e.g. `exclude_status = ["Accidental"]` drops the ~255 vagrant species unlikely to be present in a UK garden). Individual species can be re-admitted via `bou_status_override = true` in their `[species."Name"]` block.
+Species can be further excluded by their BOU list status (e.g. `exclude_status = ["Accidental"]` drops the ~255 vagrant species unlikely to be present in a UK garden). Individual species can be re-admitted via `species_status_override = true` in their `[species."Name"]` block.
 
 ---
 
@@ -311,7 +311,7 @@ After the database write, two optional side-channels can forward the detection:
 | `[filter] cutoff_hz` | `[filter]` | `150` | High-pass cutoff frequency |
 | `[seasonal_filter] enabled` | `[seasonal_filter]` | `true` | ISO-week presence filter |
 | `[nocturnal_filter] enabled` | `[nocturnal_filter]` | `true` | Time-of-day gate for nocturnal species |
-| `[bou_filter] exclude_status` | `[bou_filter]` | `["Accidental"]` | BOU status tokens to exclude |
+| `[species_filter] exclude_status` | `[species_filter]` | `["Accidental"]` | BOU status tokens to exclude |
 | `[cross_validation] enabled` | `[cross_validation]` | `true` | Secondary model agreement check |
 | `[cross_validation] skip_threshold` | `[cross_validation]` | `0.90` | Bypass CV above this primary confidence |
 | `[cross_validation] on_disagree` | `[cross_validation]` | `"drop"` | Action when models disagree |

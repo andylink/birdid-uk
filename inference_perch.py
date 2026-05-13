@@ -28,14 +28,14 @@ Perch v2's class list (``model.class_list["labels"].classes``) contains
 as the logits vector.  :meth:`PerchModel.load_label_map` maps these to common
 names via the following priority:
 
-1. Scientific-name match against ``species_bto_FINAL_filtered.json`` → BTO
+1. Scientific-name match against ``uk_species_filter.json`` → BTO
    British common name (e.g. ``"Robin"``).  This re-uses the same data that
    drives the BOU filter so the BOU allowlist works correctly with Perch.
 2. Scientific name itself as a last resort (ensures no species is silently
    dropped; non-UK species are filtered by the BOU allowlist anyway).
 
 The returned ``{common_name: "Scientific_Common"}`` format is identical to
-BirdNET's label map so ``bou_filter`` and ``seasonal_filter`` work without
+BirdNET's label map so ``species_filter`` and ``seasonal_filter`` work without
 modification.
 
 Implementation notes
@@ -229,7 +229,7 @@ class PerchModel:
         vector produced by :meth:`run_inference`.
         """
         # ── Step 1: BTO scientific_name → british_common_name ─────────────────
-        bto_path = Path(__file__).parent / "species_bto_FINAL_filtered.json"
+        bto_path = Path(__file__).parent / "uk_species_filter.json"
         sci_to_bto: dict[str, str] = {}
         if bto_path.exists():
             for sp in json.loads(bto_path.read_text()):
@@ -268,7 +268,7 @@ class PerchModel:
                 common = sci_name
 
             # label_map value: "Scientific name_Common name" — matches BirdNET
-            # format so bou_filter and seasonal_filter work unchanged.
+            # format so species_filter and seasonal_filter work unchanged.
             label_map[common]         = f"{sci_name}_{common}"
             sci_to_common[sci_name]   = common
 
@@ -296,7 +296,7 @@ class PerchModel:
         that happens lazily on the first :meth:`run_inference` call.
 
         The returned format is identical to
-        :meth:`inference_birdnet.BirdNETModel.load_label_map` so ``bou_filter``
+        :meth:`inference_birdnet.BirdNETModel.load_label_map` so ``species_filter``
         and ``seasonal_filter`` work without modification.
         """
         self._ensure_maps()

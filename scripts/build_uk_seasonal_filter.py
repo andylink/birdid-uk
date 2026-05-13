@@ -42,7 +42,7 @@ from pathlib import Path
 # ── Constants ──────────────────────────────────────────────────────────────────
 
 REPO_ROOT    = Path(__file__).parent
-BOU_JSON     = REPO_ROOT / "species_bto_FINAL_filtered.json"
+BOU_JSON     = REPO_ROOT / "uk_species_filter.json"
 OUTPUT_JSON  = REPO_ROOT / "uk_seasonal_filter.json"
 
 # Minimum fraction of annual GB records for a month to be considered "present".

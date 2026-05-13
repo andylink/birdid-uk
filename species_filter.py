@@ -1,7 +1,7 @@
 """
-bou_filter.py — BTO species allowlist filtering.
+species_filter.py — BTO species allowlist filtering.
 
-Loads ``species_bto_FINAL_filtered.json`` (the BTO checklist for UK birds) and
+Loads ``uk_species_filter.json`` (the BTO checklist for UK birds) and
 matches each entry to a BirdNET label using a three-stage strategy.  When
 enabled in ``config.toml``, the detect loop discards any detection whose
 BirdNET common name is not present in the matched set.
@@ -42,7 +42,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_BOU_JSON = Path(__file__).parent / "species_bto_FINAL_filtered.json"
+_BOU_JSON = Path(__file__).parent / "uk_species_filter.json"
 
 
 def _status_excluded(status: str, exclude_tokens: frozenset[str]) -> bool:
@@ -87,7 +87,7 @@ def build_birdnet_to_bto_map(
         force_include: species names (matched case-insensitively against the BTO
                        ``name`` and ``international_english_name`` fields) that are
                        admitted even when their status would normally be excluded.
-                       Populated from ``bou_status_override = true`` entries in
+                       Populated from ``species_status_override = true`` entries in
                        ``config.toml`` per-species blocks.
 
     Returns:
@@ -130,7 +130,7 @@ def build_birdnet_to_bto_map(
             if bto_lower not in force_include_lower and intl_lower not in force_include_lower:
                 n_excluded += 1
                 continue
-            n_overridden += 1   # bou_status_override — fall through to normal matching
+            n_overridden += 1   # species_status_override — fall through to normal matching
 
         sci_raw = sp.get("scientific_name") or ""
         sci = sci_raw.strip().lower()
@@ -188,7 +188,7 @@ def build_bou_allowed_set(
         force_include: species names (matched case-insensitively against the BTO
                        ``name`` and ``international_english_name`` fields) that are
                        admitted even when their status would normally be excluded.
-                       Populated from ``bou_status_override = true`` entries in
+                       Populated from ``species_status_override = true`` entries in
                        ``config.toml`` per-species blocks.
 
     Returns:
@@ -197,7 +197,7 @@ def build_bou_allowed_set(
     if not label_map:
         logger.warning(
             "BOU filter: BirdNET label map is empty — all detections will be "
-            "suppressed while bou_filter is enabled.  Check that the BirdNET "
+            "suppressed while species_filter is enabled.  Check that the BirdNET "
             "labels file exists."
         )
         return frozenset()
@@ -242,7 +242,7 @@ def build_bou_allowed_set(
             if bto_lower not in force_include_lower and intl_lower not in force_include_lower:
                 n_excluded += 1
                 continue
-            n_overridden += 1   # bou_status_override — fall through to normal matching
+            n_overridden += 1   # species_status_override — fall through to normal matching
 
         # Stage 0: explicit international_english_name in JSON
         birdnet_name = sp.get("international_english_name")

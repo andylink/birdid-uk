@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-add_ebird_codes.py — Enrich species_bto_FINAL_filtered.json with eBird codes.
+add_ebird_codes.py — Enrich uk_species_filter.json with eBird codes.
 
 Downloads the AviCommons species catalogue (https://avicommons.org/latest.json),
 matches each BTO species to an AviCommons entry via three-stage lookup, and
@@ -31,7 +31,7 @@ from pathlib import Path
 # ── Paths ──────────────────────────────────────────────────────────────────────
 
 REPO_ROOT   = Path(__file__).parent
-SPECIES_JSON = REPO_ROOT / "species_bto_FINAL_filtered.json"
+SPECIES_JSON = REPO_ROOT / "uk_species_filter.json"
 
 AVICOMMONS_URL = "https://avicommons.org/latest.json"
 AVICOMMONS_CDN = "https://static.avicommons.org"

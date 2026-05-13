@@ -28,7 +28,7 @@ export default defineConfig({
 	server: {
 		fs: {
 			// Allow the bird-detector project root so JSON data files (e.g.
-			// species_bto_FINAL_filtered.json) can be imported from components.
+			// uk_species_filter.json) can be imported from components.
 			allow: [fileURLToPath(new URL('../..', import.meta.url))]
 		},
 		proxy: {

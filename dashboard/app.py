@@ -24,7 +24,7 @@ from dashboard.routes.sun import router as sun_router
 from dashboard.stream import detection_generator
 from dashboard.config import DB_PATH, TIMEZONE, STATION_NAME
 
-_JSON_PATH = Path(__file__).parent.parent / "species_bto_FINAL_filtered.json"
+_JSON_PATH = Path(__file__).parent.parent / "uk_species_filter.json"
 
 _CREATE_SPECIES_INFO = """
 CREATE TABLE IF NOT EXISTS species_info (
