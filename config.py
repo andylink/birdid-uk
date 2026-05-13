@@ -130,6 +130,20 @@ class BirdmapConfig:
 
 
 @dataclass(frozen=True)
+class BirdweatherConfig:
+    """Connection settings for app.birdweather.com.
+
+    Register a station at https://app.birdweather.com to obtain a *token*.
+    When *upload_audio* is ``True``, each confirmed detection's FLAC clip is
+    first uploaded as a soundscape (raw POST body, ``Content-Type: audio/flac``)
+    so it appears in the BirdWeather timeline with audio playback.
+    """
+    enabled:      bool
+    token:        str   # station authentication token
+    upload_audio: bool  # upload FLAC clip as a soundscape before posting the detection
+
+
+@dataclass(frozen=True)
 class SeasonalFilterConfig:
     """Controls the ISO-week-based seasonal presence filter.
 
@@ -322,6 +336,7 @@ class Config:
     database:         DatabaseConfig
     mqtt:             MqttConfig
     birdmap:          BirdmapConfig
+    birdweather:      BirdweatherConfig
     seasonal_filter:  SeasonalFilterConfig
     nocturnal_filter: NocturnalFilterConfig
     species_filter:   SpeciesFilterConfig
@@ -487,6 +502,13 @@ def _load() -> Config:
         upload_audio = bool(bm.get("upload_audio", True)),
     )
 
+    bw = raw.get("birdweather", {})
+    birdweather_cfg = BirdweatherConfig(
+        enabled      = bool(bw.get("enabled",      False)),
+        token        = str(bw.get("token",         "")),
+        upload_audio = bool(bw.get("upload_audio", True)),
+    )
+
     sf = raw.get("seasonal_filter", {})
     seasonal_filter_cfg = SeasonalFilterConfig(
         enabled     = bool(sf.get("enabled",     False)),
@@ -555,6 +577,7 @@ def _load() -> Config:
         database           = database_cfg,
         mqtt               = mqtt_cfg,
         birdmap            = birdmap_cfg,
+        birdweather        = birdweather_cfg,
         seasonal_filter    = seasonal_filter_cfg,
         nocturnal_filter   = nocturnal_filter_cfg,
         species_filter     = species_filter_cfg,

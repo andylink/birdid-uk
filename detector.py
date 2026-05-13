@@ -55,7 +55,7 @@ import numpy as np
 import sounddevice as sd
 
 from audio import apply_highpass, save_clip
-from publishers import birdmap
+from publishers import birdmap, birdweather
 import weather
 from filters.species_filter import build_bou_allowed_set, build_birdnet_to_bto_map
 from capture_buffer import CaptureBuffer
@@ -306,6 +306,7 @@ def _deferred_save(
     )
     publish_detection(ts, species, effective_conf, clip_path, [])
     birdmap.post_detection(ts, species, effective_conf, clip_path)
+    birdweather.post_detection(ts, species, effective_conf, clip_path)
 
 
 # ── Threads ───────────────────────────────────────────────────────────────────

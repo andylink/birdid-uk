@@ -217,6 +217,15 @@ password = ""
 retain   = false
 
 
+[birdweather]
+# Forward detections to app.birdweather.com.
+# Register a station at https://app.birdweather.com to obtain a token
+# (Station → Token on the station settings page).
+enabled      = false
+token        = ""     # station authentication token
+upload_audio = true   # upload FLAC clip as a soundscape before posting the detection
+
+
 [birdmap]
 # Forward detections to birdmap.co.uk.
 # Register at birdmap.co.uk to obtain an API key and station ID.

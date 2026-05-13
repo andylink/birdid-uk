@@ -1,1 +1,1 @@
-# publishers package — external notification backends (MQTT, birdmap.co.uk)
+# publishers package — external notification backends (MQTT, birdmap.co.uk, BirdWeather)
