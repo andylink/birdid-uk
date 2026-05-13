@@ -56,6 +56,7 @@ import sounddevice as sd
 
 from audio import apply_highpass, save_clip
 import birdmap
+import weather
 from species_filter import build_bou_allowed_set, build_birdnet_to_bto_map
 from capture_buffer import CaptureBuffer
 from config import cfg, get_species_config
@@ -281,10 +282,27 @@ def _deferred_save(
         if cv_kwargs["flagged"] is False:
             cv_kwargs["flagged"] = None
 
+    # Fetch weather snapshot (uses cached data if within cfg.weather.cache_seconds;
+    # returns None silently when weather is disabled or the provider is unavailable).
+    _wx = weather.get_weather(ts)
+    weather_kwargs: dict = {}
+    if _wx is not None:
+        weather_kwargs = dict(
+            weather_temp           = _wx.temperature,
+            weather_humidity       = _wx.humidity,
+            weather_wind_speed     = _wx.wind_speed,
+            weather_wind_direction = _wx.wind_direction,
+            weather_pressure       = _wx.pressure,
+            weather_condition      = _wx.condition,
+            weather_precipitation  = _wx.precipitation,
+            weather_provider       = _wx.provider,
+        )
+
     record_detection(
         ts, species, effective_conf, clip_path, [],
         bto_name, model_name,
         **cv_kwargs,
+        **weather_kwargs,
     )
     publish_detection(ts, species, effective_conf, clip_path, [])
     birdmap.post_detection(ts, species, effective_conf, clip_path)
@@ -646,6 +664,7 @@ def main() -> None:
     init_db()
     seed_species_info(Path(__file__).parent / "uk_species_filter.json")
     init_mqtt()
+    weather.init_weather()
 
     start_retention_thread()
 

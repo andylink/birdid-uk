@@ -207,6 +207,54 @@ class InferenceConfig:
 
 
 @dataclass(frozen=True)
+class WeatherPwsMeteobridgeConfig:
+    """Connection settings for a Meteobridge personal weather station.
+
+    Meteobridge exposes a simple HTTP template API that expands bracketed
+    variable names into sensor readings.  The *template* string uses semicolon
+    separators; values are parsed in fixed order (temp, humidity, wind_speed,
+    wind_direction, pressure, rain_rate).
+
+    If your Meteobridge reports wind speed in km/h rather than m/s, set
+    ``wind_speed_unit = "kmh"``; the plugin converts to m/s automatically.
+    """
+    host:            str    # IP address or hostname of the Meteobridge device
+    port:            int    # HTTP port (default 80)
+    username:        str    # HTTP Basic Auth username
+    password:        str    # HTTP Basic Auth password
+    template:        str    # Meteobridge template string (semicolon-separated values)
+    wind_speed_unit: str    # "ms" (default) or "kmh"
+
+
+@dataclass(frozen=True)
+class WeatherConfig:
+    """Controls weather metadata capture for each detection.
+
+    When *enabled* is ``True``, a weather snapshot is fetched at detection
+    time and stored alongside each record in the ``detections`` table.  Data
+    is cached for *cache_seconds* so rapid successive detections share a single
+    API call and never stall the save thread.
+
+    *provider* selects the upstream data source:
+
+    * ``"open_meteo"``     — Open-Meteo (https://open-meteo.com); free, no key.
+    * ``"yr_no"``          — Yr.no / met.no (https://api.met.no); free, no key.
+    * ``"openweathermap"`` — OpenWeatherMap; free tier, *api_key* required.
+    * ``"pws"``            — Personal Weather Station; *pws_plugin* names the
+                             provider module (``weather_pws_<plugin>.py``).
+
+    Built-in PWS plugin: ``weather_pws_meteobridge.py`` — configure the
+    station address and credentials in ``[weather.pws_meteobridge]``.
+    """
+    enabled:         bool
+    provider:        str   # "open_meteo" | "yr_no" | "openweathermap" | "pws"
+    api_key:         str   # required for openweathermap; unused by other providers
+    cache_seconds:   int   # reuse the same reading within this window (seconds)
+    pws_plugin:      str   # plugin name when provider = "pws"
+    pws_meteobridge: WeatherPwsMeteobridgeConfig
+
+
+@dataclass(frozen=True)
 class CrossValidationConfig:
     """Controls dual-model cross-validation of confirmed detections.
 
@@ -260,6 +308,7 @@ class Config:
     defaults:         SpeciesConfig
     general:          GeneralConfig
     location:         LocationConfig
+    weather:          WeatherConfig
     exclude:          frozenset[str]   # species names to permanently suppress (case-insensitive)
     # raw per-species override dicts, keyed by species common name
     _species_overrides: dict[str, dict] = field(default_factory=dict, repr=False)
@@ -448,6 +497,28 @@ def _load() -> Config:
         cv_min_confidence = float(cv.get("cv_min_confidence", 0.01)),
     )
 
+    w  = raw.get("weather", {})
+    mb = w.get("pws_meteobridge", {})
+    _default_mb_template = (
+        "[th0temp-act];[th0hum-act];[wind0avgspd-act];"
+        "[wind0dir-act];[msl0press-act];[rain0rate-act]"
+    )
+    weather_cfg = WeatherConfig(
+        enabled        = bool(w.get("enabled",       False)),
+        provider       = str(w.get("provider",       "open_meteo")),
+        api_key        = str(w.get("api_key",        "")),
+        cache_seconds  = int(w.get("cache_seconds",  300)),
+        pws_plugin     = str(w.get("pws_plugin",     "meteobridge")),
+        pws_meteobridge = WeatherPwsMeteobridgeConfig(
+            host            = str(mb.get("host",            "192.168.1.100")),
+            port            = int(mb.get("port",            80)),
+            username        = str(mb.get("username",        "meteobridge")),
+            password        = str(mb.get("password",        "meteobridge")),
+            template        = str(mb.get("template",        _default_mb_template)),
+            wind_speed_unit = str(mb.get("wind_speed_unit", "ms")),
+        ),
+    )
+
     return Config(
         paths              = paths,
         audio              = audio,
@@ -465,6 +536,7 @@ def _load() -> Config:
         defaults           = defaults,
         general            = general_cfg,
         location           = location_cfg,
+        weather            = weather_cfg,
         exclude            = exclude,
         _species_overrides = raw.get("species", {}),
     )

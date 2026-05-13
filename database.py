@@ -30,6 +30,16 @@ detections
     cv_agree            BOOLEAN            (True if primary and secondary BTO names matched)
     flagged             BOOLEAN            (True when disagreement + on_disagree = "flag")
 
+    -- Weather metadata columns (all NULL when weather is disabled or fetch failed)
+    weather_temp           FLOAT              (°C)
+    weather_humidity       FLOAT              (%)
+    weather_wind_speed     FLOAT              (m/s)
+    weather_wind_direction FLOAT              (degrees, 0–360 clockwise from N)
+    weather_pressure       FLOAT              (hPa, sea level)
+    weather_condition      TEXT               (human-readable, e.g. "Partly cloudy")
+    weather_precipitation  FLOAT              (mm)
+    weather_provider       TEXT               (e.g. "open_meteo", "yr_no", "meteobridge")
+
 detection_results
     id           INTEGER  PK AUTOINCREMENT
     detection_id INTEGER  FK → detections.id  NOT NULL
@@ -101,6 +111,15 @@ _detections = Table(
     Column("cv_confidence",       Float),
     Column("cv_agree",            Boolean),
     Column("flagged",             Boolean),
+    # Weather metadata columns — all nullable; NULL = weather disabled / fetch failed
+    Column("weather_temp",           Float),
+    Column("weather_humidity",        Float),
+    Column("weather_wind_speed",      Float),
+    Column("weather_wind_direction",  Float),
+    Column("weather_pressure",        Float),
+    Column("weather_condition",       String),
+    Column("weather_precipitation",   Float),
+    Column("weather_provider",        String),
 )
 
 _detection_results = Table(
@@ -146,6 +165,19 @@ _CV_COLUMNS: dict[str, str] = {
 _SPECIES_INFO_COLUMNS: dict[str, str] = {
     "ebird_code":           "TEXT",
     "avicommons_image_url": "TEXT",
+}
+
+# ── Weather metadata columns added in this version ────────────────────────────
+# Nullable on all rows; NULL = weather disabled or fetch failed at detection time.
+_WEATHER_COLUMNS: dict[str, str] = {
+    "weather_temp":           "FLOAT",
+    "weather_humidity":       "FLOAT",
+    "weather_wind_speed":     "FLOAT",
+    "weather_wind_direction": "FLOAT",
+    "weather_pressure":       "FLOAT",
+    "weather_condition":      "TEXT",
+    "weather_precipitation":  "FLOAT",
+    "weather_provider":       "TEXT",
 }
 
 
@@ -220,6 +252,33 @@ def _migrate_species_info_table(engine: sa.Engine) -> None:
                 logger.info("DB migration: added column species_info.%s", col_name)
 
 
+def _migrate_weather_columns(engine: sa.Engine) -> None:
+    """Add weather metadata columns to an existing detections table.
+
+    Idempotent — safe to call on both fresh databases (columns already exist
+    from ``create_all``) and on databases created before weather support was
+    added (adds only what is missing via ``ALTER TABLE``).
+    """
+    db_type = cfg.database.type
+    with engine.begin() as conn:
+        if db_type == "sqlite":
+            rows = conn.execute(text("PRAGMA table_info(detections)")).fetchall()
+            existing = {row[1] for row in rows}
+        else:
+            rows = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'detections'"
+            )).fetchall()
+            existing = {row[0] for row in rows}
+
+        for col_name, col_type in _WEATHER_COLUMNS.items():
+            if col_name not in existing:
+                conn.execute(text(
+                    f"ALTER TABLE detections ADD COLUMN {col_name} {col_type}"
+                ))
+                logger.info("DB migration: added column detections.%s", col_name)
+
+
 def init_db() -> None:
     """
     Open the database, ensure the schema exists, and (when configured)
@@ -251,6 +310,7 @@ def init_db() -> None:
     _metadata.create_all(_engine)
     _migrate_detections_table(_engine)
     _migrate_species_info_table(_engine)
+    _migrate_weather_columns(_engine)
 
     if cfg.database.timescaledb:
         with _engine.begin() as conn:
@@ -277,6 +337,15 @@ def record_detection(
     cv_confidence:       float | None = None,
     cv_agree:            bool | None  = None,
     flagged:             bool | None  = None,
+    # Weather metadata — all optional; None when weather is disabled or unavailable
+    weather_temp:           float | None = None,
+    weather_humidity:       float | None = None,
+    weather_wind_speed:     float | None = None,
+    weather_wind_direction: float | None = None,
+    weather_pressure:       float | None = None,
+    weather_condition:      str | None   = None,
+    weather_precipitation:  float | None = None,
+    weather_provider:       str | None   = None,
 ) -> None:
     """
     Persist one detection to the database.
@@ -289,6 +358,11 @@ def record_detection(
     fields directly.  The ``confidence`` column contains the primary model
     confidence score; the raw primary score is also stored in
     ``primary_confidence``.
+
+    Weather metadata fields are stored when ``[weather] enabled = true`` and a
+    snapshot was successfully fetched at detection time.  All weather columns
+    accept ``None`` (stored as SQL NULL) when weather is disabled or the
+    provider returns no data.
 
     Args:
         ts:                  UTC timestamp of the best-confidence hit.
@@ -311,26 +385,42 @@ def record_detection(
         cv_confidence:       Secondary model's top confidence score.
         cv_agree:            ``True`` if both BTO names matched.
         flagged:             ``True`` when disagreement + ``on_disagree="flag"``.
+        weather_temp:        Air temperature in °C at detection time.
+        weather_humidity:    Relative humidity in % at detection time.
+        weather_wind_speed:  Mean wind speed in m/s at detection time.
+        weather_wind_direction: Wind direction in degrees (0–360) at detection time.
+        weather_pressure:    Sea-level pressure in hPa at detection time.
+        weather_condition:   Human-readable sky condition, e.g. "Light rain".
+        weather_precipitation: Precipitation in mm at detection time.
+        weather_provider:    Data source identifier, e.g. "open_meteo".
     """
     if _engine is None:
         return
     with _engine.begin() as conn:
         result = conn.execute(
             _detections.insert().values(
-                timestamp            = ts,
-                species              = species,
-                bto_name             = bto_name,
-                confidence           = confidence,
-                clip_path            = str(clip_path),
-                model                = model_name,
-                primary_confidence   = primary_confidence,
-                cross_validated      = cross_validated,
-                cv_secondary_model   = cv_secondary_model,
-                cv_species           = cv_species,
-                cv_bto_name          = cv_bto_name,
-                cv_confidence        = cv_confidence,
-                cv_agree             = cv_agree,
-                flagged              = flagged,
+                timestamp              = ts,
+                species                = species,
+                bto_name               = bto_name,
+                confidence             = confidence,
+                clip_path              = str(clip_path),
+                model                  = model_name,
+                primary_confidence     = primary_confidence,
+                cross_validated        = cross_validated,
+                cv_secondary_model     = cv_secondary_model,
+                cv_species             = cv_species,
+                cv_bto_name            = cv_bto_name,
+                cv_confidence          = cv_confidence,
+                cv_agree               = cv_agree,
+                flagged                = flagged,
+                weather_temp           = weather_temp,
+                weather_humidity       = weather_humidity,
+                weather_wind_speed     = weather_wind_speed,
+                weather_wind_direction = weather_wind_direction,
+                weather_pressure       = weather_pressure,
+                weather_condition      = weather_condition,
+                weather_precipitation  = weather_precipitation,
+                weather_provider       = weather_provider,
             )
         )
         detection_id = result.inserted_primary_key[0]

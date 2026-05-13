@@ -276,3 +276,53 @@ min_detections = 1
 [species."King Eider"]
 min_confidence = 0.1
 species_status_override = true
+
+
+# ── Weather metadata ───────────────────────────────────────────────────────────
+# Attach a weather snapshot to every saved detection.
+# Data is cached for cache_seconds (default 300 s) so a burst of detections
+# only triggers a single upstream API call.
+#
+# provider options
+# ────────────────
+#   "open_meteo"      — Open-Meteo (https://open-meteo.com); completely free,
+#                       no account or API key required.
+#
+#   "yr_no"           — Yr.no / Norwegian Meteorological Institute
+#                       (https://api.met.no); free, no key required.
+#
+#   "openweathermap"  — OpenWeatherMap (https://openweathermap.org); free tier
+#                       available.  Requires api_key (sign up for a free key).
+#
+#   "pws"             — Personal Weather Station plugin.  Set pws_plugin to
+#                       the name of a weather_pws_<name>.py file in this
+#                       directory.  Built-in plugin: "meteobridge".
+
+[weather]
+enabled       = false
+provider      = "open_meteo"   # "open_meteo" | "yr_no" | "openweathermap" | "pws"
+api_key       = ""             # only required for provider = "openweathermap"
+cache_seconds = 300            # reuse the same reading within this window (seconds)
+
+# Only used when provider = "pws":
+pws_plugin = "meteobridge"     # selects weather_pws_meteobridge.py
+
+# ── Meteobridge PWS plugin ─────────────────────────────────────────────────────
+# Davis Vantage Vue (or any station supported by Meteobridge).
+# Meteobridge HTTP template API with Basic Auth.
+#
+# template variable order is fixed: temp ; humidity ; wind_speed ; wind_dir ;
+# pressure ; rain_rate.  Edit sensor indices (th0, wind0, msl0, rain0) if your
+# station uses different numbering.  Null readings returned by Meteobridge as
+# "------" are automatically treated as missing values.
+#
+# wind_speed_unit: "ms"  → Meteobridge reports wind in m/s  (metric default)
+#                  "kmh" → Meteobridge reports wind in km/h (auto-converted to m/s)
+
+[weather.pws_meteobridge]
+host            = "192.168.1.100"
+port            = 80
+username        = "meteobridge"
+password        = "meteobridge"
+wind_speed_unit = "ms"
+template        = "[th0temp-act];[th0hum-act];[wind0avgspd-act];[wind0dir-act];[msl0press-act];[rain0rate-act]"
