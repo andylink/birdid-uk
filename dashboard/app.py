@@ -11,9 +11,9 @@ import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import aiosqlite
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from sse_starlette.sse import EventSourceResponse
 
 from dashboard.routes.analytics import router as analytics_router
@@ -22,10 +22,14 @@ from dashboard.routes.media import router as media_router
 from dashboard.routes.species import router as species_router
 from dashboard.routes.sun import router as sun_router
 from dashboard.stream import detection_generator
-from dashboard.config import DB_PATH, TIMEZONE, STATION_NAME
+from dashboard.config import DB_TYPE, TIMEZONE, STATION_NAME
+from dashboard.database import get_engine, startup_db, shutdown_db
 
 _JSON_PATH = Path(__file__).parent.parent / "uk_species_filter.json"
 
+# Full 13-column schema — matches root database.py's _species_info table.
+# The two extra columns (ebird_code, avicommons_image_url) were previously
+# missing from the dashboard DDL but are already queried by routes/species.py.
 _CREATE_SPECIES_INFO = """
 CREATE TABLE IF NOT EXISTS species_info (
     name                        TEXT PRIMARY KEY,
@@ -38,57 +42,77 @@ CREATE TABLE IF NOT EXISTS species_info (
     uk_bocc                     TEXT,
     birdfacts_url               TEXT,
     international_english_name  TEXT,
-    group_name                  TEXT
+    group_name                  TEXT,
+    ebird_code                  TEXT,
+    avicommons_image_url        TEXT
 )
 """
 
 
 async def _ensure_species_info() -> None:
-    """Create species_info if it doesn't exist and seed it from the JSON if empty."""
+    """Create and seed species_info if needed (SQLite only).
+
+    When PostgreSQL is configured, the detector's database.py owns the schema
+    and has already seeded species_info before the dashboard starts, so this
+    function is a no-op on that path.
+    """
+    if DB_TYPE == "postgresql":
+        return
+
     if not _JSON_PATH.exists():
         return
 
-    async with aiosqlite.connect(str(DB_PATH)) as conn:
-        await conn.execute(_CREATE_SPECIES_INFO)
-        await conn.commit()
+    async with get_engine().begin() as conn:
+        await conn.execute(text(_CREATE_SPECIES_INFO))
 
-        (count,) = await (await conn.execute("SELECT COUNT(*) FROM species_info")).fetchone()
-        if count:
+        row = (await conn.execute(text("SELECT COUNT(*) FROM species_info"))).one()
+        if row[0]:
             return
 
         entries = json.loads(_JSON_PATH.read_text(encoding="utf-8"))
         rows = [
-            (
-                e["name"],
-                e.get("scientific_name"),
-                e.get("british_list_status"),
-                e.get("population_estimate"),
-                e.get("bto_2letter_code") or None,
-                e.get("bto_5letter_code") or None,
-                e.get("species_status"),
-                e.get("uk_bocc"),
-                e.get("birdfacts_url"),
-                e.get("international_english_name"),
-                e.get("group_name"),
-            )
+            {
+                "name":                       e["name"],
+                "scientific_name":            e.get("scientific_name"),
+                "british_list_status":        e.get("british_list_status"),
+                "population_estimate":        e.get("population_estimate"),
+                "bto_2letter_code":           e.get("bto_2letter_code") or None,
+                "bto_5letter_code":           e.get("bto_5letter_code") or None,
+                "species_status":             e.get("species_status"),
+                "uk_bocc":                    e.get("uk_bocc"),
+                "birdfacts_url":              e.get("birdfacts_url"),
+                "international_english_name": e.get("international_english_name"),
+                "group_name":                 e.get("group_name"),
+                "ebird_code":                 e.get("ebird_code") or None,
+                "avicommons_image_url":       e.get("avicommons_image_url") or None,
+            }
             for e in entries
             if e.get("name")
         ]
-        await conn.executemany(
-            "INSERT OR REPLACE INTO species_info "
-            "(name, scientific_name, british_list_status, population_estimate, "
-            " bto_2letter_code, bto_5letter_code, species_status, uk_bocc, "
-            " birdfacts_url, international_english_name, group_name) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+
+        await conn.execute(
+            text(
+                "INSERT OR REPLACE INTO species_info "
+                "(name, scientific_name, british_list_status, population_estimate, "
+                " bto_2letter_code, bto_5letter_code, species_status, uk_bocc, "
+                " birdfacts_url, international_english_name, group_name, "
+                " ebird_code, avicommons_image_url) "
+                "VALUES (:name, :scientific_name, :british_list_status, "
+                " :population_estimate, :bto_2letter_code, :bto_5letter_code, "
+                " :species_status, :uk_bocc, :birdfacts_url, "
+                " :international_english_name, :group_name, "
+                " :ebird_code, :avicommons_image_url)"
+            ),
             rows,
         )
-        await conn.commit()
 
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
+    await startup_db()
     await _ensure_species_info()
     yield
+    await shutdown_db()
 
 
 app = FastAPI(title="Bird Detector Dashboard", docs_url="/api/docs", lifespan=_lifespan)

@@ -19,7 +19,8 @@ numpy>=1.26.0
 
 # ── Optional: PostgreSQL backend ───────────────────────────────────────────────
 # Uncomment when [database] type = "postgresql" in config.toml:
-# psycopg2-binary
+# psycopg2-binary   ← sync driver used by the detector
+# asyncpg           ← async driver used by the dashboard
 
 # ── Test dependencies ──────────────────────────────────────────────────────────
 pytest>=8.0.0

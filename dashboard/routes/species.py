@@ -10,10 +10,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-import aiosqlite
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from dashboard.config import DETECTIONS_DIR
 from dashboard.database import get_db
@@ -82,12 +83,23 @@ async def _fetch_image_bytes(url: str) -> bytes | None:
             return None
 
 
+def _normalise_bools(d: dict) -> dict:
+    """Coerce boolean DB fields to integers for frontend compatibility.
+
+    SQLite returns 0/1 integers; PostgreSQL/asyncpg returns Python bools.
+    """
+    for key in ("flagged", "cross_validated", "cv_agree"):
+        if key in d and isinstance(d[key], bool):
+            d[key] = int(d[key])
+    return d
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("/api/v1/species/image")
 async def species_image(
     name: str = Query(..., description="BTO common species name"),
-    db: aiosqlite.Connection = Depends(get_db),
+    db: AsyncConnection = Depends(get_db),
 ):
     """Serve a cached species photo sourced from AviCommons.
 
@@ -107,10 +119,12 @@ async def species_image(
         raise HTTPException(status_code=404, detail="No image available")
 
     # Look up AviCommons image URL from species_info
-    rows = await db.execute_fetchall(
-        "SELECT avicommons_image_url FROM species_info WHERE name = ? LIMIT 1",
-        [name],
-    )
+    rows = (
+        await db.execute(
+            text("SELECT avicommons_image_url FROM species_info WHERE name = :name LIMIT 1"),
+            {"name": name},
+        )
+    ).mappings().all()
     avi_url: str | None = rows[0]["avicommons_image_url"] if rows else None
 
     if not avi_url:
@@ -144,7 +158,7 @@ async def list_species(
     bocc: Optional[str] = Query(None, description="Filter by BoCC status: Red, Amber, Green"),
     status: Optional[str] = Query(None, description="Filter by species_status e.g. Scarce"),
     group: Optional[str] = Query(None, description="Filter by group_name e.g. Warblers"),
-    db: aiosqlite.Connection = Depends(get_db),
+    db: AsyncConnection = Depends(get_db),
 ):
     """Per-species detection statistics for the given period, sorted as requested.
 
@@ -156,54 +170,59 @@ async def list_species(
     where, params = period_clause(period, date_from=date_from, date_to=date_to)
 
     # Build any additional WHERE conditions from conservation filters.
-    conservation_filters: list[str] = []
+    conservation_clauses: list[str] = []
     if bocc:
-        conservation_filters.append("si.uk_bocc = ?")
-        params.append(bocc)
+        conservation_clauses.append("si.uk_bocc = :bocc")
+        params["bocc"] = bocc
     if status:
-        conservation_filters.append("si.species_status = ?")
-        params.append(status)
+        conservation_clauses.append("si.species_status = :status")
+        params["status"] = status
     if group:
-        conservation_filters.append("si.group_name = ?")
-        params.append(group)
-    if conservation_filters:
-        where = f"{where} AND {' AND '.join(conservation_filters)}"
+        conservation_clauses.append("si.group_name = :group_name")
+        params["group_name"] = group
+    if conservation_clauses:
+        where = f"{where} AND {' AND '.join(conservation_clauses)}"
 
-    rows = await db.execute_fetchall(
-        f"""
-        SELECT
-            d.species,
-            COUNT(*)          AS detections,
-            AVG(d.confidence) AS avg_confidence,
-            MAX(d.confidence) AS peak_confidence,
-            MIN(d.timestamp)  AS first_detected,
-            MAX(d.timestamp)  AS last_detected,
-            si.scientific_name,
-            si.group_name,
-            si.uk_bocc,
-            si.species_status,
-            si.bto_2letter_code,
-            si.bto_5letter_code
-        FROM detections d
-        LEFT JOIN species_info si ON si.name = d.bto_name
-        WHERE {where}
-        GROUP BY d.species
-        ORDER BY {order}
-        LIMIT ? OFFSET ?
-        """,
-        params + [limit, offset],
-    )
+    rows = (
+        await db.execute(
+            text(f"""
+            SELECT
+                d.species,
+                COUNT(*)          AS detections,
+                AVG(d.confidence) AS avg_confidence,
+                MAX(d.confidence) AS peak_confidence,
+                MIN(d.timestamp)  AS first_detected,
+                MAX(d.timestamp)  AS last_detected,
+                si.scientific_name,
+                si.group_name,
+                si.uk_bocc,
+                si.species_status,
+                si.bto_2letter_code,
+                si.bto_5letter_code
+            FROM detections d
+            LEFT JOIN species_info si ON si.name = d.bto_name
+            WHERE {where}
+            GROUP BY d.species, si.scientific_name, si.group_name, si.uk_bocc,
+                     si.species_status, si.bto_2letter_code, si.bto_5letter_code
+            ORDER BY {order}
+            LIMIT :limit OFFSET :offset
+            """),
+            {**params, "limit": limit, "offset": offset},
+        )
+    ).mappings().all()
 
     # Count must also join species_info when conservation filters are active.
-    total_row = (await db.execute_fetchall(
-        f"""
-        SELECT COUNT(DISTINCT d.species) AS n
-        FROM detections d
-        LEFT JOIN species_info si ON si.name = d.bto_name
-        WHERE {where}
-        """,
-        params,
-    ))[0]
+    total_row = (
+        await db.execute(
+            text(f"""
+            SELECT COUNT(DISTINCT d.species) AS n
+            FROM detections d
+            LEFT JOIN species_info si ON si.name = d.bto_name
+            WHERE {where}
+            """),
+            params,
+        )
+    ).mappings().one()
 
     return {
         "total": total_row["n"],
@@ -230,31 +249,34 @@ async def list_species(
 @router.get("/api/v1/species/{name}")
 async def species_detail(
     name: str,
-    db: aiosqlite.Connection = Depends(get_db),
+    db: AsyncConnection = Depends(get_db),
 ):
     """Aggregate stats + species_info metadata for a single species."""
-    rows = await db.execute_fetchall(
-        """
-        SELECT
-            d.species,
-            COUNT(*)          AS detections,
-            AVG(d.confidence) AS avg_confidence,
-            MAX(d.confidence) AS peak_confidence,
-            MIN(d.timestamp)  AS first_detected,
-            MAX(d.timestamp)  AS last_detected,
-            si.scientific_name,
-            si.group_name,
-            si.uk_bocc,
-            si.species_status,
-            si.bto_2letter_code,
-            si.bto_5letter_code
-        FROM detections d
-        LEFT JOIN species_info si ON si.name = d.bto_name
-        WHERE d.species = ?
-        GROUP BY d.species
-        """,
-        [name],
-    )
+    rows = (
+        await db.execute(
+            text("""
+            SELECT
+                d.species,
+                COUNT(*)          AS detections,
+                AVG(d.confidence) AS avg_confidence,
+                MAX(d.confidence) AS peak_confidence,
+                MIN(d.timestamp)  AS first_detected,
+                MAX(d.timestamp)  AS last_detected,
+                si.scientific_name,
+                si.group_name,
+                si.uk_bocc,
+                si.species_status,
+                si.bto_2letter_code,
+                si.bto_5letter_code
+            FROM detections d
+            LEFT JOIN species_info si ON si.name = d.bto_name
+            WHERE d.species = :name
+            GROUP BY d.species, si.scientific_name, si.group_name, si.uk_bocc,
+                     si.species_status, si.bto_2letter_code, si.bto_5letter_code
+            """),
+            {"name": name},
+        )
+    ).mappings().all()
     if not rows:
         raise HTTPException(status_code=404, detail="Species not found")
     r = rows[0]
@@ -279,43 +301,47 @@ async def species_detection_list(
     name: str,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    db: aiosqlite.Connection = Depends(get_db),
+    db: AsyncConnection = Depends(get_db),
 ):
     """Paginated detection recordings for a single species, newest first.
 
     Joins species_info so the response includes uk_bocc / species_status for
     use in the frontend notable-species highlighting logic.
     """
-    rows = await db.execute_fetchall(
-        """
-        SELECT
-            d.id, d.timestamp, d.species, d.confidence, d.clip_path, d.bto_name,
-            d.model,
-            d.primary_confidence, d.cross_validated,
-            d.cv_secondary_model, d.cv_species, d.cv_bto_name,
-            d.cv_confidence, d.cv_agree, d.flagged,
-            si.scientific_name, si.group_name, si.uk_bocc, si.species_status,
-            si.bto_2letter_code, si.bto_5letter_code
-        FROM detections d
-        LEFT JOIN species_info si ON si.name = d.bto_name
-        WHERE d.species = ?
-        ORDER BY d.id DESC
-        LIMIT ? OFFSET ?
-        """,
-        [name, limit, offset],
-    )
+    rows = (
+        await db.execute(
+            text("""
+            SELECT
+                d.id, d.timestamp, d.species, d.confidence, d.clip_path, d.bto_name,
+                d.model,
+                d.primary_confidence, d.cross_validated,
+                d.cv_secondary_model, d.cv_species, d.cv_bto_name,
+                d.cv_confidence, d.cv_agree, d.flagged,
+                si.scientific_name, si.group_name, si.uk_bocc, si.species_status,
+                si.bto_2letter_code, si.bto_5letter_code
+            FROM detections d
+            LEFT JOIN species_info si ON si.name = d.bto_name
+            WHERE d.species = :name
+            ORDER BY d.id DESC
+            LIMIT :limit OFFSET :offset
+            """),
+            {"name": name, "limit": limit, "offset": offset},
+        )
+    ).mappings().all()
 
-    total_rows = await db.execute_fetchall(
-        "SELECT COUNT(*) AS n FROM detections WHERE species = ?",
-        [name],
-    )
+    total_row = (
+        await db.execute(
+            text("SELECT COUNT(*) AS n FROM detections WHERE species = :name"),
+            {"name": name},
+        )
+    ).mappings().one()
 
     result = []
     for r in rows:
-        d = dict(r)
+        d = _normalise_bools(dict(r))
         d["filename"] = Path(d["clip_path"]).name if d.get("clip_path") else None
         del d["clip_path"]
         d["timestamp"] = to_utc_iso(d.get("timestamp"))
         result.append(d)
 
-    return {"total": total_rows[0]["n"], "detections": result}
+    return {"total": total_row["n"], "detections": result}

@@ -48,5 +48,22 @@ CONF_MED: float = 0.7
 SUN_LAT: float = cfg.location.lat
 SUN_LON: float = cfg.location.lon
 
+# ── Database backend ──────────────────────────────────────────────────────────
+# Which database the detector is writing to; drives the async engine driver
+# selection in dashboard/database.py.
+DB_TYPE: str = cfg.database.type  # "sqlite" | "postgresql"
+
+# Async SQLAlchemy URL — driver suffix differs per backend:
+#   sqlite      → sqlite+aiosqlite:///path/to/birds.db
+#   postgresql  → postgresql+asyncpg://user:pass@host:port/db
+if DB_TYPE == "postgresql":
+    _db = cfg.database
+    DB_URL: str = (
+        f"postgresql+asyncpg://{_db.username}:{_db.password}"
+        f"@{_db.host}:{_db.port}/{_db.name}"
+    )
+else:
+    DB_URL: str = f"sqlite+aiosqlite:///{DB_PATH}"
+
 # ── SSE polling interval ──────────────────────────────────────────────────────
 SSE_POLL_SECONDS: float = 2.0
