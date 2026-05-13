@@ -30,7 +30,7 @@ import urllib.request
 from datetime import datetime
 
 from config import cfg
-from weather import WeatherData
+from . import WeatherData
 
 logger = logging.getLogger(__name__)
 

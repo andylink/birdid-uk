@@ -26,7 +26,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime
 
-from weather import WeatherData
+from . import WeatherData
 
 logger = logging.getLogger(__name__)
 

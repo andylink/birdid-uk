@@ -56,10 +56,10 @@ fields (all may be ``None`` if the sensor has no current reading):
 
 Writing a new PWS plugin
 ------------------------
-Copy this file to ``weather_pws_<yourstation>.py``, implement the single
+Copy this file to ``weather/pws_<yourstation>.py``, implement the single
 ``fetch(lat, lon, ts) -> WeatherData | None`` function, and set
 ``pws_plugin = "<yourstation>"`` in ``[weather]`` config.toml.  No changes
-to ``weather.py`` or ``detector.py`` are needed.
+to ``weather/__init__.py`` or ``detector.py`` are needed.
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ import urllib.request
 from datetime import datetime
 
 from config import cfg
-from weather import WeatherData
+from . import WeatherData
 
 logger = logging.getLogger(__name__)
 

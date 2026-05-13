@@ -23,7 +23,7 @@ Providers
 
 ``"pws"``
     Personal Weather Station plugin.  ``cfg.weather.pws_plugin`` names the
-    provider module: ``weather_pws_<plugin>.py``.
+    provider module: ``weather/pws_<plugin>.py``.
 
 PWS plugins
 -----------
@@ -36,11 +36,11 @@ The function should catch all exceptions internally and return ``None`` on
 failure so the detect loop is never interrupted.
 
 Built-in plugin
-    ``weather_pws_meteobridge.py`` — Meteobridge bridge device (Davis Vantage
+    ``weather/pws_meteobridge.py`` — Meteobridge bridge device (Davis Vantage
     Vue / Vantage Pro and many other stations).
 
 Writing a new plugin
-    1. Create ``weather_pws_<name>.py`` in the project root.
+    1. Create ``weather/pws_<name>.py`` in the ``weather/`` package.
     2. Implement ``fetch(lat, lon, ts) -> WeatherData | None``.
     3. Set ``provider = "pws"`` and ``pws_plugin = "<name>"`` in
        ``[weather]`` config.toml.
@@ -124,9 +124,9 @@ def init_weather() -> None:
     provider_name = cfg.weather.provider
 
     if provider_name == "pws":
-        module_name = f"weather_pws_{cfg.weather.pws_plugin}"
+        module_name = f"weather.pws_{cfg.weather.pws_plugin}"
     else:
-        module_name = f"weather_{provider_name}"
+        module_name = f"weather.{provider_name}"
 
     try:
         _provider = importlib.import_module(module_name)
