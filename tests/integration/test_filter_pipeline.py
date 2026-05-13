@@ -23,10 +23,10 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-import species_filter
-from species_filter import build_bou_allowed_set, build_birdnet_to_bto_map
-from seasonal_filter import SeasonalFilter, current_iso_week
-from nocturnal_filter import NocturnalFilter
+import filters.species_filter as species_filter
+from filters.species_filter import build_bou_allowed_set, build_birdnet_to_bto_map
+from filters.seasonal_filter import SeasonalFilter, current_iso_week
+from filters.nocturnal_filter import NocturnalFilter
 from config import SpeciesFilterConfig, SpeciesConfig
 
 

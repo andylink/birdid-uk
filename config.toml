@@ -95,7 +95,7 @@ order     = 5     # Butterworth order; higher = steeper rolloff
 # weeks.  Species absent from the JSON are assumed year-round.
 # Set enabled = false to disable (not recommended for UK operation).
 enabled     = true
-filter_json = "uk_seasonal_filter.json"
+filter_json = "filters/uk_seasonal_filter.json"
 
 
 [nocturnal_filter]
@@ -118,7 +118,7 @@ filter_json = "uk_seasonal_filter.json"
 #   active_hours = {type = "fixed", start = "21:00", end = "05:00"}
 #
 enabled     = true
-filter_json = "uk_nocturnal_filter.json"
+filter_json = "filters/uk_nocturnal_filter.json"
 
 
 [species_filter]

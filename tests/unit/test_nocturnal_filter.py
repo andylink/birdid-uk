@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from nocturnal_filter import NocturnalFilter
+from filters.nocturnal_filter import NocturnalFilter
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

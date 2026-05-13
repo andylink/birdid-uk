@@ -1,12 +1,12 @@
 """
-inference.py — inference backend dispatcher.
+inference/__init__.py — inference backend dispatcher.
 
 Selects and exposes the active inference model based on
 ``cfg.inference.model`` (``"birdnet"`` or ``"perch"``).
 
 Adding a new backend
 --------------------
-1. Create ``inference_<name>.py`` with a class that satisfies
+1. Create ``inference/<name>.py`` with a class that satisfies
    :class:`Inferencer` (``window_seconds`` attribute, ``run_inference`` and
    ``load_label_map`` methods).
 2. Add an ``elif cfg.inference.model == "<name>"`` branch in :func:`get_model`.
@@ -86,8 +86,8 @@ def get_model() -> Inferencer:
 
     The backend is selected by ``cfg.inference.model``:
 
-    * ``"birdnet"`` → :class:`inference_birdnet.BirdNETModel` (default)
-    * ``"perch"``   → :class:`inference_perch.PerchModel`
+    * ``"birdnet"`` → :class:`inference.birdnet.BirdNETModel` (default)
+    * ``"perch"``   → :class:`inference.perch.PerchModel`
 
     Raises:
         ValueError: If ``cfg.inference.model`` is not a recognised value.
@@ -101,10 +101,10 @@ def get_model() -> Inferencer:
     model_name = cfg.inference.model.lower().strip()
 
     if model_name == "birdnet":
-        from inference_birdnet import BirdNETModel
+        from .birdnet import BirdNETModel
         _active_model = BirdNETModel()
     elif model_name == "perch":
-        from inference_perch import PerchModel
+        from .perch import PerchModel
         _active_model = PerchModel()
     else:
         raise ValueError(
@@ -156,10 +156,10 @@ def get_secondary_model() -> Inferencer:
     secondary_name = get_secondary_model_name()
 
     if secondary_name == "birdnet":
-        from inference_birdnet import BirdNETModel
+        from .birdnet import BirdNETModel
         _secondary_model = BirdNETModel()
     elif secondary_name == "perch":
-        from inference_perch import PerchModel
+        from .perch import PerchModel
         _secondary_model = PerchModel()
     else:
         raise ValueError(

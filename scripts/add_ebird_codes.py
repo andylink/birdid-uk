@@ -30,8 +30,8 @@ from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 
-REPO_ROOT   = Path(__file__).parent
-SPECIES_JSON = REPO_ROOT / "uk_species_filter.json"
+REPO_ROOT   = Path(__file__).parent.parent
+SPECIES_JSON = REPO_ROOT / "filters" / "uk_species_filter.json"
 
 AVICOMMONS_URL = "https://avicommons.org/latest.json"
 AVICOMMONS_CDN = "https://static.avicommons.org"

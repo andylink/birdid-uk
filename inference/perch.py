@@ -229,7 +229,7 @@ class PerchModel:
         vector produced by :meth:`run_inference`.
         """
         # ── Step 1: BTO scientific_name → british_common_name ─────────────────
-        bto_path = Path(__file__).parent / "uk_species_filter.json"
+        bto_path = Path(__file__).parent.parent / "filters" / "uk_species_filter.json"
         sci_to_bto: dict[str, str] = {}
         if bto_path.exists():
             for sp in json.loads(bto_path.read_text()):
@@ -296,7 +296,7 @@ class PerchModel:
         that happens lazily on the first :meth:`run_inference` call.
 
         The returned format is identical to
-        :meth:`inference_birdnet.BirdNETModel.load_label_map` so ``species_filter``
+        :meth:`inference.birdnet.BirdNETModel.load_label_map` so ``species_filter``
         and ``seasonal_filter`` work without modification.
         """
         self._ensure_maps()

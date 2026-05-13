@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from seasonal_filter import SeasonalFilter, current_iso_week
+from filters.seasonal_filter import SeasonalFilter, current_iso_week
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

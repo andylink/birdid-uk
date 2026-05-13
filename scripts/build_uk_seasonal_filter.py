@@ -41,9 +41,9 @@ from pathlib import Path
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-REPO_ROOT    = Path(__file__).parent
-BOU_JSON     = REPO_ROOT / "uk_species_filter.json"
-OUTPUT_JSON  = REPO_ROOT / "uk_seasonal_filter.json"
+REPO_ROOT    = Path(__file__).parent.parent
+BOU_JSON     = REPO_ROOT / "filters" / "uk_species_filter.json"
+OUTPUT_JSON  = REPO_ROOT / "filters" / "uk_seasonal_filter.json"
 
 # Minimum fraction of annual GB records for a month to be considered "present".
 # 0.02 = 2%.  A species recorded uniformly all year scores ~8.3% per month, so

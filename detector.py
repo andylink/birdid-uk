@@ -55,19 +55,19 @@ import numpy as np
 import sounddevice as sd
 
 from audio import apply_highpass, save_clip
-import birdmap
+from publishers import birdmap
 import weather
-from species_filter import build_bou_allowed_set, build_birdnet_to_bto_map
+from filters.species_filter import build_bou_allowed_set, build_birdnet_to_bto_map
 from capture_buffer import CaptureBuffer
 from config import cfg, get_species_config
 from cross_validate import CrossValidationResult, CrossValidator
 from database import init_db, record_detection, seed_species_info
 from inference import Inferencer, get_model, get_secondary_model, get_secondary_model_name
 from log_setup import setup_logging
-from mqtt import init_mqtt, publish_detection
+from publishers.mqtt import init_mqtt, publish_detection
 from retention import start_retention_thread
-from nocturnal_filter import NocturnalFilter
-from seasonal_filter import SeasonalFilter, current_iso_week
+from filters.nocturnal_filter import NocturnalFilter
+from filters.seasonal_filter import SeasonalFilter, current_iso_week
 
 logger = logging.getLogger(__name__)
 
@@ -662,7 +662,7 @@ def main() -> None:
         logger.info("Cross-validation disabled")
 
     init_db()
-    seed_species_info(Path(__file__).parent / "uk_species_filter.json")
+    seed_species_info(Path(__file__).parent / "filters" / "uk_species_filter.json")
     init_mqtt()
     weather.init_weather()
 

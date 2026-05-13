@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-import species_filter
-from species_filter import (
+import filters.species_filter as species_filter
+from filters.species_filter import (
     _status_excluded,
     build_bou_allowed_set,
     build_birdnet_to_bto_map,

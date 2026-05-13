@@ -123,11 +123,11 @@ def test_cfg(tmp_path: Path) -> Config:
         ),
         seasonal_filter=SeasonalFilterConfig(
             enabled=False,
-            filter_json=Path("uk_seasonal_filter.json"),
+            filter_json=Path("filters/uk_seasonal_filter.json"),
         ),
         nocturnal_filter=NocturnalFilterConfig(
             enabled=False,
-            filter_json=Path("uk_nocturnal_filter.json"),
+            filter_json=Path("filters/uk_nocturnal_filter.json"),
         ),
         species_filter=SpeciesFilterConfig(exclude_status=()),
         defaults=SpeciesConfig(

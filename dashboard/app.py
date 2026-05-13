@@ -26,7 +26,7 @@ from dashboard.stream import detection_generator
 from dashboard.config import DB_TYPE, TIMEZONE, STATION_NAME
 from dashboard.database import get_engine, startup_db, shutdown_db
 
-_JSON_PATH = Path(__file__).parent.parent / "uk_species_filter.json"
+_JSON_PATH = Path(__file__).parent.parent / "filters" / "uk_species_filter.json"
 
 # Full 13-column schema — matches root database.py's _species_info table.
 # The two extra columns (ebird_code, avicommons_image_url) were previously
