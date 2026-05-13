@@ -44,6 +44,13 @@
 				Analytics
 			</a>
 			<a
+				href="/weather"
+				class="nav-link"
+				aria-current={$page.url.pathname.startsWith('/weather') ? 'page' : undefined}
+			>
+				Weather
+			</a>
+			<a
 				href="/species"
 				class="nav-link"
 				aria-current={$page.url.pathname.startsWith('/species') ? 'page' : undefined}

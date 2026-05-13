@@ -312,3 +312,65 @@ export function getGroupBreakdown(period: Period, limit = 15): Promise<GroupBrea
 export function getBoccTrend(period: Period): Promise<BoccTrendEntry[]> {
 	return apiFetch<BoccTrendEntry[]>(`/api/v1/analytics/bocc-trend?period=${period}`);
 }
+
+// ── Weather analytics ──────────────────────────────────────────────────────
+
+export interface WeatherStatus {
+	total_detections: number;
+	with_weather:     number;
+	coverage_pct:     number;
+}
+
+export interface WeatherSummary {
+	avg_temp:              number | null;
+	avg_humidity:          number | null;
+	avg_wind_speed:        number | null;
+	avg_pressure:          number | null;
+	most_common_condition: string | null;
+}
+
+export interface WeatherConditionEntry {
+	condition: string;
+	count:     number;
+}
+
+export interface WeatherWindSpeedEntry {
+	bin:   string;
+	label: string;
+	count: number;
+}
+
+export interface WeatherTempEntry {
+	bin:   string;
+	label: string;
+	count: number;
+}
+
+export interface WeatherWindRoseEntry {
+	direction: string;
+	count:     number;
+}
+
+export function getWeatherStatus(period: Period): Promise<WeatherStatus> {
+	return apiFetch<WeatherStatus>(`/api/v1/weather/status?period=${period}`);
+}
+
+export function getWeatherSummary(period: Period): Promise<WeatherSummary> {
+	return apiFetch<WeatherSummary>(`/api/v1/weather/summary?period=${period}`);
+}
+
+export function getWeatherByCondition(period: Period): Promise<WeatherConditionEntry[]> {
+	return apiFetch<WeatherConditionEntry[]>(`/api/v1/weather/by-condition?period=${period}`);
+}
+
+export function getWeatherByWindSpeed(period: Period): Promise<WeatherWindSpeedEntry[]> {
+	return apiFetch<WeatherWindSpeedEntry[]>(`/api/v1/weather/by-wind-speed?period=${period}`);
+}
+
+export function getWeatherByTemperature(period: Period): Promise<WeatherTempEntry[]> {
+	return apiFetch<WeatherTempEntry[]>(`/api/v1/weather/by-temperature?period=${period}`);
+}
+
+export function getWeatherWindRose(period: Period): Promise<WeatherWindRoseEntry[]> {
+	return apiFetch<WeatherWindRoseEntry[]>(`/api/v1/weather/wind-rose?period=${period}`);
+}

@@ -1,3 +1,2 @@
 - mobile views
-- switch to display 2letter abbreviatoin as default in dashboard
 - migrant tracking using species_info?
