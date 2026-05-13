@@ -21,6 +21,11 @@ numpy>=1.26.0
 # Uncomment when [database] type = "postgresql" in config.toml:
 # psycopg2-binary
 
+# ── Test dependencies ──────────────────────────────────────────────────────────
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=5.0.0
+
 # ── Optional: Perch v2 inference backend ───────────────────────────────────────
 # Set [inference] model = "perch" in config.toml to enable.
 #
