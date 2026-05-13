@@ -10,12 +10,16 @@ export function confidenceLevel(score: number): ConfidenceLevel {
 	return 'low';
 }
 
+/**
+ * Returns a CSS class name defined globally in app.css.
+ * Maps high → conf-badge-high, medium → conf-badge-medium, low → conf-badge-low.
+ */
 export function confidenceBadgeClass(score: number): string {
 	const level = confidenceLevel(score);
 	return {
-		high: 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/40',
-		medium: 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40',
-		low: 'bg-slate-500/20 text-slate-400 ring-1 ring-slate-500/40'
+		high:   'conf-badge-high',
+		medium: 'conf-badge-medium',
+		low:    'conf-badge-low',
 	}[level];
 }
 

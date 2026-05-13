@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { getAnalyticsSummary, PERIODS, type Period, type AnalyticsSummary } from '$lib/api';
-	import StatCard from '../../components/StatCard.svelte';
-	import TopSpeciesChart from '../../components/analytics/TopSpeciesChart.svelte';
-	import TimeOfDayChart from '../../components/analytics/TimeOfDayChart.svelte';
-	import NewSpeciesChart from '../../components/analytics/NewSpeciesChart.svelte';
-	import BoccBreakdownChart from '../../components/analytics/BoccBreakdownChart.svelte';
-	import GroupBreakdownChart from '../../components/analytics/GroupBreakdownChart.svelte';
-	import BoccTrendChart from '../../components/analytics/BoccTrendChart.svelte';
+	import StatCard from '$lib/components/StatCard.svelte';
+	import TopSpeciesChart from '$lib/components/analytics/TopSpeciesChart.svelte';
+	import TimeOfDayChart from '$lib/components/analytics/TimeOfDayChart.svelte';
+	import NewSpeciesChart from '$lib/components/analytics/NewSpeciesChart.svelte';
+	import BoccBreakdownChart from '$lib/components/analytics/BoccBreakdownChart.svelte';
+	import GroupBreakdownChart from '$lib/components/analytics/GroupBreakdownChart.svelte';
+	import BoccTrendChart from '$lib/components/analytics/BoccTrendChart.svelte';
 
 	let period = $state<Period>('today');
 	let summary = $state<AnalyticsSummary | null>(null);
@@ -26,19 +26,18 @@
 	}
 </script>
 
-<div class="h-[calc(100vh-3.25rem)] overflow-y-auto">
-	<div class="max-w-7xl mx-auto px-6 py-5 space-y-5">
+<div class="page-scroll">
+	<div class="page-inner">
 
 		<!-- Page header + period filter -->
-		<div class="flex flex-wrap items-center justify-between gap-3">
-			<h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">Analytics</h1>
-			<div class="flex text-xs rounded overflow-hidden border border-slate-300 dark:border-slate-700">
+		<div class="page-header">
+			<h1 class="page-title">Analytics</h1>
+			<div class="period-group">
 				{#each PERIODS as p}
 					<button
-						class="px-3 py-1.5 transition-colors {period === p.value
-							? 'bg-emerald-600 text-white'
-							: 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}"
-						onclick={() => period = p.value}
+						class="period-btn"
+						class:active={period === p.value}
+						onclick={() => (period = p.value)}
 					>
 						{p.label}
 					</button>
@@ -47,7 +46,7 @@
 		</div>
 
 		<!-- General stat cards -->
-		<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+		<div class="grid-4">
 			<StatCard
 				title="Total Detections"
 				value={summary?.total_detections.toLocaleString()}
@@ -73,10 +72,8 @@
 
 		<!-- Conservation stat cards -->
 		<div>
-			<h2 class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">
-				Conservation
-			</h2>
-			<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+			<h2 class="section-title">Conservation</h2>
+			<div class="grid-4">
 				<StatCard
 					title="Red List Species"
 					value={summary?.red_list_species}
@@ -105,18 +102,18 @@
 		</div>
 
 		<!-- Charts row: top species + time of day -->
-		<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+		<div class="grid-2">
 			<TopSpeciesChart {period} />
 			<TimeOfDayChart {period} />
 		</div>
 
-		<!-- Conservation charts row: BoCC breakdown + group breakdown -->
-		<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+		<!-- Conservation charts row -->
+		<div class="grid-2">
 			<BoccBreakdownChart {period} />
 			<GroupBreakdownChart {period} />
 		</div>
 
-		<!-- BoCC trend over time (full width) -->
+		<!-- BoCC trend (full width) -->
 		<BoccTrendChart {period} />
 
 		<!-- New species chart -->
@@ -124,3 +121,90 @@
 
 	</div>
 </div>
+
+<style>
+	.page-scroll {
+		height: calc(100vh - var(--header-height));
+		overflow-y: auto;
+	}
+
+	.page-inner {
+		max-width: 80rem;
+		margin: 0 auto;
+		padding: 1.25rem 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
+	}
+
+	.page-header {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.page-title {
+		margin: 0;
+		font-size: 1.125rem;
+		font-weight: 600;
+		color: var(--color-text);
+		letter-spacing: -0.025em;
+	}
+
+	.period-group {
+		display: flex;
+		font-size: 0.75rem;
+		border-radius: 0.375rem;
+		overflow: hidden;
+		border: 1px solid var(--color-border-strong);
+	}
+
+	.period-btn {
+		padding: 0.375rem 0.75rem;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		color: var(--color-text-muted);
+		transition: color 0.15s, background-color 0.15s;
+	}
+	.period-btn:hover {
+		color: var(--color-text);
+	}
+	.period-btn.active {
+		background: var(--color-accent);
+		color: #fff;
+	}
+
+	.section-title {
+		margin: 0 0 0.75rem;
+		font-size: 0.625rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+	}
+
+	.grid-4 {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 1rem;
+	}
+	@media (min-width: 1024px) {
+		.grid-4 {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+
+	.grid-2 {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 1rem;
+	}
+	@media (min-width: 1024px) {
+		.grid-2 {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+</style>

@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { getTopSpecies, type Period, type TopSpeciesEntry } from '$lib/api';
 	import { groupBadgeColor } from '$lib/bto';
+	import ChartCard from '$lib/components/ui/ChartCard.svelte';
 
 	let { period }: { period: Period } = $props();
 
@@ -11,7 +12,6 @@
 	let empty = $state(false);
 	let error = $state<string | null>(null);
 
-	// Keep a reference to the raw data for tooltip group labels.
 	let entries: TopSpeciesEntry[] = [];
 
 	function chartColors() {
@@ -33,7 +33,6 @@
 		chart.update('none');
 	}
 
-	// Truncate long species names for the y-axis labels.
 	function truncate(s: string, max = 28): string {
 		return s.length > max ? s.slice(0, max - 1) + '…' : s;
 	}
@@ -55,7 +54,7 @@
 			const labels = data.map(d => truncate(d.species));
 			const counts = data.map(d => d.count);
 			const colors = data.map(d => groupBadgeColor(d.group_name));
-			const borderColors = colors.map(c => c + 'cc'); // slight alpha for border
+			const borderColors = colors.map(c => c + 'cc');
 
 			if (chart) {
 				chart.data.labels = labels;
@@ -66,15 +65,15 @@
 				return;
 			}
 
-		if (!canvas) return;
+			if (!canvas) return;
 
-		const { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } =
-			await import('chart.js');
-		Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
+			const { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } =
+				await import('chart.js');
+			Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
-		const { grid, tick } = chartColors();
+			const { grid, tick } = chartColors();
 
-		chart = new Chart(canvas, {
+			chart = new Chart(canvas, {
 				type: 'bar',
 				data: {
 					labels,
@@ -103,16 +102,16 @@
 							}
 						}
 					},
-				scales: {
-					x: {
-						grid: { color: grid },
-						ticks: { color: tick, precision: 0 },
-						beginAtZero: true,
-					},
-					y: {
-						grid: { display: false },
-						ticks: { color: tick, font: { size: 11 } },
-					}
+					scales: {
+						x: {
+							grid: { color: grid },
+							ticks: { color: tick, precision: 0 },
+							beginAtZero: true,
+						},
+						y: {
+							grid: { display: false },
+							ticks: { color: tick, font: { size: 11 } },
+						}
 					}
 				}
 			});
@@ -127,27 +126,17 @@
 
 	onMount(() => {
 		document.addEventListener('themechange', applyColorsToChart);
-		return () => {
-			document.removeEventListener('themechange', applyColorsToChart);
-		};
+		return () => document.removeEventListener('themechange', applyColorsToChart);
 	});
 
 	onDestroy(() => chart?.destroy());
 </script>
 
-<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg flex flex-col h-80">
-	<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest px-4 pt-3 pb-2 shrink-0">
-		Top 10 Species
-	</h3>
-	<div class="flex-1 relative px-3 pb-3 min-h-0">
-		<canvas bind:this={canvas} class="w-full h-full" class:invisible={loading || empty || !!error}></canvas>
-		{#if loading}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">Loading…</div>
-		{:else if empty}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">No detections in this period.</div>
-		{:else if error}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">{error}</div>
-		{/if}
-	</div>
-</div>
-
+<ChartCard
+	title="Top 10 Species"
+	emptyMessage="No detections in this period."
+	{loading}
+	{empty}
+	{error}
+	bind:canvasEl={canvas}
+/>

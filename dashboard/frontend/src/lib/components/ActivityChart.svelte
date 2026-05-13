@@ -8,8 +8,8 @@
 	let canvas = $state<HTMLCanvasElement | undefined>(undefined);
 	let chart: import('chart.js').Chart | null = null;
 	let loading = $state(true);
-	let error = $state<string | null>(null);
-	let mode = $state<Mode>('today');
+	let error   = $state<string | null>(null);
+	let mode    = $state<Mode>('today');
 	let timer: ReturnType<typeof setInterval> | null = null;
 
 	function chartColors() {
@@ -24,16 +24,15 @@
 		if (!chart) return;
 		const { grid, tick } = chartColors();
 		const scales = chart.options.scales as any;
-		if (scales?.x?.grid) scales.x.grid.color = grid;
+		if (scales?.x?.grid)  scales.x.grid.color  = grid;
 		if (scales?.x?.ticks) scales.x.ticks.color = tick;
-		if (scales?.y?.grid) scales.y.grid.color = grid;
+		if (scales?.y?.grid)  scales.y.grid.color  = grid;
 		if (scales?.y?.ticks) scales.y.ticks.color = tick;
 		chart.update('none');
 	}
 
 	async function loadData(m: Mode) {
-		const hourly = await getByHour(m === 'today' ? localToday() : undefined);
-		return hourly;
+		return await getByHour(m === 'today' ? localToday() : undefined);
 	}
 
 	async function switchMode(next: Mode) {
@@ -41,10 +40,7 @@
 		mode = next;
 		try {
 			const hourly = await loadData(next);
-			if (chart) {
-				chart.data.datasets[0].data = hourly.data;
-				chart.update();
-			}
+			if (chart) { chart.data.datasets[0].data = hourly.data; chart.update(); }
 		} catch (e) {
 			console.error('ActivityChart switch error:', e);
 		}
@@ -54,10 +50,7 @@
 	async function refresh() {
 		try {
 			const hourly = await loadData(mode);
-			if (chart) {
-				chart.data.datasets[0].data = hourly.data;
-				chart.update('none');
-			}
+			if (chart) { chart.data.datasets[0].data = hourly.data; chart.update('none'); }
 		} catch (e) {
 			console.error('ActivityChart refresh error:', e);
 		}
@@ -65,7 +58,6 @@
 
 	function resetTimer() {
 		if (timer !== null) clearInterval(timer);
-		// Today refreshes every 60 s; all-time changes slowly so every 5 min is fine.
 		timer = setInterval(refresh, mode === 'today' ? 60_000 : 300_000);
 	}
 
@@ -127,64 +119,120 @@
 				}
 			});
 
-		resetTimer();
-	} catch (e) {
-		console.error('ActivityChart error:', e);
-		error = e instanceof Error ? e.message : 'Could not load activity data.';
-	} finally {
-		loading = false;
-	}
-});
+			resetTimer();
+		} catch (e) {
+			console.error('ActivityChart error:', e);
+			error = e instanceof Error ? e.message : 'Could not load activity data.';
+		} finally {
+			loading = false;
+		}
+	});
 
-onMount(() => {
-	document.addEventListener('themechange', applyColorsToChart);
-	return () => {
-		document.removeEventListener('themechange', applyColorsToChart);
-	};
-});
+	onMount(() => {
+		document.addEventListener('themechange', applyColorsToChart);
+		return () => document.removeEventListener('themechange', applyColorsToChart);
+	});
 
-onDestroy(() => {
-	chart?.destroy();
-	if (timer !== null) clearInterval(timer);
-});
+	onDestroy(() => {
+		chart?.destroy();
+		if (timer !== null) clearInterval(timer);
+	});
 </script>
 
-<div class="flex flex-col h-full">
-	<div class="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
-		<h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-			Activity by Hour
-		</h2>
-		<div class="flex text-xs rounded overflow-hidden border border-slate-300 dark:border-slate-700">
+<div class="activity-chart">
+	<div class="activity-header">
+		<h2 class="activity-title">Activity by Hour</h2>
+		<div class="mode-toggle" role="group" aria-label="Time range">
 			<button
-				class="px-2 py-0.5 transition-colors {mode === 'today'
-					? 'bg-emerald-600 text-white'
-					: 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}"
+				class="mode-btn"
+				class:active={mode === 'today'}
 				onclick={() => switchMode('today')}
-			>
-				Today
-			</button>
+			>Today</button>
 			<button
-				class="px-2 py-0.5 transition-colors {mode === 'alltime'
-					? 'bg-emerald-600 text-white'
-					: 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}"
+				class="mode-btn"
+				class:active={mode === 'alltime'}
 				onclick={() => switchMode('alltime')}
-			>
-				All time
-			</button>
+			>All time</button>
 		</div>
 	</div>
 
-	<div class="flex-1 relative px-3 pb-3 min-h-0">
-		<canvas bind:this={canvas} class="w-full h-full" class:invisible={loading || !!error}></canvas>
+	<div class="activity-body">
+		<canvas
+			bind:this={canvas}
+			class="activity-canvas"
+			style:visibility={loading || !!error ? 'hidden' : 'visible'}
+		></canvas>
 
 		{#if loading}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">
-				Loading…
-			</div>
+			<div class="activity-overlay">Loading…</div>
 		{:else if error}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">
-				{error}
-			</div>
+			<div class="activity-overlay">{error}</div>
 		{/if}
 	</div>
 </div>
+
+<style>
+	.activity-chart {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+
+	.activity-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.75rem 1rem 0.5rem;
+		flex-shrink: 0;
+	}
+
+	.activity-title {
+		margin: 0;
+		font-size: 0.625rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+	}
+
+	.mode-toggle {
+		display: flex;
+		font-size: 0.75rem;
+		border-radius: 0.25rem;
+		overflow: hidden;
+		border: 1px solid var(--color-border-strong);
+	}
+	.mode-btn {
+		padding: 0.125rem 0.5rem;
+		border: none;
+		background: transparent;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		transition: background-color 0.15s, color 0.15s;
+	}
+	.mode-btn:hover { color: var(--color-text); }
+	.mode-btn.active {
+		background: #059669;
+		color: #fff;
+	}
+
+	.activity-body {
+		flex: 1;
+		position: relative;
+		padding: 0 0.75rem 0.75rem;
+		min-height: 0;
+	}
+	.activity-canvas {
+		width: 100%;
+		height: 100%;
+	}
+	.activity-overlay {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--color-text-muted);
+		font-size: 0.875rem;
+	}
+</style>

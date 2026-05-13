@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { getNewSpeciesTimeline, type Period, type NewSpeciesEntry } from '$lib/api';
+	import ChartCard from '$lib/components/ui/ChartCard.svelte';
 
 	let { period }: { period: Period } = $props();
 
@@ -10,7 +11,6 @@
 	let empty = $state(false);
 	let error = $state<string | null>(null);
 
-	/** Format YYYY-MM-DD → "09 May" */
 	function fmtDay(iso: string): string {
 		const d = new Date(iso + 'T00:00:00');
 		return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
@@ -58,15 +58,15 @@
 				return;
 			}
 
-		if (!canvas) return;
+			if (!canvas) return;
 
-		const { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } =
-			await import('chart.js');
-		Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
+			const { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } =
+				await import('chart.js');
+			Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 
-		const { grid, tick } = chartColors();
+			const { grid, tick } = chartColors();
 
-		chart = new Chart(canvas, {
+			chart = new Chart(canvas, {
 				type: 'bar',
 				data: {
 					labels,
@@ -91,21 +91,21 @@
 							}
 						}
 					},
-				scales: {
-					x: {
-						grid: { color: grid },
-						ticks: {
-							color: tick,
-							maxRotation: 45,
-							autoSkip: true,
-							maxTicksLimit: 20,
+					scales: {
+						x: {
+							grid: { color: grid },
+							ticks: {
+								color: tick,
+								maxRotation: 45,
+								autoSkip: true,
+								maxTicksLimit: 20,
+							}
+						},
+						y: {
+							grid: { color: grid },
+							ticks: { color: tick, stepSize: 1 },
+							beginAtZero: true,
 						}
-					},
-					y: {
-						grid: { color: grid },
-						ticks: { color: tick, stepSize: 1 },
-						beginAtZero: true,
-					}
 					}
 				}
 			});
@@ -120,26 +120,18 @@
 
 	onMount(() => {
 		document.addEventListener('themechange', applyColorsToChart);
-		return () => {
-			document.removeEventListener('themechange', applyColorsToChart);
-		};
+		return () => document.removeEventListener('themechange', applyColorsToChart);
 	});
 
 	onDestroy(() => chart?.destroy());
 </script>
 
-<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg flex flex-col h-64">
-	<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest px-4 pt-3 pb-2 shrink-0">
-		New Species First Detected
-	</h3>
-	<div class="flex-1 relative px-3 pb-3 min-h-0">
-		<canvas bind:this={canvas} class="w-full h-full" class:invisible={loading || empty || !!error}></canvas>
-		{#if loading}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">Loading…</div>
-		{:else if empty}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">No new species in this period.</div>
-		{:else if error}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">{error}</div>
-		{/if}
-	</div>
-</div>
+<ChartCard
+	title="New Species First Detected"
+	height="16rem"
+	emptyMessage="No new species in this period."
+	{loading}
+	{empty}
+	{error}
+	bind:canvasEl={canvas}
+/>

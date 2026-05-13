@@ -1,5 +1,4 @@
 import { sveltekit } from '@sveltejs/kit/vite';
-import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 import type { Connect, Plugin } from 'vite';
 import { fileURLToPath } from 'url';
@@ -25,7 +24,7 @@ const ignoreApiV2Plugin: Plugin = {
 };
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit(), ignoreApiV2Plugin],
+	plugins: [sveltekit(), ignoreApiV2Plugin],
 	server: {
 		fs: {
 			// Allow the bird-detector project root so JSON data files (e.g.

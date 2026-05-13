@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { getByHour, type Period } from '$lib/api';
+	import ChartCard from '$lib/components/ui/ChartCard.svelte';
 
 	let { period }: { period: Period } = $props();
 
@@ -28,11 +29,15 @@
 		chart.update('none');
 	}
 
+	function todayLocal(): string {
+		const d = new Date();
+		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+	}
+
 	async function fetchAndRender(p: Period) {
 		loading = true;
 		error = null;
 		try {
-			// "today" maps to ?date=...; others use ?period=...
 			const hourly = p === 'today'
 				? await getByHour(todayLocal())
 				: await getByHour(undefined, p);
@@ -43,16 +48,16 @@
 				return;
 			}
 
-		if (!canvas) return;
+			if (!canvas) return;
 
-		const { Chart, LineController, LineElement, LinearScale, CategoryScale,
-			PointElement, Tooltip, Filler } = await import('chart.js');
-		Chart.register(LineController, LineElement, LinearScale, CategoryScale,
-			PointElement, Tooltip, Filler);
+			const { Chart, LineController, LineElement, LinearScale, CategoryScale,
+				PointElement, Tooltip, Filler } = await import('chart.js');
+			Chart.register(LineController, LineElement, LinearScale, CategoryScale,
+				PointElement, Tooltip, Filler);
 
-		const { grid, tick } = chartColors();
+			const { grid, tick } = chartColors();
 
-		chart = new Chart(canvas, {
+			chart = new Chart(canvas, {
 				type: 'line',
 				data: {
 					labels: hourly.labels,
@@ -79,20 +84,20 @@
 							}
 						}
 					},
-				scales: {
-					x: {
-						grid: { color: grid },
-						ticks: {
-							color: tick,
-							maxTicksLimit: 8,
-							callback: (_val, idx) => idx % 3 === 0 ? hourly.labels[idx] : '',
+					scales: {
+						x: {
+							grid: { color: grid },
+							ticks: {
+								color: tick,
+								maxTicksLimit: 8,
+								callback: (_val, idx) => idx % 3 === 0 ? hourly.labels[idx] : '',
+							}
+						},
+						y: {
+							grid: { color: grid },
+							ticks: { color: tick },
+							beginAtZero: true,
 						}
-					},
-					y: {
-						grid: { color: grid },
-						ticks: { color: tick },
-						beginAtZero: true,
-					}
 					}
 				}
 			});
@@ -103,33 +108,19 @@
 		}
 	}
 
-	function todayLocal(): string {
-		const d = new Date();
-		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-	}
-
 	$effect(() => { fetchAndRender(period); });
 
 	onMount(() => {
 		document.addEventListener('themechange', applyColorsToChart);
-		return () => {
-			document.removeEventListener('themechange', applyColorsToChart);
-		};
+		return () => document.removeEventListener('themechange', applyColorsToChart);
 	});
 
 	onDestroy(() => chart?.destroy());
 </script>
 
-<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg flex flex-col h-80">
-	<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest px-4 pt-3 pb-2 shrink-0">
-		Detections by Time of Day
-	</h3>
-	<div class="flex-1 relative px-3 pb-3 min-h-0">
-		<canvas bind:this={canvas} class="w-full h-full" class:invisible={loading || !!error}></canvas>
-		{#if loading}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">Loading…</div>
-		{:else if error}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">{error}</div>
-		{/if}
-	</div>
-</div>
+<ChartCard
+	title="Detections by Time of Day"
+	{loading}
+	{error}
+	bind:canvasEl={canvas}
+/>

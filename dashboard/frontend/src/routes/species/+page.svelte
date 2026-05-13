@@ -8,8 +8,8 @@
 		type SpeciesStats
 	} from '$lib/api';
 	import { GROUP_BADGE_COLORS, BOCC_COLOR, SPECIES_STATUS_STYLE, groupBadgeColor } from '$lib/bto';
-	import SpeciesCard from '../../components/species/SpeciesCard.svelte';
-	import SpeciesRow  from '../../components/species/SpeciesRow.svelte';
+	import SpeciesCard from '$lib/components/species/SpeciesCard.svelte';
+	import SpeciesRow  from '$lib/components/species/SpeciesRow.svelte';
 
 	const PAGE_SIZE = 24;
 
@@ -20,10 +20,9 @@
 	let offset      = $state(0);
 	let view        = $state<'card' | 'list'>('card');
 
-	// Conservation filters
-	let boccFilter   = $state('');    // '' | 'Red' | 'Amber' | 'Green'
-	let statusFilter = $state('');    // '' | 'Common' | 'Scarce' | 'Rare' | 'Very rare'
-	let groupFilter  = $state('');    // '' | group_name
+	let boccFilter   = $state('');
+	let statusFilter = $state('');
+	let groupFilter  = $state('');
 
 	let total       = $state(0);
 	let speciesList = $state<SpeciesStats[]>([]);
@@ -44,10 +43,8 @@
 	const showFrom    = $derived(total === 0 ? 0 : offset + 1);
 	const showTo      = $derived(Math.min(offset + PAGE_SIZE, total));
 
-	// Sorted group names from bto.ts (for the group dropdown)
 	const GROUP_NAMES = Object.keys(GROUP_BADGE_COLORS).sort();
 
-	// When sorted by group, group the results into sections for card/list view
 	const isSortedByGroup = $derived(sort === 'group_asc' || sort === 'group_desc');
 
 	interface GroupedSection { group: string; items: SpeciesStats[] }
@@ -104,19 +101,16 @@
 	});
 </script>
 
-<div class="h-[calc(100vh-3.25rem)] overflow-y-auto">
-	<div class="max-w-7xl mx-auto px-6 py-5 space-y-4">
+<div class="page-scroll">
+	<div class="page-inner">
 
 		<!-- Header + controls -->
-		<div class="flex flex-wrap items-center justify-between gap-3">
-			<h1 class="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">Species</h1>
+		<div class="page-header">
+			<h1 class="page-title">Species</h1>
 
-			<div class="flex flex-wrap items-center gap-2">
-				<!-- Sort -->
+			<div class="controls-row">
 				<select
-					class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700
-					       text-slate-800 dark:text-slate-200 rounded
-					       px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+					class="select-input"
 					value={sort}
 					onchange={e => setSort(e.currentTarget.value as SortOption)}
 				>
@@ -125,11 +119,8 @@
 					{/each}
 				</select>
 
-				<!-- Period -->
 				<select
-					class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700
-					       text-slate-800 dark:text-slate-200 rounded
-					       px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+					class="select-input"
 					value={period}
 					onchange={e => setPeriod(e.currentTarget.value as SpeciesPeriod)}
 				>
@@ -138,18 +129,16 @@
 					{/each}
 				</select>
 
-				<!-- View toggle -->
-				<div class="flex rounded overflow-hidden border border-slate-300 dark:border-slate-700">
+				<div class="view-toggle">
 					<button
 						title="Card view"
 						aria-label="Card view"
 						aria-pressed={view === 'card'}
-						class="p-1.5 transition-colors {view === 'card'
-							? 'bg-emerald-600 text-white'
-							: 'text-slate-400 hover:text-slate-200'}"
+						class="view-btn"
+						class:active={view === 'card'}
 						onclick={() => (view = 'card')}
 					>
-						<svg viewBox="0 0 16 16" class="w-3.5 h-3.5 fill-current" aria-hidden="true">
+						<svg viewBox="0 0 16 16" class="view-icon" aria-hidden="true">
 							<rect x="1" y="1" width="6" height="6" rx="1"/>
 							<rect x="9" y="1" width="6" height="6" rx="1"/>
 							<rect x="1" y="9" width="6" height="6" rx="1"/>
@@ -160,12 +149,11 @@
 						title="List view"
 						aria-label="List view"
 						aria-pressed={view === 'list'}
-						class="p-1.5 transition-colors {view === 'list'
-							? 'bg-emerald-600 text-white'
-							: 'text-slate-400 hover:text-slate-200'}"
+						class="view-btn"
+						class:active={view === 'list'}
 						onclick={() => (view = 'list')}
 					>
-						<svg viewBox="0 0 16 16" class="w-3.5 h-3.5 fill-current" aria-hidden="true">
+						<svg viewBox="0 0 16 16" class="view-icon" aria-hidden="true">
 							<rect x="1" y="2" width="14" height="2" rx="1"/>
 							<rect x="1" y="7" width="14" height="2" rx="1"/>
 							<rect x="1" y="12" width="14" height="2" rx="1"/>
@@ -177,64 +165,56 @@
 
 		<!-- Custom date pickers -->
 		{#if period === 'custom'}
-			<div class="flex flex-wrap items-center gap-3 text-xs">
-				<span class="text-slate-500 dark:text-slate-400">From</span>
+			<div class="date-row">
+				<span class="filter-label">From</span>
 				<input
 					type="date"
 					bind:value={dateFrom}
 					onchange={() => { offset = 0; }}
-					class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700
-					       text-slate-800 dark:text-slate-200 rounded
-					       px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+					class="date-input"
 				/>
-				<span class="text-slate-500 dark:text-slate-400">to</span>
+				<span class="filter-label">to</span>
 				<input
 					type="date"
 					bind:value={dateTo}
 					onchange={() => { offset = 0; }}
-					class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700
-					       text-slate-800 dark:text-slate-200 rounded
-					       px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+					class="date-input"
 				/>
 			</div>
 		{/if}
 
 		<!-- Conservation filters row -->
-		<div class="flex flex-wrap items-center gap-3">
+		<div class="filter-row">
 			<!-- BoCC filter -->
-			<div class="flex items-center gap-1">
-				<span class="text-[10px] text-slate-500 uppercase tracking-wider mr-0.5">BoCC</span>
+			<div class="filter-group">
+				<span class="filter-label">BoCC</span>
 				{#each [['', 'All'], ['Red', 'Red'], ['Amber', 'Amber'], ['Green', 'Green']] as [val, label]}
-					{@const color = val ? BOCC_COLOR[val] : null}
+					{@const color = val ? BOCC_COLOR[val as string] : null}
 					<button
-						class="text-[10px] px-2 py-0.5 rounded border transition-colors font-medium
-						       {boccFilter === val
-						         ? 'bg-slate-200 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-slate-900 dark:text-slate-100'
-						         : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-600'}"
+						class="filter-btn"
+						class:active={boccFilter === val}
 						style={boccFilter === val && color ? `border-color: ${color}; color: ${color}` : ''}
-						onclick={() => setBocc(val)}
+						onclick={() => setBocc(val as string)}
 						aria-pressed={boccFilter === val}
 					>
 						{#if color}
-							<span class="inline-block w-1.5 h-1.5 rounded-full mr-0.5 align-middle"
-							      style="background-color: {color}"></span>
-						{/if}{label}
+							<span class="dot" style="background-color: {color}"></span>
+						{/if}
+						{label}
 					</button>
 				{/each}
 			</div>
 
 			<!-- Status filter -->
-			<div class="flex items-center gap-1">
-				<span class="text-[10px] text-slate-500 uppercase tracking-wider mr-0.5">Status</span>
+			<div class="filter-group">
+				<span class="filter-label">Status</span>
 				{#each [['', 'All'], ['Common', 'Common'], ['Scarce', 'Scarce'], ['Rare', 'Rare'], ['Very rare', 'V.rare']] as [val, label]}
-					{@const style = val ? SPECIES_STATUS_STYLE[val] : null}
+					{@const style = val ? SPECIES_STATUS_STYLE[val as string] : null}
 					<button
-						class="text-[10px] px-2 py-0.5 rounded border transition-colors font-medium
-						       {statusFilter === val
-						         ? 'bg-slate-200 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-slate-900 dark:text-slate-100'
-						         : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-400 dark:hover:border-slate-600'}"
+						class="filter-btn"
+						class:active={statusFilter === val}
 						style={statusFilter === val && style ? `border-color: ${style.text}; color: ${style.text}` : ''}
-						onclick={() => setStatus(val)}
+						onclick={() => setStatus(val as string)}
 						aria-pressed={statusFilter === val}
 					>
 						{label}
@@ -243,13 +223,11 @@
 			</div>
 
 			<!-- Group filter -->
-			<div class="flex items-center gap-1.5">
-				<span class="text-[10px] text-slate-500 uppercase tracking-wider">Group</span>
+			<div class="filter-group">
+				<span class="filter-label">Group</span>
 				<select
-					class="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700
-					       text-slate-800 dark:text-slate-200 rounded
-					       px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-500
-					       {groupFilter ? 'border-emerald-600/60 text-emerald-700 dark:text-emerald-300' : ''}"
+					class="select-input select-sm"
+					class:select-active={!!groupFilter}
 					value={groupFilter}
 					onchange={e => setGroup(e.currentTarget.value)}
 				>
@@ -260,25 +238,17 @@
 				</select>
 			</div>
 
-			<!-- Clear filters -->
 			{#if hasFilters}
-				<button
-					class="text-[10px] px-2 py-0.5 rounded border border-slate-300 dark:border-slate-700
-					       text-slate-500 hover:text-slate-700 dark:hover:text-slate-200
-					       hover:border-slate-400 dark:hover:border-slate-500 transition-colors"
-					onclick={clearFilters}
-				>
-					Clear filters ✕
-				</button>
+				<button class="clear-btn" onclick={clearFilters}>Clear filters ✕</button>
 			{/if}
 		</div>
 
 		<!-- Result count -->
-		<div class="text-xs text-slate-500 h-4">
+		<div class="result-count">
 			{#if loading}
 				Loading…
 			{:else if error}
-				<span class="text-red-400">{error}</span>
+				<span class="error-text">{error}</span>
 			{:else if total === 0}
 				No species found for this period{hasFilters ? ' with these filters' : ''}.
 			{:else}
@@ -289,71 +259,69 @@
 		<!-- Species content -->
 		{#if loading}
 			{#if view === 'card'}
-				<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+				<div class="card-grid">
 					{#each Array(10) as _}
-						<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-							<div class="aspect-video bg-slate-200 dark:bg-slate-800 animate-pulse"></div>
-							<div class="p-3 space-y-2">
-								<div class="h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse w-3/4"></div>
-								<div class="h-5 bg-slate-200 dark:bg-slate-800 rounded animate-pulse w-1/2"></div>
-								<div class="space-y-1 pt-1">
-									<div class="h-3 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
-									<div class="h-3 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
-									<div class="h-3 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
+						<div class="skel-card">
+							<div class="skel-img skeleton-pulse"></div>
+							<div class="skel-body">
+								<div class="skel-line skeleton-pulse" style="width: 75%"></div>
+								<div class="skel-line skel-line-lg skeleton-pulse" style="width: 50%"></div>
+								<div class="skel-lines">
+									<div class="skel-line skeleton-pulse"></div>
+									<div class="skel-line skeleton-pulse"></div>
+									<div class="skel-line skeleton-pulse"></div>
 								</div>
 							</div>
 						</div>
 					{/each}
 				</div>
 			{:else}
-				<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+				<div class="list-surface">
 					{#each Array(10) as _}
-						<div class="flex items-center gap-3 px-3 py-2.5 border-b border-slate-200 dark:border-slate-800">
-							<div class="w-11 h-11 rounded bg-slate-200 dark:bg-slate-800 animate-pulse shrink-0"></div>
-							<div class="flex-1 h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
-							<div class="w-16 h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
-							<div class="w-16 h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse hidden sm:block"></div>
-							<div class="w-24 h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse hidden md:block"></div>
-							<div class="w-24 h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse hidden md:block"></div>
+						<div class="skel-row">
+							<div class="skel-thumb skeleton-pulse"></div>
+							<div class="skel-line flex-1 skeleton-pulse"></div>
+							<div class="skel-line" style="width:4rem" class:skeleton-pulse={true}></div>
+							<div class="skel-line hide-sm skeleton-pulse" style="width:4rem"></div>
+							<div class="skel-line hide-md skeleton-pulse" style="width:6rem"></div>
+							<div class="skel-line hide-md skeleton-pulse" style="width:6rem"></div>
 						</div>
 					{/each}
 				</div>
 			{/if}
 		{:else if speciesList.length > 0}
 			{#if isSortedByGroup}
-				<!-- Group section view -->
 				{#each groupedSections() as section (section.group)}
-					<div class="space-y-2">
-						<!-- Group header -->
-						<div class="flex items-center gap-2 pt-1">
+					<div class="group-section">
+						<div class="group-header">
 							<span
-								class="h-5 px-2 rounded text-[10px] font-bold text-white flex items-center"
+								class="group-badge"
 								style="background-color: {groupBadgeColor(section.group)}"
 							>
 								{section.group}
 							</span>
-							<span class="text-xs text-slate-500">
+							<span class="group-meta">
 								{section.items.length} species
 								· {section.items.reduce((t, s) => t + s.detections, 0).toLocaleString()} detections
 							</span>
-							<div class="flex-1 h-px bg-slate-800"></div>
+							<div class="group-rule"></div>
 						</div>
+
 						{#if view === 'card'}
-							<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+							<div class="card-grid">
 								{#each section.items as sp (sp.species)}
 									<SpeciesCard species={sp} />
 								{/each}
 							</div>
 						{:else}
-							<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-								<div class="flex items-center gap-3 px-3 py-2 border-b border-slate-300 dark:border-slate-700
-								            text-xs font-semibold text-slate-500 uppercase tracking-wider">
-									<div class="w-11 shrink-0"></div>
-									<div class="flex-1">Species</div>
-									<div class="w-24 text-right">Detections</div>
-									<div class="w-16 text-right hidden sm:block">Peak</div>
-									<div class="w-28 text-right hidden md:block">First seen</div>
-									<div class="w-28 text-right hidden md:block">Last seen</div>
+							<div class="list-surface">
+								<div class="list-header">
+									<div class="lh-thumb"></div>
+									<div class="lh-name">Species</div>
+									<div class="lh-det">Detections</div>
+									<div class="lh-peak hide-sm">Peak</div>
+									<div class="lh-date hide-md">First seen</div>
+									<div class="lh-date hide-md">Last seen</div>
 								</div>
 								{#each section.items as sp (sp.species)}
 									<SpeciesRow species={sp} />
@@ -363,24 +331,20 @@
 					</div>
 				{/each}
 			{:else if view === 'card'}
-				<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+				<div class="card-grid">
 					{#each speciesList as sp (sp.species)}
 						<SpeciesCard species={sp} />
 					{/each}
 				</div>
 			{:else}
-				<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-					<!-- Column headers -->
-					<div
-						class="flex items-center gap-3 px-3 py-2 border-b border-slate-300 dark:border-slate-700
-						       text-xs font-semibold text-slate-500 uppercase tracking-wider"
-					>
-						<div class="w-11 shrink-0"></div>
-						<div class="flex-1">Species</div>
-						<div class="w-24 text-right">Detections</div>
-						<div class="w-16 text-right hidden sm:block">Peak</div>
-						<div class="w-28 text-right hidden md:block">First seen</div>
-						<div class="w-28 text-right hidden md:block">Last seen</div>
+				<div class="list-surface">
+					<div class="list-header">
+						<div class="lh-thumb"></div>
+						<div class="lh-name">Species</div>
+						<div class="lh-det">Detections</div>
+						<div class="lh-peak hide-sm">Peak</div>
+						<div class="lh-date hide-md">First seen</div>
+						<div class="lh-date hide-md">Last seen</div>
 					</div>
 					{#each speciesList as sp (sp.species)}
 						<SpeciesRow species={sp} />
@@ -388,36 +352,27 @@
 				</div>
 			{/if}
 		{:else if !error}
-			<div class="text-center text-slate-500 py-16">
+			<div class="empty-state">
 				{hasFilters ? 'No species match these filters.' : 'No species recorded in this period.'}
 				{#if hasFilters}
-					<button
-						class="block mx-auto mt-2 text-xs text-emerald-500 hover:text-emerald-400 underline"
-						onclick={clearFilters}
-					>Clear filters</button>
+					<button class="clear-link" onclick={clearFilters}>Clear filters</button>
 				{/if}
 			</div>
 		{/if}
 
 		<!-- Pagination -->
 		{#if total > PAGE_SIZE}
-			<div class="flex items-center justify-center gap-4 py-2">
+			<div class="pagination">
 				<button
-					class="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-700 text-sm
-					       text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200
-					       disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+					class="page-btn"
 					disabled={offset === 0}
 					onclick={() => (offset = Math.max(0, offset - PAGE_SIZE))}
 				>
 					← Prev
 				</button>
-				<span class="text-xs text-slate-500 tabular-nums">
-					Page {currentPage} of {totalPages}
-				</span>
+				<span class="page-info tabular">Page {currentPage} of {totalPages}</span>
 				<button
-					class="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-700 text-sm
-					       text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200
-					       disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+					class="page-btn"
 					disabled={offset + PAGE_SIZE >= total}
 					onclick={() => (offset = offset + PAGE_SIZE)}
 				>
@@ -428,3 +383,360 @@
 
 	</div>
 </div>
+
+<style>
+	.page-scroll {
+		height: calc(100vh - var(--header-height));
+		overflow-y: auto;
+	}
+
+	.page-inner {
+		max-width: 80rem;
+		margin: 0 auto;
+		padding: 1.25rem 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.page-header {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.page-title {
+		margin: 0;
+		font-size: 1.125rem;
+		font-weight: 600;
+		color: var(--color-text);
+		letter-spacing: -0.025em;
+	}
+
+	.controls-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	/* Inputs */
+	.select-input {
+		font-size: 0.75rem;
+		background: var(--color-surface-2);
+		border: 1px solid var(--color-border-strong);
+		color: var(--color-text);
+		border-radius: 0.25rem;
+		padding: 0.375rem 0.625rem;
+		cursor: pointer;
+	}
+	.select-input:focus {
+		outline: none;
+		box-shadow: 0 0 0 2px var(--color-accent-ring);
+	}
+	.select-sm {
+		padding: 0.125rem 0.5rem;
+	}
+	.select-active {
+		border-color: var(--color-accent-border);
+		color: var(--color-accent-text);
+	}
+
+	/* View toggle */
+	.view-toggle {
+		display: flex;
+		border-radius: 0.375rem;
+		overflow: hidden;
+		border: 1px solid var(--color-border-strong);
+	}
+	.view-btn {
+		padding: 0.375rem;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		color: var(--color-text-dim);
+		transition: color 0.15s, background-color 0.15s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.view-btn:hover {
+		color: var(--color-text-muted);
+	}
+	.view-btn.active {
+		background: var(--color-accent);
+		color: #fff;
+	}
+	.view-icon {
+		width: 0.875rem;
+		height: 0.875rem;
+		fill: currentColor;
+	}
+
+	/* Date row */
+	.date-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.75rem;
+		font-size: 0.75rem;
+	}
+	.date-input {
+		font-size: 0.75rem;
+		background: var(--color-surface-2);
+		border: 1px solid var(--color-border-strong);
+		color: var(--color-text);
+		border-radius: 0.25rem;
+		padding: 0.375rem 0.625rem;
+	}
+	.date-input:focus {
+		outline: none;
+		box-shadow: 0 0 0 2px var(--color-accent-ring);
+	}
+
+	/* Filter row */
+	.filter-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.75rem;
+	}
+	.filter-group {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+	.filter-label {
+		font-size: 0.625rem;
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		margin-right: 0.125rem;
+	}
+	.filter-btn {
+		font-size: 0.625rem;
+		padding: 0.125rem 0.5rem;
+		border-radius: 0.25rem;
+		border: 1px solid var(--color-border);
+		background: transparent;
+		cursor: pointer;
+		color: var(--color-text-muted);
+		font-weight: 500;
+		transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+	.filter-btn:hover {
+		color: var(--color-text);
+		border-color: var(--color-border-strong);
+	}
+	.filter-btn.active {
+		background: var(--color-surface-2);
+		border-color: var(--color-border-strong);
+		color: var(--color-text);
+	}
+	.dot {
+		display: inline-block;
+		width: 0.375rem;
+		height: 0.375rem;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+	.clear-btn {
+		font-size: 0.625rem;
+		padding: 0.125rem 0.5rem;
+		border-radius: 0.25rem;
+		border: 1px solid var(--color-border-strong);
+		background: transparent;
+		cursor: pointer;
+		color: var(--color-text-muted);
+		transition: color 0.15s, border-color 0.15s;
+	}
+	.clear-btn:hover {
+		color: var(--color-text);
+		border-color: var(--color-border-strong);
+	}
+
+	/* Result count */
+	.result-count {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		height: 1rem;
+	}
+	.error-text {
+		color: #f87171;
+	}
+
+	/* Skeletons */
+	.skel-card {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: 0.5rem;
+		overflow: hidden;
+	}
+	.skel-img {
+		aspect-ratio: 16 / 9;
+		background: var(--color-skeleton);
+	}
+	.skel-body {
+		padding: 0.75rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.skel-line {
+		height: 0.875rem;
+		background: var(--color-skeleton);
+		border-radius: 0.25rem;
+	}
+	.skel-line-lg {
+		height: 1.25rem;
+	}
+	.skel-lines {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		padding-top: 0.25rem;
+	}
+	.skel-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.625rem 0.75rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+	.skel-thumb {
+		width: 2.75rem;
+		height: 2.75rem;
+		border-radius: 0.25rem;
+		background: var(--color-skeleton);
+		flex-shrink: 0;
+	}
+
+	/* Card grid */
+	.card-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 1rem;
+	}
+	@media (min-width: 768px)  { .card-grid { grid-template-columns: repeat(3, 1fr); } }
+	@media (min-width: 1024px) { .card-grid { grid-template-columns: repeat(4, 1fr); } }
+	@media (min-width: 1280px) { .card-grid { grid-template-columns: repeat(5, 1fr); } }
+
+	/* List surface */
+	.list-surface {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: 0.5rem;
+		overflow: hidden;
+	}
+	.list-header {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.5rem 0.75rem;
+		border-bottom: 1px solid var(--color-border-strong);
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	.lh-thumb { width: 2.75rem; flex-shrink: 0; }
+	.lh-name  { flex: 1; }
+	.lh-det   { width: 6rem; text-align: right; flex-shrink: 0; }
+	.lh-peak  { width: 4rem; text-align: right; flex-shrink: 0; }
+	.lh-date  { width: 7rem; text-align: right; flex-shrink: 0; }
+
+	/* Group sections */
+	.group-section {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.group-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding-top: 0.25rem;
+	}
+	.group-badge {
+		height: 1.25rem;
+		padding: 0 0.5rem;
+		border-radius: 0.25rem;
+		font-size: 0.625rem;
+		font-weight: 700;
+		color: #fff;
+		display: inline-flex;
+		align-items: center;
+	}
+	.group-meta {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+	.group-rule {
+		flex: 1;
+		height: 1px;
+		background: var(--color-border-strong);
+	}
+
+	/* Empty state */
+	.empty-state {
+		text-align: center;
+		color: var(--color-text-muted);
+		padding: 4rem 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.clear-link {
+		font-size: 0.75rem;
+		color: var(--color-accent-text);
+		text-decoration: underline;
+		background: none;
+		border: none;
+		cursor: pointer;
+	}
+	.clear-link:hover {
+		color: var(--color-accent);
+	}
+
+	/* Pagination */
+	.pagination {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		padding: 0.5rem 0;
+	}
+	.page-btn {
+		padding: 0.375rem 0.75rem;
+		border-radius: 0.25rem;
+		border: 1px solid var(--color-border-strong);
+		background: transparent;
+		cursor: pointer;
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+		transition: color 0.15s, border-color 0.15s;
+	}
+	.page-btn:hover:not(:disabled) {
+		color: var(--color-text);
+		border-color: var(--color-border-strong);
+	}
+	.page-btn:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+	.page-info {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	/* Responsive hide helpers */
+	@media (max-width: 639px)  { .hide-sm { display: none; } }
+	@media (max-width: 767px)  { .hide-md { display: none; } }
+</style>

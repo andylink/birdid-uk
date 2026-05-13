@@ -78,14 +78,15 @@ export function groupBadgeColor(groupName: string | null | undefined): string {
 	return (groupName && GROUP_BADGE_COLORS[groupName]) ?? '#64748b';
 }
 
-/** Derive a display code from BTO codes or fall back to initials. */
+/** Derive a display code from BTO codes or fall back to initials.
+ *  Priority: 2-letter code → 5-letter code → initials from species name. */
 export function speciesInitials(
 	name: string,
 	bto5: string | null | undefined,
 	bto2: string | null | undefined,
 ): string {
-	if (bto5?.trim()) return bto5.trim();
 	if (bto2?.trim()) return bto2.trim();
+	if (bto5?.trim()) return bto5.trim();
 	const words = name.trim().split(/\s+/).filter(Boolean);
 	if (words.length === 1) return name.substring(0, 2).toUpperCase();
 	return (words[0][0] + words[1][0]).toUpperCase();

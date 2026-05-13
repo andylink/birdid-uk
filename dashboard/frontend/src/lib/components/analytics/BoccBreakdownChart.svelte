@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { getBoccBreakdown, type Period, type BoccBreakdownEntry } from '$lib/api';
 	import { BOCC_COLOR } from '$lib/bto';
+	import ChartCard from '$lib/components/ui/ChartCard.svelte';
 
 	let { period }: { period: Period } = $props();
 
@@ -12,7 +13,6 @@
 	let error = $state<string | null>(null);
 	let data = $state<BoccBreakdownEntry[]>([]);
 
-	// Colour for each BoCC bucket (Unknown gets slate)
 	const BOCC_CHART_COLOR: Record<string, string> = {
 		Red:     BOCC_COLOR.Red,
 		Amber:   BOCC_COLOR.Amber,
@@ -56,23 +56,23 @@
 			const borders = colors.map(c => c);
 
 			if (chart) {
-				chart.data.labels                   = labels;
-				chart.data.datasets[0].data         = counts;
-				(chart.data.datasets[0] as any).backgroundColor  = colors;
-				(chart.data.datasets[0] as any).borderColor       = borders;
+				chart.data.labels                             = labels;
+				chart.data.datasets[0].data                  = counts;
+				(chart.data.datasets[0] as any).backgroundColor = colors;
+				(chart.data.datasets[0] as any).borderColor     = borders;
 				chart.update();
 				return;
 			}
 
-		if (!canvas) return;
+			if (!canvas) return;
 
-		const { Chart, DoughnutController, ArcElement, Tooltip, Legend } =
-			await import('chart.js');
-		Chart.register(DoughnutController, ArcElement, Tooltip, Legend);
+			const { Chart, DoughnutController, ArcElement, Tooltip, Legend } =
+				await import('chart.js');
+			Chart.register(DoughnutController, ArcElement, Tooltip, Legend);
 
-		const { tick } = chartColors();
+			const { tick } = chartColors();
 
-		chart = new Chart(canvas, {
+			chart = new Chart(canvas, {
 				type: 'doughnut',
 				data: {
 					labels,
@@ -90,14 +90,14 @@
 					maintainAspectRatio: false,
 					cutout: '62%',
 					plugins: {
-					legend: {
-						position: 'right',
-						labels: {
-							color: tick,
-							font: { size: 11 },
-							boxWidth: 12,
-							padding: 12,
-						}
+						legend: {
+							position: 'right',
+							labels: {
+								color: tick,
+								font: { size: 11 },
+								boxWidth: 12,
+								padding: 12,
+							}
 						},
 						tooltip: {
 							callbacks: {
@@ -124,27 +124,18 @@
 
 	onMount(() => {
 		document.addEventListener('themechange', applyColorsToChart);
-		return () => {
-			document.removeEventListener('themechange', applyColorsToChart);
-		};
+		return () => document.removeEventListener('themechange', applyColorsToChart);
 	});
 
 	onDestroy(() => chart?.destroy());
 </script>
 
-<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg flex flex-col h-64">
-	<h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest px-4 pt-3 pb-1 shrink-0">
-		BoCC Status Breakdown
-	</h3>
-	<p class="text-[10px] text-slate-400 dark:text-slate-600 px-4 pb-1 shrink-0">Unique species by conservation list</p>
-	<div class="flex-1 relative px-3 pb-3 min-h-0">
-		<canvas bind:this={canvas} class="w-full h-full" class:invisible={loading || empty || !!error}></canvas>
-		{#if loading}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">Loading…</div>
-		{:else if empty}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">No data for this period.</div>
-		{:else if error}
-			<div class="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">{error}</div>
-		{/if}
-	</div>
-</div>
+<ChartCard
+	title="BoCC Status Breakdown"
+	subtitle="Unique species by conservation list"
+	height="16rem"
+	{loading}
+	{empty}
+	{error}
+	bind:canvasEl={canvas}
+/>

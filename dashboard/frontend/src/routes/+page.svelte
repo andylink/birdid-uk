@@ -1,35 +1,52 @@
 <script lang="ts">
-	import SpeciesHeatmap from '../components/SpeciesHeatmap.svelte';
-	import DetectionFeed from '../components/DetectionFeed.svelte';
-	import ActivityChart from '../components/ActivityChart.svelte';
+	import SpeciesHeatmap from '$lib/components/SpeciesHeatmap.svelte';
+	import DetectionFeed from '$lib/components/DetectionFeed.svelte';
+	import ActivityChart from '$lib/components/ActivityChart.svelte';
 </script>
 
-<!--
-  Three-panel layout:
-    • SpeciesHeatmap  — flex-1, scrollable table
-    • DetectionFeed   — w-80, right sidebar
-    • ActivityChart   — h-40, bottom bar (full width)
--->
-<div class="flex flex-col h-[calc(100vh-3.25rem)]">
-
-	<!-- Top row: heatmap + feed -->
-	<div class="flex flex-1 min-h-0">
-
-		<!-- Heatmap: takes all remaining width -->
-		<div class="flex-1 min-w-0 border-r border-slate-200 dark:border-slate-800">
+<div class="page-shell">
+	<div class="top-row">
+		<div class="heatmap-panel">
 			<SpeciesHeatmap />
 		</div>
-
-		<!-- Detection feed sidebar -->
-		<div class="w-80 shrink-0 border-l border-slate-200 dark:border-slate-800">
+		<div class="feed-panel">
 			<DetectionFeed />
 		</div>
-
 	</div>
-
-	<!-- Bottom bar: activity chart -->
-	<div class="h-40 shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40">
+	<div class="activity-bar">
 		<ActivityChart />
 	</div>
-
 </div>
+
+<style>
+	.page-shell {
+		display: flex;
+		flex-direction: column;
+		height: calc(100vh - var(--header-height));
+	}
+
+	.top-row {
+		display: flex;
+		flex: 1;
+		min-height: 0;
+	}
+
+	.heatmap-panel {
+		flex: 1;
+		min-width: 0;
+		border-right: 1px solid var(--color-border);
+	}
+
+	.feed-panel {
+		width: 20rem;
+		flex-shrink: 0;
+		border-left: 1px solid var(--color-border);
+	}
+
+	.activity-bar {
+		height: 10rem;
+		flex-shrink: 0;
+		border-top: 1px solid var(--color-border);
+		background: color-mix(in srgb, var(--color-surface) 40%, transparent);
+	}
+</style>

@@ -1,20 +1,160 @@
-@import 'tailwindcss';
-
-@custom-variant dark (&:where(.dark, .dark *));
-
+/* ── Design tokens ──────────────────────────────────────────────────────── */
 :root {
   color-scheme: light;
-  --chart-grid: rgba(0,0,0,0.06);
+
+  /* Backgrounds */
+  --color-page:      #f1f5f9;   /* page / outer background      */
+  --color-surface:   #ffffff;   /* card / panel background       */
+  --color-surface-2: #f1f5f9;   /* secondary surface, input bg   */
+
+  /* Skeleton loaders */
+  --color-skeleton:   #e2e8f0;
+  --color-skeleton-2: #cbd5e1;
+
+  /* Borders */
+  --color-border:        #e2e8f0;
+  --color-border-strong: #cbd5e1;
+
+  /* Text */
+  --color-text:       #0f172a;   /* primary   */
+  --color-text-2:     #1e293b;   /* secondary */
+  --color-text-3:     #334155;   /* tertiary  */
+  --color-text-muted: #64748b;   /* muted     */
+  --color-text-dim:   #94a3b8;   /* very muted */
+  --color-text-ghost: #cbd5e1;   /* ghost / placeholder */
+
+  /* Accent (emerald) */
+  --color-accent:        #059669;
+  --color-accent-hover:  #047857;
+  --color-accent-text:   #34d399;
+  --color-accent-muted:  rgba(5, 150, 105, 0.15);
+  --color-accent-border: rgba(5, 150, 105, 0.35);
+  --color-accent-ring:   rgba(5, 150, 105, 0.4);
+
+  /* Charts — read by Chart.js via getComputedStyle */
+  --chart-grid: rgba(0, 0, 0, 0.06);
   --chart-tick: #64748b;
+
+  /* Layout */
+  --header-height: 3.25rem;
 }
 
 .dark {
   color-scheme: dark;
-  --chart-grid: rgba(255,255,255,0.05);
+
+  --color-page:      #020617;
+  --color-surface:   #0f172a;
+  --color-surface-2: #1e293b;
+
+  --color-skeleton:   #1e293b;
+  --color-skeleton-2: #334155;
+
+  --color-border:        #1e293b;
+  --color-border-strong: #334155;
+
+  --color-text:       #f1f5f9;
+  --color-text-2:     #e2e8f0;
+  --color-text-3:     #cbd5e1;
+  --color-text-muted: #94a3b8;
+  --color-text-dim:   #64748b;
+  --color-text-ghost: #475569;
+
+  --color-accent:        #10b981;
+  --color-accent-hover:  #059669;
+  --color-accent-text:   #34d399;
+  --color-accent-muted:  rgba(16, 185, 129, 0.15);
+  --color-accent-border: rgba(16, 185, 129, 0.35);
+  --color-accent-ring:   rgba(16, 185, 129, 0.4);
+
+  --chart-grid: rgba(255, 255, 255, 0.05);
   --chart-tick: #94a3b8;
 }
 
-/* Slim native audio player */
+/* ── Reset & base ───────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: var(--color-page);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+               Helvetica, Arial, sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Confidence badges ──────────────────────────────────────────────────── */
+/* confidence.ts returns these class names directly, so they must be global. */
+.conf-badge-high,
+.conf-badge-medium,
+.conf-badge-low {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.375rem;
+  border-radius: 9999px;
+  font-family: ui-monospace, 'Cascadia Code', 'Fira Mono', monospace;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  flex-shrink: 0;
+}
+.conf-badge-high {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.35);
+}
+.conf-badge-medium {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
+}
+.conf-badge-low {
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+  box-shadow: 0 0 0 1px rgba(100, 116, 139, 0.35);
+}
+
+/* ── Skeleton pulse ─────────────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.skeleton-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ── Global utilities ───────────────────────────────────────────────────── */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ── Native audio player accent ─────────────────────────────────────────── */
 audio {
   accent-color: #34d399;
+}
+
+/* ── Focus ring ─────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }

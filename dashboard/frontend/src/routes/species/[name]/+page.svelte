@@ -10,24 +10,20 @@
 	import { BOCC_COLOR, SPECIES_STATUS_STYLE, groupBadgeColor } from '$lib/bto';
 	import { confidenceBadgeClass, formatConfidence } from '$lib/confidence';
 	import { formatDate, formatTime, formatFullDate } from '$lib/time';
-	import StatCard from '../../../components/StatCard.svelte';
-	import Spectrogram from '../../../components/Spectrogram.svelte';
+	import StatCard from '$lib/components/StatCard.svelte';
+	import Spectrogram from '$lib/components/Spectrogram.svelte';
 
 	const PAGE_SIZE = 50;
 
-	// Species name comes from the URL — SvelteKit decodes it automatically.
 	const speciesName = $derived($page.params.name ?? '');
+	const backHref    = $derived($page.url.searchParams.get('from') === 'dashboard' ? '/' : '/species');
+	const backLabel   = $derived($page.url.searchParams.get('from') === 'dashboard' ? 'Dashboard' : 'All species');
 
-	// Derive back-link from the optional ?from= query param.
-	const backHref  = $derived($page.url.searchParams.get('from') === 'dashboard' ? '/' : '/species');
-	const backLabel = $derived($page.url.searchParams.get('from') === 'dashboard' ? 'Dashboard' : 'All species');
-	// ── Stats ──────────────────────────────────────────────────────────────────
 	let stats          = $state<SpeciesStats | null>(null);
 	let statsLoading   = $state(true);
 	let statsError     = $state<string | null>(null);
 	let headerImgError = $state(false);
 
-	// ── Detections list ────────────────────────────────────────────────────────
 	let detections     = $state<Detection[]>([]);
 	let total          = $state(0);
 	let offset         = $state(0);
@@ -37,14 +33,12 @@
 	const totalPages  = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
 	const currentPage = $derived(Math.floor(offset / PAGE_SIZE) + 1);
 
-	// ── Derived formatting ────────────────────────────────────────────────────
 	const boccColor   = $derived(stats?.uk_bocc ? BOCC_COLOR[stats.uk_bocc] : null);
 	const statusStyle = $derived(
 		stats?.species_status ? SPECIES_STATUS_STYLE[stats.species_status] : null
 	);
 	const groupColor = $derived(groupBadgeColor(stats?.group_name));
 
-	// ── Fetch stats ────────────────────────────────────────────────────────────
 	$effect(() => {
 		const name = speciesName;
 		statsLoading = true;
@@ -54,7 +48,6 @@
 			.catch(e => { statsError = (e as Error).message; statsLoading = false; });
 	});
 
-	// ── Fetch detections list ─────────────────────────────────────────────────
 	$effect(() => {
 		const name = speciesName;
 		const off  = offset;
@@ -80,72 +73,53 @@
 	function nextPage() { offset = offset + PAGE_SIZE; }
 </script>
 
-<div class="h-[calc(100vh-3.25rem)] overflow-y-auto">
-	<div class="max-w-5xl mx-auto px-6 py-5 space-y-6">
+<div class="page-scroll">
+	<div class="page-inner">
 
 		<!-- Back button -->
-		<a
-			href={backHref}
-			class="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300
-			       transition-colors"
-		>
-			<svg viewBox="0 0 16 16" class="w-3.5 h-3.5 fill-current" aria-hidden="true">
+		<a href={backHref} class="back-link">
+			<svg viewBox="0 0 16 16" class="back-icon" aria-hidden="true">
 				<path d="M10.5 3L5.5 8l5 5" stroke="currentColor" stroke-width="1.5"
 				      fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 			</svg>
 			{backLabel}
 		</a>
 
-		<!-- ── Species header ─────────────────────────────────────────────────── -->
-		<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+		<!-- Species header card -->
+		<div class="header-card">
 			<!-- Banner image -->
-			<div class="relative h-44 bg-slate-200 dark:bg-slate-800 overflow-hidden">
+			<div class="banner">
 				{#if !headerImgError}
 					<img
 						src={speciesImageUrl(speciesName)}
 						alt={speciesName}
-						class="w-full h-full object-cover"
+						class="banner-img"
 						onerror={() => (headerImgError = true)}
 					/>
-					<!-- Gradient overlay so text is readable -->
-					<div class="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/30 to-transparent">
-					</div>
+					<div class="banner-gradient"></div>
 				{:else}
-					<!-- Fallback: group-coloured banner -->
-					<div
-						class="absolute inset-0 opacity-20"
-						style="background-color: {groupColor}"
-					></div>
-					<div class="absolute inset-0 flex items-center justify-center">
-						<svg viewBox="0 0 24 24" class="w-20 h-20 text-slate-300 dark:text-slate-700 fill-current" aria-hidden="true">
+					<div class="banner-fallback" style="background-color: {groupColor}"></div>
+					<div class="banner-fallback-icon">
+						<svg viewBox="0 0 24 24" class="bird-icon" aria-hidden="true">
 							<path d="M23 7c0 0-3 .5-4.5 1.5C17.1 5.1 14 3 10.5 3 5.8 3 2 6.8 2 11.5S5.8 20 10.5 20c2.5 0 4.8-1.1 6.4-2.8C18.5 18.5 23 17 23 17V7z"/>
 						</svg>
 					</div>
 				{/if}
 
-				<!-- Badges pinned top-left over the image -->
-				<div class="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
+				<!-- Badges over image -->
+				<div class="banner-badges">
 					{#if stats?.group_name}
-						<span
-							class="h-5 px-2 rounded text-[10px] font-bold text-white flex items-center"
-							style="background-color: {groupColor}"
-						>
+						<span class="badge" style="background-color: {groupColor}; color: #fff">
 							{stats.group_name}
 						</span>
 					{/if}
 					{#if boccColor && stats?.uk_bocc}
-						<span
-							class="h-5 px-2 rounded text-[10px] font-bold flex items-center"
-							style="background-color: {boccColor}; color: #0f172a"
-						>
+						<span class="badge" style="background-color: {boccColor}; color: #0f172a">
 							BoCC {stats.uk_bocc}
 						</span>
 					{/if}
 					{#if statusStyle && stats?.species_status}
-						<span
-							class="h-5 px-2 rounded text-[10px] font-bold flex items-center"
-							style="background-color: {statusStyle.bg}; color: {statusStyle.text}"
-						>
+						<span class="badge" style="background-color: {statusStyle.bg}; color: {statusStyle.text}">
 							{stats.species_status}
 						</span>
 					{/if}
@@ -153,19 +127,19 @@
 			</div>
 
 			<!-- Name row -->
-			<div class="px-5 py-4">
+			<div class="name-section">
 				{#if statsLoading}
-					<div class="h-7 bg-slate-200 dark:bg-slate-800 rounded animate-pulse w-48 mb-2"></div>
-					<div class="h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse w-32"></div>
+					<div class="skel skel-h7 skeleton-pulse" style="width:12rem"></div>
+					<div class="skel skel-h4 skeleton-pulse" style="width:8rem;margin-top:.5rem"></div>
 				{:else if statsError}
-					<p class="text-red-400 text-sm">{statsError}</p>
+					<p class="error-text">{statsError}</p>
 				{:else if stats}
-					<h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight">{stats.species}</h1>
+					<h1 class="species-h1">{stats.species}</h1>
 					{#if stats.scientific_name}
-						<p class="text-sm text-slate-500 italic mt-0.5">{stats.scientific_name}</p>
+						<p class="sci-name">{stats.scientific_name}</p>
 					{/if}
 					{#if stats.bto_5letter_code || stats.bto_2letter_code}
-						<p class="text-xs text-slate-400 dark:text-slate-600 font-mono mt-1">
+						<p class="bto-code">
 							BTO {[stats.bto_5letter_code, stats.bto_2letter_code].filter(Boolean).join(' / ')}
 						</p>
 					{/if}
@@ -173,8 +147,8 @@
 			</div>
 		</div>
 
-		<!-- ── Stat cards ─────────────────────────────────────────────────────── -->
-		<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+		<!-- Stat cards -->
+		<div class="stats-grid">
 			<StatCard
 				title="Total detections"
 				value={stats ? stats.detections.toLocaleString() : null}
@@ -202,82 +176,69 @@
 			/>
 		</div>
 
-		<!-- ── Recordings ─────────────────────────────────────────────────────── -->
-		<div class="space-y-2">
-			<div class="flex items-center justify-between">
-				<h2 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-					Recordings
-				</h2>
+		<!-- Recordings section -->
+		<div class="recordings">
+			<div class="recordings-header">
+				<h2 class="recordings-title">Recordings</h2>
 				{#if !listLoading && total > 0}
-					<span class="text-xs text-slate-500 tabular-nums">
+					<span class="recordings-count tabular">
 						{offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of {total.toLocaleString()}
 					</span>
 				{/if}
 			</div>
 
 			{#if listLoading}
-				<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg divide-y divide-slate-200 dark:divide-slate-800">
+				<div class="det-surface">
 					{#each Array(8) as _}
-						<div class="flex gap-3 px-4 py-3">
-							<div class="w-1 h-12 bg-slate-200 dark:bg-slate-800 rounded animate-pulse shrink-0"></div>
-							<div class="flex-1 space-y-2">
-								<div class="flex justify-between">
-									<div class="h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse w-24"></div>
-									<div class="h-4 bg-slate-200 dark:bg-slate-800 rounded animate-pulse w-16"></div>
+						<div class="det-skel-row">
+							<div class="det-bar-skel skeleton-pulse"></div>
+							<div class="det-skel-body">
+								<div class="det-skel-top">
+									<div class="skel skel-h4 skeleton-pulse" style="width:6rem"></div>
+									<div class="skel skel-h4 skeleton-pulse" style="width:4rem"></div>
 								</div>
-								<div class="h-12 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
-								<div class="h-8 bg-slate-200 dark:bg-slate-800 rounded animate-pulse"></div>
+								<div class="skel skel-h12 skeleton-pulse"></div>
+								<div class="skel skel-h8 skeleton-pulse"></div>
 							</div>
 						</div>
 					{/each}
 				</div>
 			{:else if listError}
-				<div class="text-sm text-red-400 py-4">{listError}</div>
+				<div class="error-text">{listError}</div>
 			{:else if detections.length === 0}
-				<div class="text-sm text-slate-500 py-8 text-center">No recordings found.</div>
+				<div class="empty-det">No recordings found.</div>
 			{:else}
-				<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg divide-y divide-slate-200 dark:divide-slate-800">
+				<div class="det-surface">
 					{#each detections as det (det.id)}
 						{@const isNotable = det.uk_bocc === 'Red' || det.species_status === 'Rare' || det.species_status === 'Very rare'}
 						{@const badgeClass = confidenceBadgeClass(det.confidence)}
-						<div
-							class="flex gap-3 px-4 py-3 transition-colors
-							       {isNotable ? 'border-l-2 border-l-red-500 bg-red-50/50 dark:bg-red-950/10' : 'hover:bg-slate-100 dark:hover:bg-slate-800/40'}"
-						>
+						<div class="det-row" class:det-notable={isNotable} class:det-normal={!isNotable}>
 							<!-- Confidence bar -->
-							<div class="flex flex-col items-center gap-1 pt-0.5 shrink-0">
+							<div class="conf-bar-wrap">
 								<div
-									class="w-1 rounded-full bg-slate-300 dark:bg-slate-700 relative overflow-hidden"
-									style="height: 48px"
+									class="conf-bar-track"
 									aria-label="Confidence {formatConfidence(det.confidence)}"
 								>
 									<div
-										class="absolute bottom-0 left-0 right-0 rounded-full
-										       {isNotable ? 'bg-red-500' : 'bg-emerald-500'}"
+										class="conf-bar-fill"
+										class:conf-bar-notable={isNotable}
 										style="height: {det.confidence * 100}%"
 									></div>
 								</div>
 							</div>
 
 							<!-- Content -->
-							<div class="flex-1 min-w-0">
-								<div class="flex items-center justify-between gap-2 mb-1.5">
-									<div class="flex items-center gap-2 flex-wrap">
-										<time
-											class="text-sm font-semibold text-slate-800 dark:text-slate-200 tabular-nums"
-											datetime={det.timestamp}
-										>
+							<div class="det-content">
+								<div class="det-meta">
+									<div class="det-meta-left">
+										<time class="det-time tabular" datetime={det.timestamp}>
 											{formatTime(det.timestamp)}
 										</time>
-										<span class="text-xs text-slate-500">
-											{formatDate(det.timestamp)}
-										</span>
-										<span class="text-xs px-1.5 py-0.5 rounded-full font-mono {badgeClass}">
-											{formatConfidence(det.confidence)}
-										</span>
+										<span class="det-date">{formatDate(det.timestamp)}</span>
+										<span class="{badgeClass}">{formatConfidence(det.confidence)}</span>
 										{#if isNotable}
 											<span
-												class="text-[9px] font-bold px-1.5 py-px rounded"
+												class="notable-pill"
 												style="background-color: {BOCC_COLOR.Red}22; color: {BOCC_COLOR.Red}"
 											>
 												{det.uk_bocc === 'Red' ? 'Red List' : det.species_status === 'Very rare' ? 'Very rare' : 'Rare'}
@@ -293,28 +254,10 @@
 
 				<!-- Pagination -->
 				{#if total > PAGE_SIZE}
-					<div class="flex items-center justify-center gap-4 py-2">
-						<button
-							class="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-700 text-sm
-							       text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200
-							       disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-							disabled={offset === 0}
-							onclick={prevPage}
-						>
-							← Prev
-						</button>
-						<span class="text-xs text-slate-500 tabular-nums">
-							Page {currentPage} of {totalPages}
-						</span>
-						<button
-							class="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-700 text-sm
-							       text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200
-							       disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-							disabled={offset + PAGE_SIZE >= total}
-							onclick={nextPage}
-						>
-							Next →
-						</button>
+					<div class="pagination">
+						<button class="page-btn" disabled={offset === 0} onclick={prevPage}>← Prev</button>
+						<span class="page-info tabular">Page {currentPage} of {totalPages}</span>
+						<button class="page-btn" disabled={offset + PAGE_SIZE >= total} onclick={nextPage}>Next →</button>
 					</div>
 				{/if}
 			{/if}
@@ -322,3 +265,308 @@
 
 	</div>
 </div>
+
+<style>
+	.page-scroll {
+		height: calc(100vh - var(--header-height));
+		overflow-y: auto;
+	}
+
+	.page-inner {
+		max-width: 64rem;
+		margin: 0 auto;
+		padding: 1.25rem 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+
+	/* Back link */
+	.back-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		text-decoration: none;
+		transition: color 0.15s;
+	}
+	.back-link:hover { color: var(--color-text); }
+	.back-icon {
+		width: 0.875rem;
+		height: 0.875rem;
+	}
+
+	/* Header card */
+	.header-card {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: 0.5rem;
+		overflow: hidden;
+	}
+
+	.banner {
+		position: relative;
+		height: 11rem;
+		background: var(--color-skeleton);
+		overflow: hidden;
+	}
+	.banner-img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+	.banner-gradient {
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(to top, rgba(15,23,42,0.9) 0%, rgba(15,23,42,0.3) 50%, transparent 100%);
+	}
+	.banner-fallback {
+		position: absolute;
+		inset: 0;
+		opacity: 0.2;
+	}
+	.banner-fallback-icon {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.bird-icon {
+		width: 5rem;
+		height: 5rem;
+		fill: currentColor;
+		color: var(--color-text-ghost);
+	}
+
+	.banner-badges {
+		position: absolute;
+		top: 0.75rem;
+		left: 0.75rem;
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		flex-wrap: wrap;
+	}
+	.badge {
+		height: 1.25rem;
+		padding: 0 0.5rem;
+		border-radius: 0.25rem;
+		font-size: 0.625rem;
+		font-weight: 700;
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.name-section {
+		padding: 1.25rem;
+	}
+	.species-h1 {
+		margin: 0;
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--color-text);
+		line-height: 1.25;
+	}
+	.sci-name {
+		margin: 0.25rem 0 0;
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+		font-style: italic;
+	}
+	.bto-code {
+		margin: 0.25rem 0 0;
+		font-size: 0.75rem;
+		color: var(--color-text-dim);
+		font-family: ui-monospace, 'Cascadia Code', monospace;
+	}
+
+	/* Stat cards grid */
+	.stats-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.75rem;
+	}
+	@media (min-width: 640px)  { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
+	@media (min-width: 1024px) { .stats-grid { grid-template-columns: repeat(5, 1fr); } }
+
+	/* Recordings */
+	.recordings {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.recordings-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.recordings-title {
+		margin: 0;
+		font-size: 0.625rem;
+		font-weight: 600;
+		color: var(--color-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+	}
+	.recordings-count {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	/* Detection surface */
+	.det-surface {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: 0.5rem;
+		overflow: hidden;
+	}
+
+	/* Detection rows */
+	.det-row {
+		display: flex;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		border-bottom: 1px solid var(--color-border);
+		transition: background-color 0.1s;
+	}
+	.det-row:last-child { border-bottom: none; }
+	.det-normal:hover { background: var(--color-surface-2); }
+	.det-notable {
+		border-left: 2px solid #ef4444;
+		background: rgba(239, 68, 68, 0.04);
+	}
+
+	/* Confidence bar */
+	.conf-bar-wrap {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.25rem;
+		padding-top: 0.125rem;
+		flex-shrink: 0;
+	}
+	.conf-bar-track {
+		width: 0.25rem;
+		height: 3rem;
+		border-radius: 9999px;
+		background: var(--color-skeleton);
+		position: relative;
+		overflow: hidden;
+	}
+	.conf-bar-fill {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		border-radius: 9999px;
+		background: var(--color-accent);
+	}
+	.conf-bar-notable {
+		background: #ef4444;
+	}
+
+	/* Detection content */
+	.det-content {
+		flex: 1;
+		min-width: 0;
+	}
+	.det-meta {
+		margin-bottom: 0.375rem;
+	}
+	.det-meta-left {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+	.det-time {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--color-text-2);
+	}
+	.det-date {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+	.notable-pill {
+		font-size: 0.5625rem;
+		font-weight: 700;
+		padding: 0.0625rem 0.375rem;
+		border-radius: 0.25rem;
+	}
+
+	/* Loading skeletons */
+	.det-skel-row {
+		display: flex;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+	.det-bar-skel {
+		width: 0.25rem;
+		height: 3rem;
+		background: var(--color-skeleton);
+		border-radius: 9999px;
+		flex-shrink: 0;
+		margin-top: 0.125rem;
+	}
+	.det-skel-body {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.det-skel-top {
+		display: flex;
+		justify-content: space-between;
+	}
+	.skel {
+		background: var(--color-skeleton);
+		border-radius: 0.25rem;
+	}
+	.skel-h4  { height: 1rem; }
+	.skel-h7  { height: 1.75rem; }
+	.skel-h8  { height: 2rem; }
+	.skel-h12 { height: 3rem; }
+
+	/* Empty / error */
+	.error-text {
+		font-size: 0.875rem;
+		color: #f87171;
+		padding: 1rem 0;
+	}
+	.empty-det {
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+		text-align: center;
+		padding: 2rem 0;
+	}
+
+	/* Pagination */
+	.pagination {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		padding: 0.5rem 0;
+	}
+	.page-btn {
+		padding: 0.375rem 0.75rem;
+		border-radius: 0.25rem;
+		border: 1px solid var(--color-border-strong);
+		background: transparent;
+		cursor: pointer;
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+		transition: color 0.15s;
+	}
+	.page-btn:hover:not(:disabled) { color: var(--color-text); }
+	.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+	.page-info {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+</style>
