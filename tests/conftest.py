@@ -27,7 +27,9 @@ import pytest
 
 from config import (
     AudioConfig,
+    AudioRtspConfig,
     BirdmapConfig,
+    BirdweatherConfig,
     SpeciesFilterConfig,
     Config,
     CrossValidationConfig,
@@ -67,6 +69,13 @@ def test_cfg(tmp_path: Path) -> Config:
             sample_rate=48000,
             hop_seconds=1,
             device=None,
+            source="sounddevice",
+            rtsp=AudioRtspConfig(
+                url="rtsp://localhost:554/test",
+                transport="tcp",
+                reconnect_delay_seconds=5,
+                ffmpeg_path="ffmpeg",
+            ),
             clip_seconds=15,
             pre_capture_seconds=0,
             capture_buffer_seconds=30,
@@ -119,6 +128,11 @@ def test_cfg(tmp_path: Path) -> Config:
             api_url="",
             api_key="",
             station_id=0,
+            upload_audio=False,
+        ),
+        birdweather=BirdweatherConfig(
+            enabled=False,
+            token="",
             upload_audio=False,
         ),
         seasonal_filter=SeasonalFilterConfig(

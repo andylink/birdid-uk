@@ -30,6 +30,18 @@ sample_rate    = 48000
 # Advance the rolling analysis window by this many seconds each step.
 hop_seconds    = 1
 
+# Audio source — select the capture backend:
+#
+#   "sounddevice"  — local microphone (USB, built-in, or any PortAudio device).
+#                    Use `python -m sounddevice` to list device indices and set
+#                    the `device` key below.
+#
+#   "rtsp"         — network microphone or IP camera audio stream via FFmpeg.
+#                    Configure the stream URL and options in [audio.rtsp] below.
+#                    Requires ffmpeg to be installed on the system.
+#
+source = "sounddevice"
+
 # Clip mode controls what audio is saved around each detection.
 #
 #   "window" — save the model analysis window plus window_pad_seconds of leading
@@ -49,7 +61,31 @@ pre_capture_seconds     = 2    # extra audio before the analysis window
 capture_buffer_seconds  = 30   # ring buffer size; must be > clip_seconds + margin
 
 # Microphone device index (from `python -m sounddevice`).
+# Only used when source = "sounddevice".
 device = 0
+
+
+[audio.rtsp]
+# RTSP stream settings — only used when [audio] source = "rtsp".
+#
+# url        — full RTSP URL of the audio stream.
+#              Examples:
+#                rtsp://192.168.1.100:554/audio          (IP microphone)
+#                rtsp://admin:password@192.168.1.50/av0  (IP camera with audio)
+#
+# transport  — RTP transport protocol:
+#                "tcp"  — reliable, recommended for most networks (default)
+#                "udp"  — lower latency; may drop packets on congested networks
+#
+# reconnect_delay_seconds — how long to wait before retrying after a stream drop.
+#
+# ffmpeg_path — path to the ffmpeg binary.  Leave as "ffmpeg" if it is on
+#               the system PATH; set an absolute path otherwise.
+#
+url                     = "rtsp://192.168.1.100:554/audio"
+transport               = "tcp"
+reconnect_delay_seconds = 5
+ffmpeg_path             = "ffmpeg"
 
 
 [inference]

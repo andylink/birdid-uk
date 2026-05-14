@@ -1,8 +1,9 @@
 """
 tests/unit/test_audio.py — unit tests for audio.py
 
-audio.py imports ``cfg`` at module level, so we monkeypatch ``audio.cfg``
-with a test Config in each test that exercises cfg-dependent code paths.
+audio/utils.py imports ``cfg`` at module level, so we monkeypatch
+``audio.utils.cfg`` with a test Config in each test that exercises
+cfg-dependent code paths.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import pytest
 import soundfile as sf
 
 import audio
+import audio.utils
 from audio import apply_highpass, safe_name, save_flac, save_clip
 
 
@@ -95,7 +97,7 @@ class TestApplyHighpass:
 
 class TestSaveFlac:
     def test_creates_readable_flac_file(self, sample_audio, tmp_path, test_cfg, monkeypatch):
-        monkeypatch.setattr(audio, "cfg", test_cfg)
+        monkeypatch.setattr(audio.utils, "cfg", test_cfg)
         out_path = tmp_path / "test.flac"
         save_flac(sample_audio, out_path)
         assert out_path.exists()
@@ -104,7 +106,7 @@ class TestSaveFlac:
         assert len(data) == len(sample_audio)
 
     def test_flac_data_matches_input(self, sample_audio, tmp_path, test_cfg, monkeypatch):
-        monkeypatch.setattr(audio, "cfg", test_cfg)
+        monkeypatch.setattr(audio.utils, "cfg", test_cfg)
         out_path = tmp_path / "test.flac"
         save_flac(sample_audio, out_path)
         data, _ = sf.read(str(out_path), dtype="int16")
@@ -116,7 +118,7 @@ class TestSaveFlac:
 class TestSaveClip:
     @pytest.fixture(autouse=True)
     def patch_cfg(self, test_cfg, monkeypatch):
-        monkeypatch.setattr(audio, "cfg", test_cfg)
+        monkeypatch.setattr(audio.utils, "cfg", test_cfg)
 
     def test_returns_path_object(self, sample_audio, test_cfg):
         ts = datetime(2026, 5, 13, 12, 0, 0, tzinfo=timezone.utc)
@@ -172,6 +174,7 @@ class TestSaveClip:
             database=test_cfg.database,
             mqtt=test_cfg.mqtt,
             birdmap=test_cfg.birdmap,
+            birdweather=test_cfg.birdweather,
             seasonal_filter=test_cfg.seasonal_filter,
             nocturnal_filter=test_cfg.nocturnal_filter,
             species_filter=test_cfg.species_filter,
@@ -181,7 +184,7 @@ class TestSaveClip:
             exclude=test_cfg.exclude,
             weather=test_cfg.weather,
         )
-        monkeypatch.setattr(audio, "cfg", new_cfg)
+        monkeypatch.setattr(audio.utils, "cfg", new_cfg)
         ts = datetime(2026, 5, 13, 12, 0, 0, tzinfo=timezone.utc)
         save_clip(np.zeros(48000, dtype=np.int16), ts, "Placeholder")
         assert new_dir.exists()

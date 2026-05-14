@@ -1,5 +1,5 @@
 """
-audio.py — audio I/O and clip utilities.
+audio/utils.py — audio I/O and clip utilities.
 
 Handles:
   - Writing PCM audio arrays to WAV files (inference temp files)

@@ -39,10 +39,34 @@ class PathsConfig:
 
 
 @dataclass(frozen=True)
+class AudioRtspConfig:
+    """Connection settings for an RTSP audio stream.
+
+    Used when ``[audio] source = "rtsp"``.  FFmpeg is launched as a subprocess
+    that decodes the stream to raw PCM and pipes it to stdout.
+
+    *transport* controls the underlying RTP transport:
+
+    * ``"tcp"``  — reliable, recommended for most networks (default).
+    * ``"udp"``  — lower latency; may drop packets on congested networks.
+
+    *ffmpeg_path* can be an absolute path if ``ffmpeg`` is not on the system
+    PATH (e.g. ``/usr/local/bin/ffmpeg``).
+    """
+    url:                     str   # RTSP stream URL, e.g. rtsp://192.168.1.100:554/audio
+    transport:               str   # "tcp" | "udp"
+    reconnect_delay_seconds: int   # seconds to wait before reconnecting after a stream drop
+    ffmpeg_path:             str   # path to ffmpeg binary (default: "ffmpeg")
+
+
+@dataclass(frozen=True)
 class AudioConfig:
     sample_rate:             int
     hop_seconds:             int
     device:                  int | None
+    # Audio source: "sounddevice" (local USB/built-in mic) or "rtsp" (network stream).
+    source:                  str   # "sounddevice" | "rtsp"
+    rtsp:                    AudioRtspConfig
     # Dual-buffer clip settings (see config.toml [audio] for documentation).
     clip_seconds:            int   # total saved clip length — only used when clip_mode="full"
     pre_capture_seconds:     int   # extra audio before the analysis window (clip_mode="full" only)
@@ -425,10 +449,24 @@ def _load() -> Config:
         raise ValueError(
             f"[audio] window_pad_seconds must be between 0.0 and 10.0, got: {_pad}"
         )
+    _source = str(a.get("source", "sounddevice")).strip().lower()
+    if _source not in ("sounddevice", "rtsp"):
+        raise ValueError(
+            f"[audio] source must be 'sounddevice' or 'rtsp', got: {_source!r}"
+        )
+    _rtsp = a.get("rtsp", {})
+    rtsp_cfg = AudioRtspConfig(
+        url                     = str(_rtsp.get("url",                     "")),
+        transport               = str(_rtsp.get("transport",               "tcp")),
+        reconnect_delay_seconds = int(_rtsp.get("reconnect_delay_seconds", 5)),
+        ffmpeg_path             = str(_rtsp.get("ffmpeg_path",             "ffmpeg")),
+    )
     audio = AudioConfig(
         sample_rate            = int(a["sample_rate"]),
         hop_seconds            = int(a["hop_seconds"]),
         device                 = a.get("device"),  # None or int
+        source                 = _source,
+        rtsp                   = rtsp_cfg,
         clip_seconds           = _clip,
         pre_capture_seconds    = _pre,
         capture_buffer_seconds = int(a.get("capture_buffer_seconds", 30)),

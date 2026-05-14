@@ -52,9 +52,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
-import sounddevice as sd
 
 from audio import apply_highpass, save_clip
+from audio.source import get_source
 from publishers import birdmap, birdweather
 import weather
 from filters.species_filter import build_bou_allowed_set, build_birdnet_to_bto_map
@@ -313,25 +313,27 @@ def _deferred_save(
 
 def _record_thread() -> None:
     """Continuously record hop-length chunks onto the audio queue and into
-    the capture buffer."""
-    hop_samples = cfg.audio.sample_rate * cfg.audio.hop_seconds
-    while not stop_event.is_set():
-        try:
-            chunk = sd.rec(
-                hop_samples,
-                samplerate=cfg.audio.sample_rate,
-                channels=1,
-                dtype="int16",
-                device=cfg.audio.device,
-            )
-            sd.wait()
-        except Exception:
-            logger.exception("audio recording error — retrying in 1 s")
-            time.sleep(1.0)
-            continue
-        flat = chunk.flatten()
-        _capture_buffer.write(flat)   # continuous ring — always recording
-        audio_queue.put(flat)         # 3-second sliding window for inference
+    the capture buffer.
+
+    The active audio source (sounddevice or RTSP) is created here and lives
+    for the lifetime of the thread.  Each source handles its own internal
+    error recovery (e.g. RTSP reconnection); the outer try/except catches any
+    unexpected exception and retries after a 1-second pause, matching the
+    previous behaviour.
+    """
+    source = get_source()
+    try:
+        while not stop_event.is_set():
+            try:
+                flat = source.read_chunk()
+            except Exception:
+                logger.exception("audio recording error — retrying in 1 s")
+                time.sleep(1.0)
+                continue
+            _capture_buffer.write(flat)   # continuous ring — always recording
+            audio_queue.put(flat)         # sliding window for inference
+    finally:
+        source.close()
 
 
 def _classify_loop(
