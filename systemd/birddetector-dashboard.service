@@ -1,24 +1,22 @@
 # birddetector-dashboard.service — FastAPI dashboard + SvelteKit frontend
 #
-# Install:
+# Installed automatically by install.sh --systemd.
+# Manual install:
 #   sudo cp systemd/birddetector-dashboard.service /etc/systemd/system/
 #   sudo systemctl daemon-reload
 #   sudo systemctl enable --now birddetector-dashboard.service
 #
-# Remember to build the frontend before starting this service:
-#   cd dashboard/frontend && npm install && npm run build
-#
-# Adjust WorkingDirectory and the uvicorn path below to match your deployment.
+# Paths are patched by install.sh — do not edit /opt/birdid-uk directly.
 
 [Unit]
-Description=Bird Detector — FastAPI dashboard
+Description=BirdID-UK — FastAPI dashboard
 After=network.target birddetector-capture.service
 PartOf=birddetector.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/andy/projects/vim4/bird-detector
-ExecStart=/home/andy/projects/vim4/bird-detector/venv/bin/uvicorn \
+WorkingDirectory=/opt/birdid-uk
+ExecStart=/opt/birdid-uk/venv/bin/uvicorn \
     dashboard.app:app \
     --host 0.0.0.0 \
     --port 8080

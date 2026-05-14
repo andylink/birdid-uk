@@ -158,7 +158,7 @@ if [[ "$INSTALL_SYSTEMD" == "true" ]]; then
 
     for f in "${SERVICE_FILES[@]}"; do
         fname="$(basename "$f")"
-        sed "s|/opt/bird-detector|$REPO_ROOT|g; s|/opt/birddetector|$REPO_ROOT|g" \
+        sed "s|/opt/birdid-uk|$REPO_ROOT|g" \
             "$f" > "$TMP_SYSTEMD/$fname"
     done
 

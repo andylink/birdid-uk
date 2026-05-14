@@ -43,7 +43,7 @@ detections, spectrograms, and statistics.
 ```sh
 # Clone the repo and create a virtual environment
 git clone <repo-url>
-cd bird-detector
+cd birdid-uk
 python3.11 -m venv venv
 source venv/bin/activate
 
@@ -299,7 +299,7 @@ alone.
 
 ```toml
 enabled  = true
-path     = "data/bird_detector.log"
+path     = "data/birdid-uk.log"
 level    = "INFO"
 rotation = "daily"
 backup_count = 7
@@ -369,7 +369,7 @@ sudo sed -i 's/%i/<your-user>/g' \
     /etc/systemd/system/birddetector-dashboard.service
 
 # 3. Update WorkingDirectory and ExecStart paths if the project is not at
-#    /home/andy/projects/vim4/bird-detector
+#    /opt/birdid-uk
 
 # 4. Enable and start
 sudo systemctl daemon-reload
@@ -651,12 +651,12 @@ For TimescaleDB, additionally set `timescaledb = true` — this runs
 ### Log files
 
 Log files rotate automatically per the `[log]` settings.  They are written to
-`data/bird_detector.log` by default alongside stdout.
+`data/birdid-uk.log` by default alongside stdout.
 
 To watch the live log:
 
 ```sh
-tail -f data/bird_detector.log
+tail -f data/birdid-uk.log
 ```
 
 ### Audio clips
