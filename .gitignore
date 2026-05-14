@@ -41,6 +41,10 @@ dashboard/frontend/.svelte-kit/
 *.swo
 *~
 
+# Personal config (contains location, API keys — never commit to public repo)
+# Track in private repo with: git add -f config.toml
+config.toml
+
 # Temp files
 *.tmp
 *.bak
