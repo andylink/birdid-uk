@@ -93,8 +93,10 @@ NOISE_LABELS: frozenset[str] = frozenset({
 #     unchanged (not in BTO JSON) and are checked against this set.
 
 HUMAN_LABELS: frozenset[str] = frozenset({
-    # BirdNET
+    # BirdNET (all three human labels from BirdNET_GLOBAL_6K_V2.4_Labels.txt)
     "human non-vocal",
+    "human vocal",
+    "human whistle",
 
     # Perch FSD50K — voice and vocalisations
     "speech",
