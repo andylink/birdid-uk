@@ -13,10 +13,11 @@ The flow per detection is:
 2. POST the detection metadata (including the soundscape reference when step 1
    succeeded) to ``/api/v1/stations/{token}/detections``.
 
-Scientific names are resolved from ``filters/uk_species_filter.json`` (the same
-BTO JSON used by the species filter) so that the BirdWeather API receives the
-correct ``scientificName`` field.  Species absent from the list are posted
-without it, and a DEBUG log entry is emitted.
+Scientific names are resolved first from the BirdNET labels file (which maps
+every IOC common name BirdNET can return to its scientific name) and
+supplemented by ``filters/uk_species_filter.json`` for BTO British-name
+aliases.  Species unresolvable from both sources are posted without a
+``scientificName`` and a DEBUG log entry is emitted.
 
 Controlled entirely by the ``[birdweather]`` section of config.toml::
 
@@ -50,15 +51,24 @@ _API_BASE = "https://app.birdweather.com"
 # ---------------------------------------------------------------------------
 
 def _build_sci_name_map() -> dict[str, str]:
-    """Return {common_name_lower: scientific_name} from uk_species_filter.json."""
+    """Return {common_name_lower: scientific_name}.
+
+    Built from two sources (applied in order; later entries win):
+
+    1. ``filters/uk_species_filter.json`` — covers BTO British names and
+       ``international_english_name`` aliases.
+    2. The BirdNET labels file (``Scientific name_Common name`` format) — gives
+       exact mappings for every IOC common name BirdNET can return (e.g.
+       "Eurasian Blackbird") and takes priority over the JSON aliases.
+    """
+    result: dict[str, str] = {}
+
+    # Source 1: uk_species_filter.json (BTO name + international alias)
     json_path = Path(__file__).parent.parent / "filters" / "uk_species_filter.json"
     try:
         with open(json_path, encoding="utf-8") as fh:
             species: list[dict] = json.load(fh)
-        result: dict[str, str] = {}
         for entry in species:
-            # The JSON has both 'name' (BTO British name) and
-            # 'international_english_name' (IOC label used by BirdNET).
             sci = entry.get("scientific_name", "")
             if not sci:
                 continue
@@ -66,10 +76,29 @@ def _build_sci_name_map() -> dict[str, str]:
                 val = entry.get(key, "")
                 if val:
                     result[val.lower()] = sci
-        return result
     except Exception as exc:  # noqa: BLE001
         logger.warning("[birdweather] could not load species JSON for scientific name lookup: %s", exc)
-        return {}
+
+    # Source 2: BirdNET labels file — overrides JSON entries and covers every
+    # IOC name that BirdNET can actually return (the exact names passed here).
+    try:
+        import pathlib as _pathlib
+        import birdnet_analyzer as _bna  # type: ignore[import-untyped]
+        labels_path = _pathlib.Path(_bna.__file__).parent / "checkpoints" / "V2.4" / "BirdNET_GLOBAL_6K_V2.4_Labels.txt"
+        if labels_path.exists():
+            for line in labels_path.read_text(encoding="utf-8").splitlines():
+                label = line.strip()
+                if not label or "_" not in label:
+                    continue
+                scientific, _, common = label.partition("_")
+                if scientific and common:
+                    result[common.lower()] = scientific.strip()
+        else:
+            logger.debug("[birdweather] BirdNET labels file not found at %s", labels_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("[birdweather] could not load BirdNET labels for scientific name lookup: %s", exc)
+
+    return result
 
 
 # Module-level map; built lazily on first use so import is cheap.
