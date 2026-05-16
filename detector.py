@@ -68,6 +68,7 @@ from publishers.mqtt import init_mqtt, publish_detection
 from retention import start_retention_thread
 from filters.nocturnal_filter import NocturnalFilter
 from filters.seasonal_filter import SeasonalFilter, current_iso_week
+from filters.privacy_filter import PrivacyFilter
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,7 @@ _last_detected:  dict[str, datetime] = {}   # species → time of last saved det
 _capture_buffer:  CaptureBuffer
 _executor:        ThreadPoolExecutor
 _cross_validator: CrossValidator | None = None   # None when CV is disabled
+_privacy_filter:  PrivacyFilter  | None = None   # None when privacy filter is disabled
 
 
 @dataclass
@@ -260,6 +262,25 @@ def _deferred_save(
                 )
 
         effective_conf = cv_result.final_confidence
+
+    # ── Privacy filter ────────────────────────────────────────────────────────
+    # Re-run the primary model on the analysis window to check for human sounds.
+    # Inserted after CV so that CV drops are already handled and we only pay the
+    # scan cost for clips that would otherwise be saved.
+    if _privacy_filter is not None:
+        # Extract one model-window worth of audio starting at pre_samples (the
+        # same slice CV uses for the secondary model).  Fall back to the full
+        # segment when it is shorter than expected (e.g. a buffer miss that
+        # returned the fallback clip).
+        privacy_audio = segment[pre_samples : pre_samples + window_samples]
+        if len(privacy_audio) < window_samples:
+            privacy_audio = segment
+        if _privacy_filter.scan(privacy_audio):
+            logger.info(
+                "%-32s PRIVACY DROP — human sound detected in clip",
+                species,
+            )
+            return   # discard — no clip saved, no DB row, no publish
 
     # ── Persist ───────────────────────────────────────────────────────────────
     clip_path = save_clip(segment, ts, species)
@@ -663,6 +684,20 @@ def main() -> None:
         logger.info("Secondary model (%s) pre-warm complete.", secondary_name)
     else:
         logger.info("Cross-validation disabled")
+
+    # ── Privacy filter setup ──────────────────────────────────────────────────
+    global _privacy_filter
+    if cfg.privacy_filter.enabled:
+        _privacy_filter = PrivacyFilter(cfg.privacy_filter, model, cfg.inference.model)
+        logger.info(
+            "Privacy filter enabled — clips with human sounds will be dropped "
+            "(model=%s  birdnet_threshold=%.4f  perch_threshold=%.4f)",
+            cfg.inference.model,
+            cfg.privacy_filter.birdnet_threshold,
+            cfg.privacy_filter.perch_threshold,
+        )
+    else:
+        logger.info("Privacy filter disabled")
 
     init_db()
     seed_species_info(Path(__file__).parent / "filters" / "uk_species_filter.json")

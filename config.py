@@ -313,6 +313,31 @@ class WeatherConfig:
 
 
 @dataclass(frozen=True)
+class PrivacyFilterConfig:
+    """Controls clip-level human-sound detection and suppression.
+
+    When *enabled* is ``True``, each confirmed detection clip is re-evaluated
+    by the active inference model before being saved.  If the highest
+    human-label score meets or exceeds the model-appropriate threshold the
+    clip is silently discarded (no DB row, no FLAC, no publish).
+
+    Separate thresholds are provided because the two backends produce scores
+    on different scales:
+
+    * ``birdnet_threshold`` — BirdNET logistic scores in ``[0, 1]``.
+      Typical audible-voice range is 0.03–0.20; ``0.05`` is a reasonable
+      starting point.
+
+    * ``perch_threshold`` — Perch v2 softmax probabilities over ~10 k classes.
+      Values are structurally much smaller; ``0.01`` works well for an
+      audible voice.
+    """
+    enabled:           bool
+    birdnet_threshold: float   # BirdNET logistic score in [0, 1]
+    perch_threshold:   float   # Perch softmax probability (much smaller scale)
+
+
+@dataclass(frozen=True)
 class CrossValidationConfig:
     """Controls dual-model cross-validation of confirmed detections.
 
@@ -354,6 +379,7 @@ class Config:
     audio:            AudioConfig
     inference:        InferenceConfig
     cross_validation: CrossValidationConfig
+    privacy_filter:   PrivacyFilterConfig
     filter:           FilterConfig
     retention:        RetentionConfig
     log:              LogConfig
@@ -577,6 +603,13 @@ def _load() -> Config:
         cv_min_confidence = float(cv.get("cv_min_confidence", 0.01)),
     )
 
+    pf = raw.get("privacy_filter", {})
+    privacy_filter_cfg = PrivacyFilterConfig(
+        enabled           = bool(pf.get("enabled",           False)),
+        birdnet_threshold = float(pf.get("birdnet_threshold", 0.05)),
+        perch_threshold   = float(pf.get("perch_threshold",   0.01)),
+    )
+
     w  = raw.get("weather", {})
     mb = w.get("pws_meteobridge", {})
     _default_mb_template = (
@@ -609,6 +642,7 @@ def _load() -> Config:
         audio              = audio,
         inference          = inference_cfg,
         cross_validation   = cross_validation_cfg,
+        privacy_filter     = privacy_filter_cfg,
         filter             = filter_cfg,
         retention          = retention_cfg,
         log                = log_cfg,

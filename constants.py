@@ -73,3 +73,64 @@ NOISE_LABELS: frozenset[str] = frozenset({
     # ── Legacy BirdNET labels (kept for compatibility) ────────────────────────
     "human non-vocal", "power tools",
 })
+
+
+# ── Human-sound label subset ──────────────────────────────────────────────────
+#
+# HUMAN_LABELS is a frozenset of lowercase label strings that specifically
+# represent human voices and body sounds.  It is a deliberate subset of
+# NOISE_LABELS, used by the privacy filter (filters/privacy_filter.py) to
+# detect human presence in a saved clip and suppress it before persistence.
+#
+# Covers two namespaces:
+#
+#   BirdNET catch-all:
+#     "human non-vocal" — the only explicit human label in BirdNET GLOBAL 6K.
+#
+#   Perch v2 FSD50K classes:
+#     Scientific-name-style entries whose common name is the class itself
+#     (e.g. self._classes[i] == "speech").  These map through sci_to_common
+#     unchanged (not in BTO JSON) and are checked against this set.
+
+HUMAN_LABELS: frozenset[str] = frozenset({
+    # BirdNET
+    "human non-vocal",
+
+    # Perch FSD50K — voice and vocalisations
+    "speech",
+    "speech_synthesizer",
+    "human_voice",
+    "male_speech_and_man_speaking",
+    "female_speech_and_woman_speaking",
+    "child_speech_and_kid_speaking",
+    "conversation",
+    "whispering",
+    "chatter",
+    "cheering",
+
+    # Perch FSD50K — crowd and group
+    "crowd",
+    "human_group_actions",
+
+    # Perch FSD50K — emotional / reactive vocalisations
+    "crying_and_sobbing",
+    "laughter",
+    "chuckle_and_chortle",
+    "giggle",
+    "screaming",
+    "shout",
+    "yell",
+    "gasp",
+    "sigh",
+
+    # Perch FSD50K — respiratory
+    "cough",
+    "sneeze",
+    "breathing",
+    "respiratory_sounds",
+
+    # Perch FSD50K — singing (human)
+    "singing",
+    "male_singing",
+    "female_singing",
+})
