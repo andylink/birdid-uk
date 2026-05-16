@@ -1,0 +1,260 @@
+# ── Bird Detector Configuration ───────────────────────────────────────────────
+# Copy this file to config.toml and edit the values for your setup.
+# See README.md for a guided walkthrough of the key settings.
+
+[general]
+# IANA timezone for the detector location.  Used for display, date filters and
+# "today" boundaries in the dashboard.  "Europe/London" handles GMT/BST automatically.
+timezone     = "Europe/London"
+
+# Display name shown in the dashboard header.
+station_name = "My Garden"
+
+
+[location]
+# WGS-84 decimal degrees — used for sunrise/sunset calculations.
+# Find your coordinates at: https://www.latlong.net
+lat = 52.5   # example: central England
+lon = -1.5
+
+
+[paths]
+# Paths are relative to the project root (where detect.py is run from).
+detections_dir = "data/detections"
+db_path        = "data/birds.db"
+
+
+[audio]
+# Recording sample rate (Hz).  Both BirdNET and Perch resample internally, so
+# set this to whatever your hardware supports.  48000 works with virtually all
+# modern USB audio interfaces.
+sample_rate    = 48000
+
+# Advance the rolling analysis window by this many seconds each step.
+hop_seconds    = 1
+
+# Audio source — select the capture backend:
+#
+#   "sounddevice"  — local microphone (USB, built-in, or any PortAudio device).
+#                    Use `python -m sounddevice` to list device indices and set
+#                    the `device` key below.
+#
+#   "rtsp"         — network microphone or IP camera audio stream via FFmpeg.
+#                    Configure the stream URL and options in [audio.rtsp] below.
+#                    Requires ffmpeg to be installed on the system.
+#
+# NOTE: if you define [[audio.sources]] entries below, this key is ignored.
+#
+source = "sounddevice"
+
+# ── Multi-source mode (optional) ──────────────────────────────────────────────
+#
+# To run multiple microphones simultaneously, remove or comment out the
+# `source = ...` line above and instead define one [[audio.sources]] block
+# per microphone.  Each source runs an independent recording thread, classify
+# loop, ring buffer, and confirmation accumulator.
+#
+# Hardware sizing guide (BirdNET / CPU inference):
+#   Raspberry Pi 4  — recommend max 2 sources
+#   Raspberry Pi 5  — recommend max 3–4 sources
+#   i5 / modern x86 — 6–8 sources comfortably
+#
+# Example — two RTSP microphones:
+#
+# [[audio.sources]]
+# name      = "garden-east"
+# type      = "rtsp"
+# url       = "rtsp://192.168.1.10:554/audio"
+# transport = "tcp"
+# reconnect_delay_seconds = 5
+# ffmpeg_path = "ffmpeg"
+#
+# [[audio.sources]]
+# name      = "garden-west"
+# type      = "rtsp"
+# url       = "rtsp://192.168.1.11:554/audio"
+# transport = "tcp"
+# reconnect_delay_seconds = 5
+# ffmpeg_path = "ffmpeg"
+
+# Clip mode controls what audio is saved around each detection.
+#
+#   "window" — save the model analysis window plus window_pad_seconds of leading
+#              audio.  Compact clips ideal for fine-tuning (~5× smaller than "full").
+#                BirdNET: 0.5 + 3 = 3.5 s   Perch: 0.5 + 5 = 5.5 s
+#
+#   "full"   — legacy mode: save clip_seconds centred on the detection.
+#
+clip_mode           = "window"
+window_pad_seconds  = 0.5   # leading audio before the window (0.0–10.0 s)
+
+# Settings used only when clip_mode = "full":
+clip_seconds            = 15   # total saved clip length
+pre_capture_seconds     = 2    # extra audio before the analysis window
+capture_buffer_seconds  = 30   # ring buffer size; must be > clip_seconds + margin
+
+# Microphone device index (from `python -m sounddevice`).
+# Only used when source = "sounddevice".
+device = 0
+
+
+[audio.rtsp]
+# RTSP stream settings — only used when [audio] source = "rtsp".
+url                     = "rtsp://192.168.1.100:554/audio"
+transport               = "tcp"
+reconnect_delay_seconds = 5
+ffmpeg_path             = "ffmpeg"
+
+
+[inference]
+# "birdnet" (default) — BirdNET GLOBAL 6K V2.4; no extra setup required.
+# "perch"             — Google Perch v2; requires pip install 'perch-hoplite[tf]'
+#                       and Kaggle credentials.  Model (~400 MB) downloads on first run.
+model = "birdnet"
+
+
+[defaults]
+# Minimum inference confidence to accept a detection.
+min_confidence   = 0.6
+
+# Minimum gap (seconds) between saved clips for the same species.
+cooldown_seconds = 30
+
+# Confirmation filter: require this many hits within confirmation_window_seconds
+# before saving.  Filters transient false positives.
+# Set min_detections = 1 to save on the first hit.
+min_detections              = 2
+confirmation_window_seconds = 9
+
+# Species to permanently suppress regardless of confidence (exact IOC common names).
+# e.g. exclude = ["Common Wood-Pigeon", "Carrion Crow"]
+exclude = []
+
+
+[filter]
+# High-pass filter applied to audio before inference (not to saved clips).
+enabled   = true
+cutoff_hz = 150
+order     = 5
+
+
+[seasonal_filter]
+# ISO-week presence filter using uk_seasonal_filter.json (GBIF-derived).
+enabled     = true
+filter_json = "filters/uk_seasonal_filter.json"
+
+
+[nocturnal_filter]
+# Time-of-day gate for nocturnal and crepuscular species.
+enabled     = true
+filter_json = "filters/uk_nocturnal_filter.json"
+
+
+[species_filter]
+# Exclude species by BOU british_list_status token.
+# "Accidental" suppresses vagrant species with no regular UK presence.
+# Leave empty ([]) to accept all BTO-listed species.
+exclude_status = ["Accidental"]
+
+
+[retention]
+# Automatic cleanup of data/detections/ clips.
+enabled               = true
+max_age_days          = 30
+max_usage_percent     = 90.0
+min_clips_per_species = 5
+run_interval_seconds  = 3600
+
+
+[log]
+enabled  = true
+path     = "data/birdid-uk.log"
+level    = "INFO"   # DEBUG | INFO | WARNING | ERROR | CRITICAL
+rotation       = "daily"
+max_size_bytes = 10485760   # 10 MB — only used when rotation = "size"
+backup_count   = 7
+
+
+[database]
+# "sqlite" (default, zero config) or "postgresql".
+type        = "sqlite"
+host        = "localhost"
+port        = 5432
+name        = "birds"
+username    = ""
+password    = ""
+timescaledb = false
+
+
+[mqtt]
+# Publish each detection as JSON to an MQTT broker.
+enabled  = false
+broker   = "localhost"
+port     = 1883
+topic    = "birds/detections"
+username = ""
+password = ""
+retain   = false
+
+
+[birdweather]
+# Forward detections to app.birdweather.com.
+# Register a station at https://app.birdweather.com to obtain a token.
+enabled      = false
+token        = ""
+upload_audio = true
+
+
+[birdmap]
+# Forward detections to birdmap.co.uk.
+# Register at birdmap.co.uk to obtain an API key and station ID.
+enabled      = false
+api_url      = "https://birdmap.co.uk"
+api_key      = ""
+station_id   = 0
+upload_audio = true
+
+
+[cross_validation]
+# Re-evaluate each confirmed detection with a secondary model.
+# Requires both BirdNET and Perch to be installed — leave disabled if using
+# BirdNET only (the default).
+enabled        = false
+skip_threshold = 0.90
+on_disagree    = "drop"
+cv_min_confidence = 0.01
+
+
+[deduplication]
+# Cross-source duplicate suppression (only relevant with multiple audio sources).
+enabled        = false
+window_seconds = 10
+on_duplicate   = "flag"
+
+
+# ── Weather metadata ───────────────────────────────────────────────────────────
+[weather]
+# Attach weather data to every detection.
+# "open_meteo" is free with no account or API key required.
+enabled       = true
+provider      = "open_meteo"   # "open_meteo" | "yr_no" | "openweathermap" | "pws"
+api_key       = ""             # only required for provider = "openweathermap"
+cache_seconds = 300
+
+
+# ── Per-species overrides ──────────────────────────────────────────────────────
+# Override any [defaults] key for a specific species.
+# The name must match the common name printed in the terminal.
+#
+# Examples:
+#
+# [species."House Sparrow"]
+# min_confidence   = 0.70
+# cooldown_seconds = 120
+#
+# [species."Tawny Owl"]
+# min_detections = 1
+#
+# [species."Eurasian Skylark"]
+# min_confidence = 0.40
+# min_detections = 1

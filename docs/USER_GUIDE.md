@@ -1,9 +1,10 @@
-# Bird Detector — User Guide
+# BirdID-UK — User Guide
 
-Real-time UK garden bird classifier: a microphone listens continuously, BirdNET
-analyses three-second windows, and confirmed detections are written to a SQLite
-database and saved as audio clips.  A FastAPI + SvelteKit dashboard shows live
-detections, spectrograms, and statistics.
+Real-time UK garden bird classifier.  A microphone listens continuously,
+BirdNET (or Google Perch) analyses overlapping windows, and confirmed
+detections are saved as FLAC clips and written to a database.  A FastAPI +
+SvelteKit dashboard streams live detections, spectrograms, species photos,
+and analytics.
 
 ---
 
@@ -13,12 +14,34 @@ detections, spectrograms, and statistics.
 2. [Installation](#2-installation)
 3. [Find your audio device](#3-find-your-audio-device)
 4. [Configuration](#4-configuration)
+   - [general](#general)
+   - [location](#location)
+   - [paths](#paths)
+   - [audio — single source](#audio--single-source)
+   - [audio — RTSP source](#audio--rtsp-source)
+   - [audio — multiple sources](#audio--multiple-sources)
+   - [inference](#inference)
+   - [defaults](#defaults)
+   - [filter](#filter)
+   - [seasonal_filter](#seasonal_filter)
+   - [nocturnal_filter](#nocturnal_filter)
+   - [species_filter](#species_filter)
+   - [retention](#retention)
+   - [log](#log)
+   - [database](#database)
+   - [deduplication](#deduplication)
+   - [weather](#weather)
+   - [mqtt](#mqtt)
+   - [birdweather](#birdweather)
+   - [birdmap](#birdmap)
+   - [cross_validation](#cross_validation)
+   - [Per-species overrides](#per-species-overrides)
 5. [Running the detector](#5-running-the-detector)
-6. [Running the dashboard](#6-running-the-dashboard)
-7. [Understanding the terminal output](#7-understanding-the-terminal-output)
-8. [Per-species overrides](#8-per-species-overrides)
-9. [Optional features](#9-optional-features)
-10. [Maintenance](#10-maintenance)
+6. [Running as a service](#6-running-as-a-service)
+7. [The dashboard](#7-the-dashboard)
+8. [Understanding the terminal output](#8-understanding-the-terminal-output)
+9. [Maintenance](#9-maintenance)
+10. [Developer setup](#10-developer-setup)
 11. [Troubleshooting](#11-troubleshooting)
 
 ---
@@ -26,46 +49,62 @@ detections, spectrograms, and statistics.
 ## 1. Requirements
 
 **Hardware**
+
 - A microphone or USB audio interface positioned outdoors or near a window.
-  An omnidirectional condenser mic works well; a USB interface with a shotgun
-  or parabolic mic increases range.
-- Any modern Linux machine (Raspberry Pi 5 or x86 desktop both work).
-  BirdNET inference takes roughly 0.15–0.4 s per 3-second window on a Pi 5.
+  An omnidirectional condenser mic works well.  A USB interface with a
+  directional or parabolic mic increases detection range.
+- Any modern Linux machine.  Recommended:
+  - Raspberry Pi 4 (2 GB+ RAM) — 1–2 microphones
+  - Raspberry Pi 5 — up to 3–4 microphones
+  - Any 64-bit x86 server or desktop
 
 **Software**
-- Python 3.11 (the repo `venv` is set up for 3.11)
-- Node.js ≥ 18 and npm (for the frontend build only)
+
+- Python 3.11 or newer
+- Debian/Ubuntu-based OS recommended (the installer uses `apt-get`)
+
+> Node.js is **not** required to run BirdID-UK.  The dashboard frontend is
+> pre-built and included in the repository.  Node.js is only needed if you
+> want to modify the frontend yourself (see [Developer setup](#10-developer-setup)).
 
 ---
 
 ## 2. Installation
 
+### Clone and run the installer
+
 ```sh
-# Clone the repo and create a virtual environment
-git clone <repo-url>
-cd bird-detector
-python3.11 -m venv venv
-source venv/bin/activate
-
-# All dependencies (detector + dashboard) are in one file
-pip install -r requirements.txt
-
-# Frontend build (required once before running in production)
-cd dashboard/frontend
-npm install
-npm run build
-cd ../..
+git clone https://github.com/andylink/birdid-uk.git
+cd birdid-uk
+bash install.sh
 ```
 
-The first time you run the detector, BirdNET will be ready immediately — no
-model download required.  The `data/` directory and SQLite database are created
-automatically on first run.
+The installer:
+
+1. Installs system packages (`portaudio19-dev`, `ffmpeg`, etc.) via `apt-get`
+2. Creates a Python virtual environment at `venv/`
+3. Installs all Python dependencies (this may take several minutes on a Pi)
+4. Creates `data/detections/` and `data/species_images/`
+5. Copies `config.toml.example` → `config.toml` if none exists
+
+> **Raspberry Pi note:** `birdnet-analyzer` includes a compiled C extension.
+> On a Pi 4 the first install typically takes 3–5 minutes.
+
+### Optional: install as a background service
+
+```sh
+bash install.sh --systemd
+```
+
+This additionally installs and enables the systemd services so the detector
+starts automatically at boot.  See [Running as a service](#6-running-as-a-service)
+for details.
 
 ---
 
 ## 3. Find your audio device
 
-List available audio devices to find the index for your microphone:
+List available audio devices to find the index number for your microphone:
 
 ```sh
 source venv/bin/activate
@@ -87,7 +126,10 @@ Set the index in `config.toml`:
 device = 1   # USB Audio Device
 ```
 
-Use `device = 0` to let the system default (PipeWire/PulseAudio) decide.
+Use index `0` to let the system default (PipeWire/PulseAudio) choose.
+
+For RTSP audio sources (IP cameras, network microphones) see
+[audio — RTSP source](#audio--rtsp-source) below.
 
 ---
 
@@ -95,7 +137,9 @@ Use `device = 0` to let the system default (PipeWire/PulseAudio) decide.
 
 All settings live in `config.toml`.  Edit this file before running the
 detector.  The minimum you need to change for a new installation are
-`[location]` (your coordinates) and `[audio] device`.
+`[location]` lat/lon and `[audio] device`.
+
+---
 
 ### `[general]`
 
@@ -105,23 +149,24 @@ station_name = "My Garden"
 ```
 
 `timezone` must be a valid IANA timezone name.  `"Europe/London"` handles
-GMT/BST automatically — no manual clock-change adjustment needed.
+GMT/BST automatically.  Find your timezone at
+[en.wikipedia.org/wiki/List_of_tz_database_time_zones](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones).
 
-`station_name` appears in the dashboard header.  Leave empty to use the
-default "BirdNet-UK".
+`station_name` appears in the dashboard header.
 
 ---
 
 ### `[location]`
 
 ```toml
-lat = 52.69867
-lon = 1.67531
+lat = 52.5
+lon = -1.5
 ```
 
-WGS-84 decimal degrees for your location.  Used for sunrise/sunset
-calculations in the dashboard.  Find your coordinates on
-[Google Maps](https://maps.google.com) by right-clicking your location.
+WGS-84 decimal degrees.  Used for sunrise/sunset calculations (nocturnal
+filter, dashboard display).  Find your coordinates by right-clicking your
+location on [Google Maps](https://maps.google.com) or at
+[latlong.net](https://www.latlong.net).
 
 ---
 
@@ -132,37 +177,98 @@ detections_dir = "data/detections"
 db_path        = "data/birds.db"
 ```
 
-Paths relative to the project root.  Change `detections_dir` if you want
-audio clips saved to a different volume (e.g. an external SSD).
+Relative to the project root.  Change `detections_dir` if you want clips
+saved to a different volume such as an external SSD.
 
 ---
 
-### `[audio]`
+### `[audio]` — single source
 
 ```toml
-sample_rate           = 48000
-hop_seconds           = 1
-clip_mode             = "window"
-window_pad_seconds    = 0.5
-device                = 0
+source         = "sounddevice"
+sample_rate    = 48000
+hop_seconds    = 1
+clip_mode      = "window"
+window_pad_seconds = 0.5
+device         = 0
 ```
 
-**`sample_rate`** — recording rate in Hz.  `48000` works with virtually all
-USB audio interfaces.  Change to `44100` only if your hardware requires it.
-Both BirdNET and Perch resample internally; this does not affect accuracy.
+**`source`** — audio capture backend:
 
-**`hop_seconds`** — how often (in seconds) the analysis window advances.
-At `1`, a new BirdNET result is produced every second.
+| Value | Description |
+|---|---|
+| `"sounddevice"` | Local microphone via PortAudio.  Set `device` to the index from `python -m sounddevice`. |
+| `"rtsp"` | Network microphone or IP camera via FFmpeg.  Configure `[audio.rtsp]` below. |
 
-**`clip_mode`** — controls the audio saved for each detection:
+**`sample_rate`** — capture rate in Hz.  `48000` works with virtually all
+USB audio interfaces.  Both BirdNET and Perch resample internally; this
+does not affect inference accuracy.
 
-| Mode | What is saved | Best for |
+**`hop_seconds`** — how often the analysis window advances.  At `1`, a new
+result is produced every second.
+
+**`clip_mode`** — controls what audio is saved for each detection:
+
+| Mode | Length | Best for |
 |---|---|---|
-| `"window"` | Model window + `window_pad_seconds` of lead-in (~3.5 s) | Disk-efficient, clean clips, model fine-tuning |
-| `"full"` | `clip_seconds` of audio centred on the detection (~15 s) | Manual listening with context |
+| `"window"` | `window_pad_seconds` + model window (3.5 s for BirdNET) | Disk-efficient; clean single-species clips |
+| `"full"` | `clip_seconds` centred on the detection | Manual listening with full context |
 
-`"window"` is the default and recommended.  When using `"full"` mode, also
-set `clip_seconds`, `pre_capture_seconds`, and `capture_buffer_seconds`.
+`"window"` is the default.  When using `"full"` mode, also set
+`clip_seconds`, `pre_capture_seconds`, and `capture_buffer_seconds`.
+
+---
+
+### `[audio]` — RTSP source
+
+Used when `source = "rtsp"`.
+
+```toml
+[audio.rtsp]
+url                     = "rtsp://192.168.1.100:554/audio"
+transport               = "tcp"   # "tcp" (reliable) or "udp" (lower latency)
+reconnect_delay_seconds = 5
+ffmpeg_path             = "ffmpeg"
+```
+
+`ffmpeg` must be installed (`sudo apt-get install ffmpeg`).  Verify the URL
+plays with `ffplay rtsp://...` before configuring.
+
+---
+
+### `[audio]` — multiple sources
+
+To run several microphones simultaneously, replace the single `source = ...`
+line with one `[[audio.sources]]` block per microphone.  Each source runs
+its own independent recording thread and classify loop.
+
+```toml
+# Remove or comment out:  source = "sounddevice"
+
+[[audio.sources]]
+name   = "garden-north"
+type   = "sounddevice"
+device = 0
+
+[[audio.sources]]
+name      = "garden-south"
+type      = "rtsp"
+url       = "rtsp://192.168.1.10:554/audio"
+transport = "tcp"
+reconnect_delay_seconds = 5
+```
+
+**Sizing guide (BirdNET, CPU inference):**
+
+| Hardware | Recommended max sources |
+|---|---|
+| Raspberry Pi 4 | 2 |
+| Raspberry Pi 5 | 3–4 |
+| Modern x86 (i5+) | 6–8 |
+
+When multiple sources are active, consider enabling
+[deduplication](#deduplication) to avoid duplicate records when the same
+bird is heard by more than one microphone.
 
 ---
 
@@ -172,8 +278,10 @@ set `clip_seconds`, `pre_capture_seconds`, and `capture_buffer_seconds`.
 model = "birdnet"
 ```
 
-`"birdnet"` uses BirdNET GLOBAL 6K V2.4 (bundled, no download needed).
-`"perch"` uses Google Perch v2 (see [Optional features](#9-optional-features)).
+| Value | Description |
+|---|---|
+| `"birdnet"` | BirdNET GLOBAL 6K V2.4.  Bundled — no download needed.  3-second analysis windows. |
+| `"perch"` | Google Perch v2.  Requires extra install and Kaggle credentials.  5-second windows.  See [optional features](#cross_validation). |
 
 ---
 
@@ -188,20 +296,21 @@ exclude                     = []
 ```
 
 **`min_confidence`** — detections below this score are discarded.  `0.6` is
-a good starting point.  Lower it (e.g. `0.4`) if you are missing detections;
-raise it (e.g. `0.8`) if you are seeing false positives.
+a good starting point.  Lower (e.g. `0.4`) if you are missing detections;
+raise (e.g. `0.8`) to reduce false positives.
 
-**`cooldown_seconds`** — minimum gap between saved clips for the same species.
-Prevents the log being flooded when a bird sings continuously.
+**`cooldown_seconds`** — minimum gap between saved clips for the same
+species.  Prevents the database being flooded when a bird sings
+continuously.
 
-**`min_detections`** / **`confirmation_window_seconds`** — a species must be
-detected at least `min_detections` times within `confirmation_window_seconds`
-seconds before a clip is saved.  With `hop_seconds = 1` this means a species
-must appear in at least 2 consecutive windows within 9 seconds.  Set
-`min_detections = 1` to save on the first hit (less filtering, more clips).
+**`min_detections` / `confirmation_window_seconds`** — a species must
+appear at least `min_detections` times within `confirmation_window_seconds`
+seconds before a clip is saved.  With `hop_seconds = 1` and
+`min_detections = 2`, a species must hit in at least two consecutive windows
+within 9 seconds.  Set `min_detections = 1` to save on the first hit.
 
 **`exclude`** — species to permanently suppress regardless of confidence.
-Use exact IOC common names as printed in the terminal output:
+Use exact IOC common names as printed in the terminal:
 
 ```toml
 exclude = ["Common Wood-Pigeon", "Carrion Crow", "Common Starling"]
@@ -217,10 +326,10 @@ cutoff_hz = 150
 order     = 5
 ```
 
-A high-pass Butterworth filter applied to audio **before inference** only —
-saved clips always contain the original, unfiltered audio.  Reduces false
-positives from wind, traffic, and HVAC noise.  `150 Hz` is safe for all UK
-bird species.
+A high-pass Butterworth filter applied to audio **before inference only** —
+saved clips always contain the original, unfiltered audio.  Removes
+low-frequency noise from wind, traffic, and HVAC.  `150 Hz` is safe for all
+UK bird species (bird calls start well above this).
 
 ---
 
@@ -228,18 +337,18 @@ bird species.
 
 ```toml
 enabled     = true
-filter_json = "uk_seasonal_filter.json"
+filter_json = "filters/uk_seasonal_filter.json"
 ```
 
-Suppresses detections outside a species' expected UK season, using ISO 8601
-week numbers derived from GBIF Great Britain occurrence data.  Species absent
-from the JSON are treated as year-round.
+Suppresses detections outside a species' expected UK season, derived from
+GBIF Great Britain occurrence data (ISO week numbers).  Species absent from
+the JSON are treated as year-round.
 
-To customise: copy `uk_seasonal_filter.json`, edit it, and point `filter_json`
-at the copy.  To regenerate the original from GBIF data:
+To regenerate the filter after GBIF publishes new data:
 
 ```sh
-python build_uk_seasonal_filter.py
+source venv/bin/activate
+python scripts/build_uk_seasonal_filter.py
 ```
 
 ---
@@ -248,25 +357,53 @@ python build_uk_seasonal_filter.py
 
 ```toml
 enabled     = true
-filter_json = "uk_nocturnal_filter.json"
+filter_json = "filters/uk_nocturnal_filter.json"
 ```
 
 Suppresses detections of nocturnal and crepuscular species during daytime.
-`uk_nocturnal_filter.json` covers Tawny Owl, Barn Owl, Long-eared Owl,
-European Nightjar, Eurasian Woodcock, Corn Crake, and Black-crowned Night Heron.
+The bundled filter covers Tawny Owl, Barn Owl, Long-eared Owl, European
+Nightjar, Eurasian Woodcock, Corn Crake, and Black-crowned Night Heron.
 
-Two window types are supported:
+Two window types are supported in the JSON and in per-species overrides:
 
 | Type | Description |
 |---|---|
-| `sunset_sunrise` | Active from sunset to sunrise, with optional per-event offsets in minutes (negative = before the event) |
-| `fixed` | Fixed local clock range, e.g. `21:00`–`05:00`; spans midnight correctly |
+| `"sunset_sunrise"` | Active from (sunset + offset) to (sunrise + offset).  Handles seasonal variation automatically. |
+| `"fixed"` | Fixed local clock range, e.g. `21:00`–`05:00`.  Spans midnight correctly. |
 
-Windows are calculated using `[location] lat`/`lon` and `[general] timezone`.
-Species not in the JSON are unaffected (pass through freely).
+Windows are calculated from `[location]` lat/lon and `[general] timezone`.
+See [Per-species overrides](#per-species-overrides) to adjust a species'
+window without editing the JSON.
 
-Per-species active-hours overrides are set in `[species."Name"]` blocks — see
-[Per-species overrides](#8-per-species-overrides).
+---
+
+### `[species_filter]`
+
+```toml
+exclude_status = ["Accidental"]
+```
+
+Filters detections against the BOU British List.  Each species on the list
+has a `british_list_status` field; any species whose status contains a token
+in `exclude_status` is suppressed.
+
+Commonly useful tokens:
+
+| Token | Species affected | Notes |
+|---|---|---|
+| `"Accidental"` | ~255 vagrant species | No regular UK presence; ideal for a garden detector |
+| `"Introduced Breeder"` | 5 species (Pheasant, partridges, etc.) | Non-native, release-dependent |
+| `"Escaped Breeder"` | 4 species | Captive-origin feral birds |
+
+Leave `exclude_status = []` to accept all BTO-listed species.
+
+To admit a species that would otherwise be suppressed (e.g. a known local
+vagrant), add a per-species override:
+
+```toml
+[species."King Eider"]
+species_status_override = true
+```
 
 ---
 
@@ -281,32 +418,36 @@ run_interval_seconds  = 3600
 ```
 
 Automatic disk cleanup for `data/detections/`.  A background thread runs
-every `run_interval_seconds` and applies two passes:
+every `run_interval_seconds` and applies two passes in order:
 
-1. **Age pass** — delete clips older than `max_age_days`.
-2. **Disk pass** — if the disk is more than `max_usage_percent` full, delete
-   the oldest clips until usage drops below that threshold.
+1. **Age pass** — delete clips older than `max_age_days` (set to `0` to
+   disable).
+2. **Disk pass** — if disk usage exceeds `max_usage_percent`, delete the
+   oldest clips until usage drops below that threshold.
 
-`min_clips_per_species` protects a minimum number of clips per species from
-both passes, so rare species are not wiped by the age cutoff.
-
-Set `max_age_days = 0` to disable age-based deletion and rely on disk usage
-alone.
+`min_clips_per_species` protects at least that many clips per species from
+both passes, so rare birds are not wiped by routine cleanup.
 
 ---
 
 ### `[log]`
 
 ```toml
-enabled  = true
-path     = "data/bird_detector.log"
-level    = "INFO"
-rotation = "daily"
+enabled      = true
+path         = "data/birdid-uk.log"
+level        = "INFO"
+rotation     = "daily"
 backup_count = 7
 ```
 
-**`level`** — `"INFO"` is recommended for normal use.  Use `"DEBUG"` to see
-individual BOU/seasonal filter decisions (why a detection was suppressed).
+**`level`**
+
+| Level | Shows |
+|---|---|
+| `"INFO"` | Confirmed detections, heartbeat, startup messages |
+| `"DEBUG"` | Everything above, plus every BOU/seasonal/nocturnal filter decision |
+
+Use `"DEBUG"` temporarily when diagnosing missing detections.
 
 **`rotation`** — `"daily"` creates a new file at midnight and keeps
 `backup_count` previous files.  `"size"` rotates when the file exceeds
@@ -316,193 +457,239 @@ individual BOU/seasonal filter decisions (why a detection was suppressed).
 
 ### `[database]`
 
-The default SQLite backend requires no configuration.  For PostgreSQL see
-[Optional features](#9-optional-features).
-
----
-
-## 5. Running the detector
-
-### Single process (development / SBC)
-
-`main.py` runs the detector and dashboard together in one process — the
-simplest way to get everything running:
-
-```sh
-source venv/bin/activate
-python main.py
-```
-
-Open `http://localhost:8080` in your browser.  Stop with `Ctrl+C`; the
-detector shuts down cleanly after uvicorn exits.
-
-Options:
-
-```sh
-python main.py --host 0.0.0.0 --port 9000   # different port
-python main.py --host 127.0.0.1              # localhost only
-```
-
-### Detector only
-
-If you want to run the detector without the dashboard (e.g. headless capture):
-
-```sh
-source venv/bin/activate
-python detect.py
-```
-
-### Production — two independent systemd services
-
-The `systemd/` directory contains pre-written service files that run the
-detector and dashboard as separate services with automatic restart on crash.
-
-```sh
-# 1. Copy service files
-sudo cp systemd/birddetector-capture.service  /etc/systemd/system/
-sudo cp systemd/birddetector-dashboard.service /etc/systemd/system/
-sudo cp systemd/birddetector.target           /etc/systemd/system/
-
-# 2. Substitute your username (the account that owns the project directory)
-sudo sed -i 's/%i/<your-user>/g' \
-    /etc/systemd/system/birddetector-capture.service \
-    /etc/systemd/system/birddetector-dashboard.service
-
-# 3. Update WorkingDirectory and ExecStart paths if the project is not at
-#    /home/andy/projects/vim4/bird-detector
-
-# 4. Enable and start
-sudo systemctl daemon-reload
-sudo systemctl enable --now birddetector.target
-
-# Follow logs from both services
-journalctl -u birddetector-capture -u birddetector-dashboard -f
-```
-
-Manage both services together via the target:
-
-```sh
-sudo systemctl start birddetector.target
-sudo systemctl stop  birddetector.target
-sudo systemctl status birddetector.target
-```
-
----
-
-## 6. Running the dashboard
-
-**Quickest (detector + dashboard together):**
-
-```sh
-source venv/bin/activate
-python main.py          # open http://localhost:8080
-```
-
-**Editing the frontend (Svelte/TypeScript — hot module reload):**
-
-```sh
-# Terminal 1
-python main.py
-
-# Terminal 2 — Vite dev server; proxies /api/* to :8080
-cd dashboard/frontend
-npm run dev             # open http://localhost:5173
-```
-
-**Editing dashboard backend Python (FastAPI routes — auto-reload):**
-
-```sh
-# Terminal 1
-source venv/bin/activate
-python detect.py
-
-# Terminal 2
-uvicorn dashboard.app:app --host 0.0.0.0 --port 8080 --reload
-```
-
----
-
-## 7. Understanding the terminal output
-
-```
-INFO  Inference model: birdnet  (window: 3 s)
-INFO  BOU filter active — non-BOU species will be suppressed
-INFO  Seasonal filter enabled — out-of-season detections will be suppressed
-INFO  Nocturnal filter enabled — out-of-hours detections will be suppressed
-INFO  Cross-validation enabled — secondary model: perch …
-```
-
-Startup messages confirm which filters and models are active.
-
-During operation:
-
-```
-INFO  European Robin             0.72
-INFO  European Robin             0.81
-INFO  European Robin             CONFIRMED (2 hits, best=0.81)
-INFO  European Robin             CV AGREE  primary_bto=Robin  secondary=Robin (mean_conf=0.76)
-```
-
-| Line | Meaning |
-|---|---|
-| `0.72` | A candidate detection cleared `min_confidence`; accumulating hits |
-| `CONFIRMED` | Required `min_detections` hits reached; deferred save submitted |
-| `CV AGREE` | Secondary model confirmed the species; clip will be saved |
-| `CV DROP` | Models disagreed; detection discarded |
-| `CV FLAG` | Models disagreed; detection saved with `flagged = true` for review |
-
-At `level = "DEBUG"`, suppressed detections are also logged:
-
-```
-DEBUG Tawny Owl                        outside active hours — suppressed
-DEBUG Fieldfare                        out of season (week 28) — suppressed
-```
-
-Every ~60 windows (about 60 seconds) a heartbeat line is logged to confirm
-the loop is alive:
-
-```
-INFO  [heartbeat] window=120  top: Great Tit 0.41
-```
-
----
-
-## 8. Per-species overrides
-
-Any key from `[defaults]` can be overridden for a specific species.  The
-species name must exactly match the common name printed in the terminal.
+The default SQLite backend requires no configuration and works out of the
+box.  To use PostgreSQL or TimescaleDB instead:
 
 ```toml
-# Require higher confidence for a very common species
+[database]
+type        = "postgresql"
+host        = "localhost"
+port        = 5432
+name        = "birds"
+username    = "birdsuser"
+password    = "secret"
+timescaledb = false   # set true to create a TimescaleDB hypertable
+```
+
+Requires `psycopg2-binary` (`pip install psycopg2-binary`).
+
+> Note: the dashboard always reads from the SQLite file regardless of which
+> database backend the detector uses.
+
+---
+
+### `[deduplication]`
+
+Only relevant when multiple audio sources are configured.  With a single
+source this section has no effect.
+
+```toml
+[deduplication]
+enabled        = false
+window_seconds = 10
+on_duplicate   = "flag"
+```
+
+When enabled, if the same species is confirmed from **two different sources**
+within `window_seconds`, the second detection is treated as a duplicate of
+the same bird singing near two microphones.
+
+**`on_duplicate`**
+
+| Value | Behaviour |
+|---|---|
+| `"flag"` | Save the detection with `deduplicated = true`; hidden in the live feed by default but kept in the database for review. *(Recommended)* |
+| `"skip"` | Silently discard; no database row, no clip saved. |
+
+---
+
+### `[weather]`
+
+Attaches a weather snapshot to every saved detection.
+
+```toml
+[weather]
+enabled       = true
+provider      = "open_meteo"
+api_key       = ""
+cache_seconds = 300
+```
+
+**`provider`** options:
+
+| Provider | Cost | API key required |
+|---|---|---|
+| `"open_meteo"` | Free | No |
+| `"yr_no"` | Free | No |
+| `"openweathermap"` | Free tier | Yes — sign up at openweathermap.org |
+| `"pws"` | — | Depends on plugin |
+
+Weather data is cached for `cache_seconds` so a burst of detections
+triggers only a single upstream request.
+
+#### Personal Weather Station (PWS) plugin
+
+Set `provider = "pws"` and choose a plugin via `pws_plugin`:
+
+**Meteobridge** (Davis Vantage Vue and other stations):
+
+```toml
+[weather]
+provider   = "pws"
+pws_plugin = "meteobridge"
+
+[weather.pws_meteobridge]
+host            = "192.168.1.100"
+port            = 80
+username        = "meteobridge"
+password        = "meteobridge"
+wind_speed_unit = "ms"   # "ms" or "kmh"
+```
+
+**WeatherFlow Tempest:**
+
+```toml
+[weather]
+provider   = "pws"
+pws_plugin = "tempest"
+
+[weather.pws_tempest]
+station_id = 12345   # numeric ID from tempestwx.com
+token      = ""      # personal access token from tempestwx.com
+```
+
+---
+
+### `[mqtt]`
+
+Publishes each detection as a JSON message to an MQTT broker.
+
+```toml
+[mqtt]
+enabled  = true
+broker   = "192.168.1.100"
+port     = 1883
+topic    = "birds/detections"
+username = ""
+password = ""
+retain   = false
+```
+
+The JSON payload includes `timestamp`, `species`, `bto_name`, `confidence`,
+`source_name`, and `clip_path`.
+
+---
+
+### `[birdweather]`
+
+Forwards detections to [app.birdweather.com](https://app.birdweather.com),
+a global citizen-science network for BirdNET stations.
+
+```toml
+[birdweather]
+enabled      = true
+token        = "your-station-token"
+upload_audio = true
+```
+
+1. Register at [app.birdweather.com](https://app.birdweather.com) and create
+   a station.
+2. Copy the token from Station → Token on the station settings page.
+3. Set `upload_audio = false` to send metadata only (no audio clip).
+
+---
+
+### `[birdmap]`
+
+Forwards detections to [birdmap.co.uk](https://birdmap.co.uk), a UK
+community sightings mapping service.
+
+```toml
+[birdmap]
+enabled      = true
+api_url      = "https://birdmap.co.uk"
+api_key      = "bm_your-key-here"
+station_id   = 42
+upload_audio = true
+```
+
+Register at birdmap.co.uk to obtain your API key and station ID.
+
+---
+
+### `[cross_validation]`
+
+Re-evaluates each confirmed detection with a second model.  **Requires both
+BirdNET and Perch to be installed.**  See
+[Google Perch v2](#google-perch-v2) below for the Perch install.
+
+```toml
+[cross_validation]
+enabled           = true
+skip_threshold    = 0.90
+on_disagree       = "drop"
+cv_min_confidence = 0.01
+```
+
+When the two models agree on species, the saved confidence is the arithmetic
+mean.  When they disagree:
+
+| `on_disagree` | Behaviour |
+|---|---|
+| `"drop"` | Discard the detection (maximises precision) |
+| `"flag"` | Save with `flagged = true` for manual dashboard review |
+
+`skip_threshold` — if the primary model's confidence is at or above this
+value, cross-validation is skipped and the detection is saved immediately.
+
+`cv_min_confidence` — minimum secondary-model confidence to count as a
+candidate match.  Keep at `0.01`; Perch softmax scores are inherently much
+smaller than BirdNET logistic scores.
+
+---
+
+### Per-species overrides
+
+Any key from `[defaults]` can be overridden for a specific species.  The
+name must exactly match the common name printed in the terminal output.
+
+```toml
+# Require higher confidence for an abundant species
 [species."House Sparrow"]
 min_confidence   = 0.90
-cooldown_seconds = 90
+cooldown_seconds = 120
 
-# Save the first detection of a rare nocturnal species (skip confirmation)
+# Save the first hit for a scarce nocturnal species
 [species."Tawny Owl"]
 min_detections = 1
 
-# Flag cross-validation disagreements for manual review instead of dropping
+# Lower threshold for a scarce but regular visitor
+[species."Eurasian Skylark"]
+min_confidence = 0.40
+min_detections = 1
+
+# Review CV disagreements instead of silently dropping
 [species."Bittern"]
 min_detections = 1
 on_disagree    = "flag"
 
-# Lower the confidence threshold for a scarce summer visitor
-[species."Common Whitethroat"]
-min_confidence = 0.20
-min_detections = 1
+# Admit a vagrant that would otherwise be blocked by species_filter
+[species."King Eider"]
+min_confidence          = 0.10
+species_status_override = true
 ```
 
 Available override keys: `min_confidence`, `cooldown_seconds`,
-`min_detections`, `confirmation_window_seconds`, `on_disagree`.
+`min_detections`, `confirmation_window_seconds`, `on_disagree`,
+`species_status_override`.
 
-### Nocturnal filter per-species active-hours override
+#### Nocturnal filter: per-species active-hours override
 
-To change the active window for a specific species without editing the JSON,
-add `active_hours` to its `[species."Name"]` block.  Two formats are supported:
+To adjust an active window without editing the JSON, add `active_hours` to
+a `[species."Name"]` block:
 
 ```toml
-# Dynamic window relative to today's sunrise/sunset (recommended for owls)
+# Dynamic window: 30 min before sunset to 60 min after sunrise
 [species."Tawny Owl"]
 min_detections = 1
 active_hours   = {type = "sunset_sunrise", sunset_offset_minutes = -30, sunrise_offset_minutes = 60}
@@ -512,29 +699,246 @@ active_hours   = {type = "sunset_sunrise", sunset_offset_minutes = -30, sunrise_
 active_hours = {type = "fixed", start = "21:00", end = "04:00"}
 ```
 
-`sunset_offset_minutes` / `sunrise_offset_minutes`: negative values shift the
-window boundary earlier (e.g. `-30` = 30 minutes *before* sunset); positive
-values shift it later.
+Negative `offset_minutes` = before the event; positive = after.
 
 ---
 
-## 9. Optional features
+## 5. Running the detector
 
-### Google Perch v2 inference backend
+### Combined (detector + dashboard together)
 
-Perch v2 is a TensorFlow model trained by Google on a much larger dataset than
-BirdNET.  It uses 5-second analysis windows and may detect species BirdNET
-misses, at the cost of a larger install (~2 GB) and slower inference.
+The simplest way to start everything:
 
 ```sh
+source venv/bin/activate
+python main.py
+```
+
+Open `http://localhost:8080` (or `http://<your-pi-ip>:8080` from another
+device on the network).  Stop with `Ctrl+C`; the detector shuts down cleanly.
+
+Options:
+
+```sh
+python main.py --port 9000            # different port
+python main.py --host 127.0.0.1       # localhost only
+```
+
+### Detector only (headless capture)
+
+```sh
+source venv/bin/activate
+python detect.py
+```
+
+Use this if you want to run the detector without the dashboard, or if you
+are running them as separate systemd services.
+
+---
+
+## 6. Running as a service
+
+The `systemd/` directory contains pre-written service files.  If you used
+`bash install.sh --systemd` the services are already installed and enabled.
+
+### Manual service installation
+
+```sh
+# Copy service files
+sudo cp systemd/birddetector-capture.service  /etc/systemd/system/
+sudo cp systemd/birddetector-dashboard.service /etc/systemd/system/
+sudo cp systemd/birddetector.target            /etc/systemd/system/
+
+# Substitute your Linux username (the account that owns the project directory)
+sudo sed -i 's/%i/YOUR_USERNAME/g' \
+    /etc/systemd/system/birddetector-capture.service \
+    /etc/systemd/system/birddetector-dashboard.service
+
+# Patch install path if you did not install to /opt/birdid-uk
+sudo sed -i 's|/opt/birdid-uk|/home/YOUR_USERNAME/birdid-uk|g' \
+    /etc/systemd/system/birddetector-capture.service \
+    /etc/systemd/system/birddetector-dashboard.service
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now birddetector.target
+```
+
+### Managing services
+
+```sh
+sudo systemctl start   birddetector.target
+sudo systemctl stop    birddetector.target
+sudo systemctl restart birddetector.target
+sudo systemctl status  birddetector.target
+
+# Live logs from each service
+journalctl -u birddetector-capture   -f
+journalctl -u birddetector-dashboard -f
+journalctl -u birddetector-capture -u birddetector-dashboard -f
+```
+
+---
+
+## 7. The dashboard
+
+The dashboard is served at port 8080 by the FastAPI backend.  Access it in
+any browser on your local network:
+
+```
+http://<your-pi-ip>:8080
+```
+
+**Sections:**
+
+| Section | What it shows |
+|---|---|
+| Live feed | Detections streamed in real time via SSE.  Each card shows species, confidence, spectrogram, and audio playback. |
+| Species | Per-species stats — total detections, best confidence, BTO metadata, BoCC conservation status, Wikimedia photo. |
+| Analytics | Hourly activity heatmap, daily trends, top-10 species, BoCC breakdown charts. |
+
+The frontend is pre-built — no Node.js required.
+
+---
+
+## 8. Understanding the terminal output
+
+```
+INFO  Inference model: birdnet  (window: 3 s)
+INFO  BOU filter active — non-BOU species will be suppressed
+INFO  Seasonal filter enabled — out-of-season detections will be suppressed
+INFO  Nocturnal filter enabled — out-of-hours detections will be suppressed
+INFO  Cross-validation enabled — secondary model: perch
+```
+
+Startup messages confirm which filters and models are active.
+
+During operation:
+
+```
+INFO  European Robin             0.72
+INFO  European Robin             0.81
+INFO  European Robin             CONFIRMED  (2 hits, best=0.81)
+INFO  European Robin             CV AGREE   primary=Robin  secondary=Robin  (mean_conf=0.76)
+```
+
+| Line | Meaning |
+|---|---|
+| `0.72` | Candidate detection passed `min_confidence`; accumulating hits toward `min_detections` |
+| `CONFIRMED` | Required hit count reached; clip is being saved |
+| `CV AGREE` | Secondary model confirmed the species; clip saved with mean confidence |
+| `CV DROP` | Models disagreed on species; detection discarded |
+| `CV FLAG` | Models disagreed; saved with `flagged = true` for manual review |
+| `CV SKIP` | Primary confidence above `skip_threshold`; CV not run |
+
+With `level = "DEBUG"`, suppressed detections are also logged:
+
+```
+DEBUG Tawny Owl          outside active hours — suppressed
+DEBUG Fieldfare          out of season (week 28) — suppressed
+DEBUG Ruddy Duck         status=Introduced Breeder — suppressed by species filter
+```
+
+A heartbeat line is logged roughly every 60 seconds to confirm the loop is
+alive:
+
+```
+INFO  [heartbeat] window=120  top: Great Tit 0.41
+```
+
+---
+
+## 9. Maintenance
+
+### Log files
+
+```sh
+tail -f data/birdid-uk.log
+```
+
+Logs rotate automatically per `[log]` settings.
+
+### Audio clips
+
+Clips accumulate in `data/detections/<species>/` as FLAC files.  The
+`[retention]` background thread handles automatic purging.  To browse:
+
+```sh
+ls data/detections/
+# data/detections/European Robin/
+# data/detections/Blue Tit/
+```
+
+### Database
+
+The SQLite database is at `data/birds.db`.  To reclaim space after old clips
+have been purged:
+
+```sh
+sqlite3 data/birds.db "VACUUM;"
+```
+
+There is no migration framework.  To alter the schema use `ALTER TABLE`
+directly, or delete `data/birds.db` to start fresh (clips on disk are
+unaffected).
+
+### Regenerating the seasonal filter
+
+The bundled `filters/uk_seasonal_filter.json` is derived from GBIF Great
+Britain occurrence data.  To regenerate it after GBIF publishes new data:
+
+```sh
+source venv/bin/activate
+python scripts/build_uk_seasonal_filter.py
+```
+
+Requires internet access to download GBIF occurrence exports.
+
+---
+
+## 10. Developer setup
+
+If you want to modify the SvelteKit frontend you need Node.js 20+.
+
+```sh
+cd dashboard/frontend
+npm install
+npm run dev      # Vite dev server with HMR at http://localhost:5173
+npm run build    # production build → dist/
+npm run check    # TypeScript type-check
+```
+
+The Vite dev server proxies `/api/v1`, `/stream`, and `/audio` to
+`localhost:8080`, so the backend must be running separately:
+
+```sh
+# Terminal 1 — detector
+source venv/bin/activate
+python detect.py
+
+# Terminal 2 — dashboard API (auto-reload on Python changes)
+source venv/bin/activate
+uvicorn dashboard.app:app --host 0.0.0.0 --port 8080 --reload
+
+# Terminal 3 — frontend (auto-reload on Svelte/TS changes)
+cd dashboard/frontend
+npm run dev
+```
+
+### Google Perch v2
+
+Perch uses 5-second analysis windows and may detect species BirdNET misses,
+at the cost of a larger install (~2 GB TensorFlow) and slower inference.
+
+```sh
+source venv/bin/activate
 pip install 'perch-hoplite[tf]'
 ```
 
-Obtain Kaggle credentials (needed for the first model download only):
+Obtain Kaggle credentials (required for the first model download only):
 
-1. Go to [kaggle.com/settings](https://www.kaggle.com/settings) and create an
-   API token.
-2. Save it to `~/.config/kaggle/kaggle.json`:
+1. Go to [kaggle.com/settings](https://www.kaggle.com/settings) → API →
+   Create New Token.
+2. Save the downloaded file to `~/.config/kaggle/kaggle.json`:
    ```json
    {"username": "your-username", "key": "your-token"}
    ```
@@ -547,157 +951,8 @@ model = "perch"
 ```
 
 The model (~400 MB) downloads on first run and is cached in
-`~/.cache/kagglehub/`.  Subsequent starts load from the cache.
-
----
-
-### Dual-model cross-validation
-
-When `[cross_validation] enabled = true`, every confirmed detection from the
-primary model is re-evaluated by the secondary model (the one not selected in
-`[inference] model`).  **Both BirdNET and Perch must be installed for this to
-work.**
-
-```toml
-[cross_validation]
-enabled        = true
-skip_threshold = 0.90   # skip CV when primary confidence is very high
-on_disagree    = "drop" # "drop" or "flag"
-```
-
-When the two models agree on species, the saved confidence is the arithmetic
-mean of both scores.  When they disagree, the detection is dropped (or flagged
-for review if `on_disagree = "flag"`).  Detections above `skip_threshold` are
-saved immediately without running the secondary model.
-
-Cross-validation substantially reduces false positives.  The cost is roughly
-one additional Perch inference per confirmed detection (typically 0.5–1 s on
-a Pi 5).
-
----
-
-### MQTT
-
-Publishes each detection as a JSON message to an MQTT broker.
-
-```sh
-pip install paho-mqtt
-```
-
-```toml
-[mqtt]
-enabled  = true
-broker   = "192.168.1.100"
-port     = 1883
-topic    = "birds/detections"
-username = "user"   # leave empty if broker has no auth
-password = "pass"
-retain   = false
-```
-
-The JSON payload includes `timestamp`, `species`, `bto_name`, `confidence`,
-and `clip_path`.
-
----
-
-### birdmap.co.uk forwarding
-
-Forwards each detection to [birdmap.co.uk](https://birdmap.co.uk), a
-community mapping service for UK bird sightings.
-
-1. Register at birdmap.co.uk and create a station.
-2. Copy your API key and station ID into `config.toml`:
-
-```toml
-[birdmap]
-enabled      = true
-api_url      = "https://api.birdmap.co.uk"
-api_key      = "bm_your-key-here"
-station_id   = 42
-upload_audio = true
-```
-
-Set `upload_audio = false` to send metadata only (no WAV clip).
-
----
-
-### PostgreSQL / TimescaleDB
-
-The detector can write to PostgreSQL instead of SQLite.  Note that the
-dashboard always reads from the SQLite file — this backend is for the
-detector only.
-
-```sh
-pip install psycopg2-binary
-```
-
-```toml
-[database]
-type     = "postgresql"
-host     = "localhost"
-port     = 5432
-name     = "birds"
-username = "birdsuser"
-password = "secret"
-```
-
-For TimescaleDB, additionally set `timescaledb = true` — this runs
-`create_hypertable` on `detections.timestamp` at init time.
-
----
-
-## 10. Maintenance
-
-### Log files
-
-Log files rotate automatically per the `[log]` settings.  They are written to
-`data/bird_detector.log` by default alongside stdout.
-
-To watch the live log:
-
-```sh
-tail -f data/bird_detector.log
-```
-
-### Audio clips
-
-Clips accumulate in `data/detections/<species>/`.  The `[retention]` cleanup
-thread handles automatic purging.  To manually review or export clips:
-
-```sh
-ls data/detections/
-# data/detections/European Robin/
-# data/detections/Blue Tit/
-# ...
-```
-
-### Regenerating the seasonal filter
-
-The file `uk_seasonal_filter.json` is generated from GBIF Great Britain
-occurrence data and committed to the repo.  To regenerate it (e.g. after GBIF
-releases new data):
-
-```sh
-source venv/bin/activate
-python build_uk_seasonal_filter.py
-```
-
-This requires internet access to download GBIF occurrence exports.  Edit
-`build_uk_seasonal_filter.py` to change the species list, date range, or
-week-presence thresholds.
-
-### Database
-
-The SQLite database at `data/birds.db` grows over time.  To reclaim space
-after old clips have been cleaned up:
-
-```sh
-sqlite3 data/birds.db "VACUUM;"
-```
-
-There is no migration framework.  If you need to alter the schema, use
-`ALTER TABLE` directly or delete `data/birds.db` to start fresh (clips on
-disk are not affected).
+`~/.cache/kagglehub/`.  Enable cross-validation to use both models together
+(see [`[cross_validation]`](#cross_validation)).
 
 ---
 
@@ -705,24 +960,28 @@ disk are not affected).
 
 **No detections at all**
 
-- Check the terminal for `BirdNET inference:` lines — if inference is running
-  but nothing passes, lower `[defaults] min_confidence` to `0.3` temporarily.
+- Check the terminal for inference lines.  If nothing passes, temporarily
+  lower `min_confidence` to `0.3`.
 - Run `python -m sounddevice` and confirm the correct device index is set.
-- Try recording a short clip with `arecord -D hw:<device>,0 -d 5 test.wav` and
-  play it back to verify the microphone is picking up sound.
+- Record a short test clip to verify the microphone is working:
+  ```sh
+  arecord -D hw:1,0 -d 5 -f cd test.wav && aplay test.wav
+  ```
+  Replace `hw:1,0` with your device's ALSA identifier.
+- Check `[seasonal_filter]` is not suppressing the species.  Set
+  `level = "DEBUG"` in `[log]` to see filter decisions.
 
 **Too many false positives**
 
 - Raise `[defaults] min_confidence` (e.g. `0.75`).
 - Raise `[defaults] min_detections` to `3` or `4`.
 - Enable `[filter]` high-pass if wind or traffic noise is present.
-- Enable cross-validation (`[cross_validation] enabled = true`) — this is the
-  most effective single change for reducing false positives.
+- Enable `[cross_validation]` — this is the most effective single change for
+  reducing false positives (requires Perch).
 
 **A common species is flooding the log**
 
-Add it to the `exclude` list or use a per-species override with a high
-confidence threshold and long cooldown:
+Add it to the global `exclude` list or use a per-species override:
 
 ```toml
 [species."Common Wood-Pigeon"]
@@ -730,32 +989,42 @@ min_confidence   = 0.95
 cooldown_seconds = 300
 ```
 
-**Clips are very short / missing audio**
+**Clips are very short / missing lead-in audio**
 
-In `"window"` clip mode the clip length is `window_pad_seconds` +
-model window (3 s for BirdNET).  Increase `window_pad_seconds` to capture more
-lead-in, or switch to `clip_mode = "full"` and set `clip_seconds = 15`.
+In `"window"` clip mode the clip is `window_pad_seconds` + model window
+(3 s for BirdNET = 3.5 s total by default).  Increase `window_pad_seconds`
+to capture more, or switch to `clip_mode = "full"` with `clip_seconds = 15`.
 
-**Cross-validation drops everything**
+**Cross-validation drops almost everything**
 
-This means the secondary model (Perch or BirdNET) consistently disagrees with
-the primary.  Check:
+- Confirm both models are installed and working by temporarily switching
+  `[inference] model` to each one and watching the terminal.
+- Ensure `cv_min_confidence = 0.01` (the default).  Perch softmax scores
+  over ~10 000 classes are far smaller than BirdNET logistic scores.
+- Switch to `on_disagree = "flag"` to review disagreements in the dashboard
+  rather than discarding them.
 
-- Both models are installed and working (run each in isolation by temporarily
-  switching `[inference] model` and watching the terminal).
-- `[cross_validation] cv_min_confidence` is set to `0.01` (the default).
+**A species is suppressed as `out of season`**
 
-Alternatively, change `on_disagree = "flag"` to review disagreements in the
-dashboard rather than having them silently dropped.
+The seasonal filter uses GBIF data that may not reflect unusual arrivals or
+your specific location.  Add a seasonal override in
+`filters/uk_seasonal_filter.json` or set `[seasonal_filter] enabled = false`.
 
-**`out of season` suppressing a species that is present**
+**Dashboard shows no data / blank page**
 
-The seasonal filter uses GBIF data which may not reflect your specific garden
-or an unusually early/late arrival.  Either add per-species overrides in
-`uk_seasonal_filter.json` or set `[seasonal_filter] enabled = false`.
-
-**Dashboard shows no data**
-
+- Confirm the backend is running: `curl http://localhost:8080/healthz`
 - Confirm `data/birds.db` exists and the detector has run at least once.
-- The dashboard reads from the SQLite file path set in `[paths] db_path`.
-  Make sure the backend was started from the project root directory.
+- Ensure the backend was started from the project root directory so relative
+  paths in `[paths]` resolve correctly.
+- Check the browser console for network errors (F12 → Console).
+
+**`[deduplication]` is flagging genuine detections**
+
+Increase `window_seconds` or switch `on_duplicate = "flag"` so you can
+review them in the database rather than losing them:
+
+```toml
+[deduplication]
+window_seconds = 5    # tighten the window
+on_duplicate   = "flag"
+```
