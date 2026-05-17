@@ -39,7 +39,7 @@ import numpy as np
 
 from audio import save_wav
 from config import cfg
-from constants import HUMAN_LABELS, NOISE_LABELS
+from constants import NOISE_LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -138,48 +138,4 @@ class BirdNETModel:
         )
         return results
 
-    # ── Privacy scan ──────────────────────────────────────────────────────────
 
-    def scan_for_human(self, audio: np.ndarray) -> float:
-        """Return the highest human-label score in *audio*.
-
-        Uses the same temp-WAV + ``analyze()`` pattern as :meth:`run_inference`
-        but collects results for ``HUMAN_LABELS`` entries *without* filtering
-        them from the CSV — those rows are exactly what we want here.
-
-        Thread-safe: every call uses a fresh ``TemporaryDirectory``; no class
-        state is read or written.
-
-        Returns:
-            Maximum confidence score across all human labels found (0.0 if
-            BirdNET produced no output or no human labels appeared).
-        """
-        from birdnet_analyzer.analyze.core import analyze  # lazy import
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            wav_path = Path(tmpdir) / "clip.wav"
-            save_wav(audio, wav_path)
-
-            with redirect_stdout(io.StringIO()):
-                analyze(
-                    str(wav_path),
-                    output=tmpdir,
-                    min_conf=0.01,
-                    rtype="csv",
-                    merge_consecutive=1,
-                    threads=1,
-                )
-
-            csv_path = Path(tmpdir) / "clip.BirdNET.results.csv"
-            if not csv_path.exists():
-                return 0.0
-
-            max_score = 0.0
-            with open(csv_path) as fh:
-                for row in csv.DictReader(fh):
-                    common = row["Common name"].strip()
-                    if common.lower() in HUMAN_LABELS:
-                        max_score = max(max_score, float(row["Confidence"]))
-
-        logger.debug("BirdNET human scan: max_score=%.4f", max_score)
-        return max_score

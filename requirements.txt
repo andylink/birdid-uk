@@ -6,6 +6,7 @@ scipy
 sqlalchemy
 astral>=3.2
 paho-mqtt
+silero-vad          # neural VAD for privacy filter (clip-level human speech detection)
 
 # ── Dashboard dependencies ─────────────────────────────────────────────────────
 fastapi>=0.111.0

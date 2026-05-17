@@ -314,27 +314,31 @@ class WeatherConfig:
 
 @dataclass(frozen=True)
 class PrivacyFilterConfig:
-    """Controls clip-level human-sound detection and suppression.
+    """Controls clip-level human-speech detection and suppression.
 
-    When *enabled* is ``True``, each confirmed detection clip is re-evaluated
-    by the active inference model before being saved.  If the highest
-    human-label score meets or exceeds the model-appropriate threshold the
-    clip is silently discarded (no DB row, no FLAC, no publish).
+    When *enabled* is ``True``, each confirmed detection clip is scanned by
+    silero-vad (a lightweight neural VAD) before being saved.  If the fraction
+    of the clip classified as voiced speech meets or exceeds
+    *min_voiced_fraction* the clip is silently discarded (no DB row, no FLAC,
+    no publish).
 
-    Separate thresholds are provided because the two backends produce scores
-    on different scales:
+    silero-vad correctly ignores bird song; the same Robin clip that scored
+    100% voiced with WebRTC VAD scores 0.0% here, while a clip containing
+    audible human speech scores ~30%.
 
-    * ``birdnet_threshold`` — BirdNET logistic scores in ``[0, 1]``.
-      Typical audible-voice range is 0.03–0.20; ``0.05`` is a reasonable
-      starting point.
+    * ``threshold`` — per-frame speech probability cutoff passed to
+      silero-vad's ``get_speech_timestamps``.  ``0.5`` is the recommended
+      default.
 
-    * ``perch_threshold`` — Perch v2 softmax probabilities over ~10 k classes.
-      Values are structurally much smaller; ``0.01`` works well for an
-      audible voice.
+    * ``min_voiced_fraction`` — fraction of the clip (0–1) that must be
+      classified as voiced before the clip is dropped.  ``0.10`` (10%) means
+      any clip where at least 10% of frames contain human speech is dropped.
+      Lower values are more aggressive; higher values require a longer or
+      louder voice segment to trigger a drop.
     """
-    enabled:           bool
-    birdnet_threshold: float   # BirdNET logistic score in [0, 1]
-    perch_threshold:   float   # Perch softmax probability (much smaller scale)
+    enabled:            bool
+    threshold:          float  # silero-vad per-frame probability cutoff [0, 1]
+    min_voiced_fraction: float  # fraction of clip that must be voiced to drop
 
 
 @dataclass(frozen=True)
@@ -605,9 +609,9 @@ def _load() -> Config:
 
     pf = raw.get("privacy_filter", {})
     privacy_filter_cfg = PrivacyFilterConfig(
-        enabled           = bool(pf.get("enabled",           False)),
-        birdnet_threshold = float(pf.get("birdnet_threshold", 0.05)),
-        perch_threshold   = float(pf.get("perch_threshold",   0.01)),
+        enabled             = bool(pf.get("enabled",             False)),
+        threshold           = float(pf.get("threshold",           0.5)),
+        min_voiced_fraction = float(pf.get("min_voiced_fraction", 0.10)),
     )
 
     w  = raw.get("weather", {})

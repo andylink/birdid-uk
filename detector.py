@@ -688,13 +688,12 @@ def main() -> None:
     # ── Privacy filter setup ──────────────────────────────────────────────────
     global _privacy_filter
     if cfg.privacy_filter.enabled:
-        _privacy_filter = PrivacyFilter(cfg.privacy_filter, model, cfg.inference.model)
+        _privacy_filter = PrivacyFilter(cfg.privacy_filter, cfg.audio.sample_rate)
         logger.info(
-            "Privacy filter enabled — clips with human sounds will be dropped "
-            "(model=%s  birdnet_threshold=%.4f  perch_threshold=%.4f)",
-            cfg.inference.model,
-            cfg.privacy_filter.birdnet_threshold,
-            cfg.privacy_filter.perch_threshold,
+            "Privacy filter enabled — clips with human speech will be dropped "
+            "(threshold=%.2f  min_voiced_fraction=%.2f)",
+            cfg.privacy_filter.threshold,
+            cfg.privacy_filter.min_voiced_fraction,
         )
     else:
         logger.info("Privacy filter disabled")

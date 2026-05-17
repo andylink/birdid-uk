@@ -74,27 +74,6 @@ class Inferencer(Protocol):
         """
         ...
 
-    def scan_for_human(self, audio: np.ndarray) -> float:
-        """Return the highest human-label score detected in *audio*.
-
-        Scans the audio for voices, speech, coughs and other human sounds
-        defined in ``constants.HUMAN_LABELS``.  Used by the privacy filter
-        (:class:`filters.privacy_filter.PrivacyFilter`) to decide whether a
-        confirmed detection clip should be dropped before saving.
-
-        Args:
-            audio: PCM array at ``cfg.audio.sample_rate`` (same contract as
-                :meth:`run_inference`).
-
-        Returns:
-            A non-negative score: 0.0 if no human label exceeded the model's
-            raw floor, otherwise the maximum score seen across all human
-            labels.  Scale depends on the backend — BirdNET logistic scores
-            are in ``[0, 1]``; Perch softmax probabilities over ~10 k classes
-            are structurally much smaller (typically ``0.001–0.05`` for a
-            clearly audible voice).
-        """
-        ...
 
 
 # ── Singletons ────────────────────────────────────────────────────────────────

@@ -63,7 +63,7 @@ from pathlib import Path
 import numpy as np
 
 from config import cfg
-from constants import HUMAN_LABELS, NOISE_LABELS
+from constants import NOISE_LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -412,93 +412,4 @@ class PerchModel:
         )
         return results
 
-    # ── Privacy scan ──────────────────────────────────────────────────────────
 
-    def scan_for_human(self, audio: np.ndarray) -> float:
-        """Return the highest human-label probability in *audio*.
-
-        Resamples and pads *audio* to one 5-second Perch window, runs
-        ``model.embed()``, applies softmax, then returns the maximum
-        probability across all class indices whose scientific name is in
-        ``constants.HUMAN_LABELS`` (Perch FSD50K class names such as
-        ``"speech"``, ``"cough"``, etc.).
-
-        Thread-safe: reads only ``self._model`` and ``self._classes``, both of
-        which are set once by :meth:`_ensure_maps` / :meth:`_ensure_model` and
-        never modified afterwards.
-
-        Returns:
-            Maximum softmax probability for human-related classes.  0.0 if the
-            model is not loaded, the class list is empty, or no human class
-            exceeded the raw probability floor.  Values are structurally much
-            smaller than BirdNET logistic scores — a clearly audible voice
-            typically produces 0.005–0.05.
-        """
-        from scipy.signal import resample_poly  # type: ignore[import]
-
-        self._ensure_maps()
-        self._ensure_model()
-
-        if not self._classes:
-            logger.warning("Perch: class list empty — cannot run human scan")
-            return 0.0
-
-        # ── Same audio pre-processing as run_inference() ─────────────────────
-        if audio.dtype == np.int16:
-            audio_f = audio.astype(np.float32) / 32768.0
-        else:
-            audio_f = audio.astype(np.float32)
-
-        src_rate = cfg.audio.sample_rate
-        if src_rate != _PERCH_SAMPLE_RATE:
-            g    = gcd(src_rate, _PERCH_SAMPLE_RATE)
-            up   = _PERCH_SAMPLE_RATE // g
-            down = src_rate // g
-            audio_f = resample_poly(audio_f, up, down).astype(np.float32)
-
-        expected_samples = int(_PERCH_WINDOW_SECONDS * _PERCH_SAMPLE_RATE)
-        if len(audio_f) < expected_samples:
-            audio_f = np.pad(audio_f, (0, expected_samples - len(audio_f)))
-        else:
-            audio_f = audio_f[:expected_samples]
-
-        # ── Run the model ─────────────────────────────────────────────────────
-        try:
-            outputs = self._model.embed(audio_f)  # type: ignore[union-attr]
-        except Exception:
-            logger.exception("Perch human scan: embed() error")
-            return 0.0
-
-        logits_dict = outputs.logits
-        if not logits_dict:
-            return 0.0
-
-        primary_key = (
-            "label"
-            if "label" in logits_dict
-            else next(iter(logits_dict))
-        )
-        logits: np.ndarray = np.array(logits_dict[primary_key])
-        if logits.ndim > 1:
-            logits = logits.mean(axis=0)
-        logits = logits.flatten()
-
-        if len(logits) != len(self._classes):
-            logger.warning(
-                "Perch human scan: class count mismatch (%d classes vs %d logits)",
-                len(self._classes), len(logits),
-            )
-            return 0.0
-
-        # ── Softmax ───────────────────────────────────────────────────────────
-        shifted = logits - logits.max()
-        probs   = np.exp(shifted) / np.exp(shifted).sum()
-
-        # ── Find human-label probabilities ────────────────────────────────────
-        max_score = 0.0
-        for i, sci_name in enumerate(self._classes):
-            if sci_name.lower() in HUMAN_LABELS:
-                max_score = max(max_score, float(probs[i]))
-
-        logger.debug("Perch human scan: max_score=%.6f", max_score)
-        return max_score
