@@ -1,0 +1,14 @@
+# Files marked export-ignore are excluded from `git archive` and therefore
+# never appear in the public distribution repo (andylink/birdid-uk).
+# They remain fully tracked in this dev repo.
+
+# Dev-only tooling
+publish.sh              export-ignore
+.github/                export-ignore
+
+# Dev-only documentation
+docs/PUBLISHING.md      export-ignore
+
+# Dev environment
+.env                    export-ignore
+pytest.ini              export-ignore
