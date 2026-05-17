@@ -1,2 +1,0 @@
-- mobile views
-- migrant tracking using species_info?
