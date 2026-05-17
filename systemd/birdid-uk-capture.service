@@ -1,17 +1,20 @@
-# birddetector-capture.service — real-time audio capture and BirdNET inference
+# birdid-uk-capture.service — real-time audio capture and BirdNET inference
 #
 # Installed automatically by install.sh --systemd.
 # Manual install:
-#   sudo cp systemd/birddetector-capture.service /etc/systemd/system/
+#   sudo cp systemd/birdid-uk-capture.service /etc/systemd/system/
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now birddetector-capture.service
+#   sudo systemctl enable --now birdid-uk-capture.service
 #
 # Paths are patched by install.sh — do not edit /opt/birdid-uk directly.
 
 [Unit]
 Description=BirdID-UK — audio capture and inference
 After=network.target sound.target
-PartOf=birddetector.target
+PartOf=birdid-uk.target
+# Give the audio device a moment to settle after a crash before retrying.
+StartLimitIntervalSec=120
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -20,13 +23,9 @@ ExecStart=/opt/birdid-uk/venv/bin/python detect.py
 Restart=on-failure
 RestartSec=10
 
-# Give the audio device a moment to settle after a crash before retrying.
-StartLimitIntervalSec=120
-StartLimitBurst=5
-
 # Run as the deploying user so it can access the audio device and write to
 # data/.  Replace with a dedicated service account if desired.
-User=%i
+User=BIRDID_USER
 
 # Allow real-time audio scheduling (useful on RPi with low-latency kernels).
 AmbientCapabilities=CAP_SYS_NICE
@@ -34,7 +33,7 @@ NoNewPrivileges=true
 
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=birddetector-capture
+SyslogIdentifier=birdid-uk-capture
 
 [Install]
-WantedBy=birddetector.target
+WantedBy=birdid-uk.target

@@ -1,0 +1,27 @@
+# birdid-uk.target — convenience target that manages both services together
+#
+# Install:
+#   sudo cp systemd/birdid-uk.target /etc/systemd/system/
+#   sudo cp systemd/birdid-uk-capture.service /etc/systemd/system/
+#   sudo cp systemd/birdid-uk-dashboard.service /etc/systemd/system/
+#
+#   # Replace <user> with the account that owns the project directory:
+#   sudo sed -i 's/%i/<user>/g' \
+#       /etc/systemd/system/birdid-uk-capture.service \
+#       /etc/systemd/system/birdid-uk-dashboard.service
+#
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now birdid-uk.target
+#
+# Once installed, manage both services with:
+#   sudo systemctl start birdid-uk.target
+#   sudo systemctl stop  birdid-uk.target
+#   journalctl -u birdid-uk-capture -u birdid-uk-dashboard -f
+
+[Unit]
+Description=Bird Detector (capture + dashboard)
+Wants=birdid-uk-capture.service birdid-uk-dashboard.service
+After=birdid-uk-capture.service birdid-uk-dashboard.service
+
+[Install]
+WantedBy=multi-user.target

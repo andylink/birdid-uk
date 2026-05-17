@@ -1,17 +1,19 @@
-# birddetector-dashboard.service — FastAPI dashboard + SvelteKit frontend
+# birdid-uk-dashboard.service — FastAPI dashboard + SvelteKit frontend
 #
 # Installed automatically by install.sh --systemd.
 # Manual install:
-#   sudo cp systemd/birddetector-dashboard.service /etc/systemd/system/
+#   sudo cp systemd/birdid-uk-dashboard.service /etc/systemd/system/
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now birddetector-dashboard.service
+#   sudo systemctl enable --now birdid-uk-dashboard.service
 #
 # Paths are patched by install.sh — do not edit /opt/birdid-uk directly.
 
 [Unit]
 Description=BirdID-UK — FastAPI dashboard
-After=network.target birddetector-capture.service
-PartOf=birddetector.target
+After=network.target birdid-uk-capture.service
+PartOf=birdid-uk.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -23,16 +25,13 @@ ExecStart=/opt/birdid-uk/venv/bin/uvicorn \
 Restart=on-failure
 RestartSec=5
 
-StartLimitIntervalSec=60
-StartLimitBurst=5
-
-User=%i
+User=BIRDID_USER
 
 NoNewPrivileges=true
 
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=birddetector-dashboard
+SyslogIdentifier=birdid-uk-dashboard
 
 [Install]
-WantedBy=birddetector.target
+WantedBy=birdid-uk.target

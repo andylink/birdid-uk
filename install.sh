@@ -200,9 +200,9 @@ if [[ "$INSTALL_SYSTEMD" == "true" ]]; then
 
     UNIT_DIR="/etc/systemd/system"
     SERVICE_FILES=(
-        "$REPO_ROOT/systemd/birddetector.target"
-        "$REPO_ROOT/systemd/birddetector-capture.service"
-        "$REPO_ROOT/systemd/birddetector-dashboard.service"
+        "$REPO_ROOT/systemd/birdid-uk.target"
+        "$REPO_ROOT/systemd/birdid-uk-capture.service"
+        "$REPO_ROOT/systemd/birdid-uk-dashboard.service"
     )
 
     TMP_SYSTEMD=$(mktemp -d)
@@ -210,15 +210,17 @@ if [[ "$INSTALL_SYSTEMD" == "true" ]]; then
 
     for f in "${SERVICE_FILES[@]}"; do
         fname="$(basename "$f")"
-        sed "s|/opt/birdid-uk|$REPO_ROOT|g" "$f" > "$TMP_SYSTEMD/$fname"
+        sed -e "s|/opt/birdid-uk|$REPO_ROOT|g" \
+            -e "s|BIRDID_USER|$(whoami)|g" \
+            "$f" > "$TMP_SYSTEMD/$fname"
     done
 
     sudo cp "$TMP_SYSTEMD/"* "$UNIT_DIR/"
     sudo systemctl daemon-reload
-    sudo systemctl enable birddetector.target
+    sudo systemctl enable birdid-uk.target
     info "Systemd services installed and enabled."
-    info "Start with:  sudo systemctl start birddetector.target"
-    info "Logs:        journalctl -u birddetector-capture -f"
+    info "Start with:  sudo systemctl start birdid-uk.target"
+    info "Logs:        journalctl -u birdid-uk-capture -f"
 fi
 
 # ── Setup wizard ──────────────────────────────────────────────────────────────

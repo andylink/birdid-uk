@@ -784,36 +784,36 @@ The `systemd/` directory contains pre-written service files.  If you used
 
 ```sh
 # Copy service files
-sudo cp systemd/birddetector-capture.service  /etc/systemd/system/
-sudo cp systemd/birddetector-dashboard.service /etc/systemd/system/
-sudo cp systemd/birddetector.target            /etc/systemd/system/
+sudo cp systemd/birdid-uk-capture.service  /etc/systemd/system/
+sudo cp systemd/birdid-uk-dashboard.service /etc/systemd/system/
+sudo cp systemd/birdid-uk.target            /etc/systemd/system/
 
 # Substitute your Linux username (the account that owns the project directory)
 sudo sed -i 's/%i/YOUR_USERNAME/g' \
-    /etc/systemd/system/birddetector-capture.service \
-    /etc/systemd/system/birddetector-dashboard.service
+    /etc/systemd/system/birdid-uk-capture.service \
+    /etc/systemd/system/birdid-uk-dashboard.service
 
 # Patch install path if you did not install to /opt/birdid-uk
 sudo sed -i 's|/opt/birdid-uk|/home/YOUR_USERNAME/birdid-uk|g' \
-    /etc/systemd/system/birddetector-capture.service \
-    /etc/systemd/system/birddetector-dashboard.service
+    /etc/systemd/system/birdid-uk-capture.service \
+    /etc/systemd/system/birdid-uk-dashboard.service
 
 sudo systemctl daemon-reload
-sudo systemctl enable --now birddetector.target
+sudo systemctl enable --now birdid-uk.target
 ```
 
 ### Managing services
 
 ```sh
-sudo systemctl start   birddetector.target
-sudo systemctl stop    birddetector.target
-sudo systemctl restart birddetector.target
-sudo systemctl status  birddetector.target
+sudo systemctl start   birdid-uk.target
+sudo systemctl stop    birdid-uk.target
+sudo systemctl restart birdid-uk.target
+sudo systemctl status  birdid-uk.target
 
 # Live logs from each service
-journalctl -u birddetector-capture   -f
-journalctl -u birddetector-dashboard -f
-journalctl -u birddetector-capture -u birddetector-dashboard -f
+journalctl -u birdid-uk-capture   -f
+journalctl -u birdid-uk-dashboard -f
+journalctl -u birdid-uk-capture -u birdid-uk-dashboard -f
 ```
 
 ---
