@@ -113,6 +113,12 @@ rsync -a --delete --exclude='.git' "$SNAPSHOT/" "$PUBLIC_CLONE/"
 
 cd "$PUBLIC_CLONE"
 
+# Carry the dev repo's identity into the temp clone
+GIT_AUTHOR_NAME="$(git -C "$REPO_ROOT" config user.name 2>/dev/null || git config --global user.name 2>/dev/null || echo 'BirdID Publisher')"
+GIT_AUTHOR_EMAIL="$(git -C "$REPO_ROOT" config user.email 2>/dev/null || git config --global user.email 2>/dev/null || echo 'publish@birdid-uk')"
+git config user.name  "$GIT_AUTHOR_NAME"
+git config user.email "$GIT_AUTHOR_EMAIL"
+
 if git diff --staged --quiet && git diff --quiet && [[ -z "$(git status --short)" ]]; then
     warn "Nothing changed — public repo is already up to date."
     exit 0
