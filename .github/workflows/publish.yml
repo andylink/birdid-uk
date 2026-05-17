@@ -1,0 +1,96 @@
+name: Publish release
+
+# Triggered when a version tag (e.g. v1.2.3) is pushed to the dev repo.
+# Builds the SvelteKit frontend, creates a clean snapshot of all source,
+# and pushes it to the public distribution repo (andylink/birdid-uk).
+#
+# Required secret:
+#   PUBLISH_TOKEN — a GitHub Personal Access Token (classic) with
+#                   "Contents: Read and Write" scope on andylink/birdid-uk.
+#   Create one at: https://github.com/settings/tokens
+#   Add it at:     Settings → Secrets and variables → Actions → New repository secret
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout dev repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so git archive works correctly
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: dashboard/frontend/package-lock.json
+
+      - name: Build SvelteKit frontend
+        working-directory: dashboard/frontend
+        run: |
+          npm ci --silent
+          npm run build
+
+      - name: Create snapshot
+        run: |
+          SNAPSHOT="${RUNNER_TEMP}/snapshot"
+          mkdir -p "$SNAPSHOT"
+
+          # All tracked source files (Python, Svelte source, configs, scripts…)
+          git archive HEAD | tar -x -C "$SNAPSHOT"
+
+          # Inject the freshly-built dist/ (gitignored in the dev repo)
+          mkdir -p "$SNAPSHOT/dashboard/frontend/dist"
+          cp -r dashboard/frontend/dist/. "$SNAPSHOT/dashboard/frontend/dist/"
+
+          # Never publish personal config
+          rm -f "$SNAPSHOT/config.toml"
+
+          echo "SNAPSHOT=$SNAPSHOT" >> "$GITHUB_ENV"
+
+      - name: Push to public repo
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          PUBLIC_CLONE="${RUNNER_TEMP}/public"
+          git clone --quiet \
+            "https://x-access-token:${PUBLISH_TOKEN}@github.com/andylink/birdid-uk.git" \
+            "$PUBLIC_CLONE"
+
+          # Mirror snapshot into the cloned public repo
+          rsync -a --delete --exclude='.git' "$SNAPSHOT/" "$PUBLIC_CLONE/"
+
+          cd "$PUBLIC_CLONE"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if git diff --staged --quiet; then
+            echo "Nothing changed — public repo already up to date."
+            exit 0
+          fi
+
+          COMMIT_MSG="Publish ${TAG} ($(date -u +%Y-%m-%dT%H:%MZ))"
+          git commit -q -m "$COMMIT_MSG"
+          git push origin main -q
+          echo "Published: $COMMIT_MSG"
+
+      - name: Create GitHub release on public repo
+        env:
+          GH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --repo andylink/birdid-uk \
+            --title "$TAG" \
+            --generate-notes \
+            --verify-tag

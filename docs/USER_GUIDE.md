@@ -71,7 +71,19 @@ and analytics.
 
 ## 2. Installation
 
-### Clone and run the installer
+### One-line install (recommended)
+
+On a fresh machine with `curl` and `git` available:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/andylink/birdid-uk/main/install.sh | bash
+```
+
+This clones the repository (you choose the location), installs all
+dependencies, and immediately launches the interactive setup wizard to
+configure your microphone and location.
+
+### Manual install from a cloned repo
 
 ```sh
 git clone https://github.com/andylink/birdid-uk.git
@@ -79,32 +91,59 @@ cd birdid-uk
 bash install.sh
 ```
 
-The installer:
+### What the installer does
 
 1. Installs system packages (`portaudio19-dev`, `ffmpeg`, etc.) via `apt-get`
 2. Creates a Python virtual environment at `venv/`
 3. Installs all Python dependencies (this may take several minutes on a Pi)
 4. Creates `data/detections/` and `data/species_images/`
 5. Copies `config.toml.example` → `config.toml` if none exists
+6. Offers to run the **setup wizard** (see below)
 
 > **Raspberry Pi note:** `birdnet-analyzer` includes a compiled C extension.
 > On a Pi 4 the first install typically takes 3–5 minutes.
 
-### Optional: install as a background service
+### Setup wizard
+
+The wizard runs automatically at the end of the install (or any time later):
+
+```sh
+source venv/bin/activate
+python scripts/setup_wizard.py
+```
+
+It walks through five steps:
+
+1. **Station details** — name and timezone
+2. **Location** — latitude/longitude for sunrise/sunset calculations
+3. **Microphone selection** — lists all input devices in a numbered table
+4. **Microphone test** — records 3 seconds, shows a live dBFS level bar,
+   and optionally plays the recording back so you can verify audio quality
+5. **Background service** — optionally installs the systemd units
+
+### Optional: install as a background service only
 
 ```sh
 bash install.sh --systemd
 ```
 
-This additionally installs and enables the systemd services so the detector
-starts automatically at boot.  See [Running as a service](#6-running-as-a-service)
+Installs and enables the systemd services so the detector starts
+automatically at boot.  See [Running as a service](#6-running-as-a-service)
 for details.
+
+### Non-interactive / scripted install
+
+```sh
+bash install.sh --no-configure          # install only, skip wizard prompt
+bash install.sh --systemd --no-configure  # install + systemd, no wizard
+```
 
 ---
 
 ## 3. Find your audio device
 
-List available audio devices to find the index number for your microphone:
+The [setup wizard](#setup-wizard) handles microphone selection interactively.
+To list devices manually at any time:
 
 ```sh
 source venv/bin/activate
