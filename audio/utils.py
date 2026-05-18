@@ -70,7 +70,12 @@ def apply_highpass(
 
 # ── Clip saving ───────────────────────────────────────────────────────────────
 
-def save_clip(audio: np.ndarray, ts: datetime, species: str) -> Path:
+def save_clip(
+    audio:       np.ndarray,
+    ts:          datetime,
+    species:     str,
+    source_name: str | None = None,
+) -> Path:
     """
     Save a normalised FLAC clip to the detections directory.
 
@@ -78,10 +83,29 @@ def save_clip(audio: np.ndarray, ts: datetime, species: str) -> Path:
     regardless of the microphone gain.  The raw audio passed to inference
     is never modified.
 
+    Args:
+        audio:       1-D int16 PCM array to save.
+        ts:          Timestamp of the detection (used in the filename).
+        species:     Primary model common name (used in the filename).
+        source_name: Optional source identifier inserted between the timestamp
+                     and species components of the filename.  Supplied in
+                     multi-source mode so clips from different microphones can
+                     be distinguished at a glance, e.g.
+                     ``20260518_143000_garden_north_European_Robin.flac``.
+                     ``None`` (default) keeps the legacy naming:
+                     ``20260518_143000_European_Robin.flac``.
+
     Returns the path of the saved file.
     """
     cfg.paths.detections_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"{ts.strftime('%Y%m%d_%H%M%S')}_{safe_name(species)}.flac"
+    if source_name:
+        filename = (
+            f"{ts.strftime('%Y%m%d_%H%M%S')}"
+            f"_{safe_name(source_name)}"
+            f"_{safe_name(species)}.flac"
+        )
+    else:
+        filename = f"{ts.strftime('%Y%m%d_%H%M%S')}_{safe_name(species)}.flac"
     path = cfg.paths.detections_dir / filename
 
     peak = int(np.abs(audio).max())

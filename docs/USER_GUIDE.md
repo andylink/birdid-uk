@@ -29,7 +29,7 @@ and analytics.
    - [retention](#retention)
    - [log](#log)
    - [database](#database)
-   - [deduplication](#deduplication)
+    - [deduplication](#deduplication)
    - [weather](#weather)
    - [mqtt](#mqtt)
    - [birdweather](#birdweather)

@@ -144,12 +144,28 @@ class PerchModel:
                 "See: https://www.kaggle.com/docs/api#authentication"
             ) from exc
 
+        # perch_hoplite calls tf.test.gpu_device_name() → list_local_devices()
+        # which throws RuntimeError when CUDA libraries are present but cannot
+        # fully load (broken driver, incompatible version, systemd sandbox).
+        # Setting CUDA_VISIBLE_DEVICES="" before that call prevents TF from
+        # probing CUDA at all; Perch runs fine on CPU for real-time inference.
+        import os
+        os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
+
         logger.info(
             "Loading Perch v2 model — first run downloads ~400 MB from Kaggle "
             "(cached in ~/.cache/kagglehub/ afterwards)…"
         )
         self._deduplicate_ebird_csv()
-        self._model = model_configs.load_model_by_name("perch_v2")
+        try:
+            self._model = model_configs.load_model_by_name("perch_v2")
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"Failed to load Perch v2 model: {exc}\n"
+                "If this is a CUDA error, ensure CUDA_VISIBLE_DEVICES='' is set "
+                "in the process environment (or add Environment=CUDA_VISIBLE_DEVICES= "
+                "to the systemd unit) to force CPU-only inference."
+            ) from exc
         logger.info("Perch v2 model ready.")
 
     def _get_model_dir(self) -> Path | None:

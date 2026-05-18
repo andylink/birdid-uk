@@ -13,6 +13,13 @@ the ``[audio.rtsp]`` subsection::
     reconnect_delay_seconds = 5
     ffmpeg_path             = "ffmpeg"
 
+Multi-source usage
+------------------
+When instantiated with an :class:`~config.AudioSourceConfig` (multi-source mode),
+the RTSP settings (url, transport, reconnect_delay_seconds, ffmpeg_path) are
+taken from that config rather than from ``[audio.rtsp]``, allowing each source
+to point at a different network stream.
+
 How it works
 ------------
 ``RtspSource.__init__()`` immediately launches an ``ffmpeg`` subprocess that:
@@ -45,10 +52,14 @@ from __future__ import annotations
 import logging
 import subprocess
 import time
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from config import cfg
+
+if TYPE_CHECKING:
+    from config import AudioSourceConfig
 
 logger = logging.getLogger(__name__)
 
@@ -59,16 +70,35 @@ class RtspSource:
     The subprocess is started on construction and restarted automatically
     whenever the stream drops.  ``read_chunk()`` blocks until one hop of
     PCM audio has been received from the pipe.
+
+    Args:
+        source_config: Per-source config from a ``[[audio.sources]]`` block.
+            When ``None`` (legacy mode), RTSP settings are read from
+            ``cfg.audio.rtsp``.
     """
 
-    def __init__(self) -> None:
-        self._hop_samples  = cfg.audio.sample_rate * cfg.audio.hop_seconds
-        self._chunk_bytes  = self._hop_samples * 2   # 2 bytes per int16 sample
+    def __init__(self, source_config: AudioSourceConfig | None = None) -> None:
+        self._hop_samples = cfg.audio.sample_rate * cfg.audio.hop_seconds
+        self._chunk_bytes = self._hop_samples * 2   # 2 bytes per int16 sample
+
+        if source_config is not None:
+            self._url             = source_config.url
+            self._transport       = source_config.transport
+            self._reconnect_delay = source_config.reconnect_delay_seconds
+            self._ffmpeg_path     = source_config.ffmpeg_path
+            self._name            = source_config.name
+        else:
+            rtsp = cfg.audio.rtsp
+            self._url             = rtsp.url
+            self._transport       = rtsp.transport
+            self._reconnect_delay = rtsp.reconnect_delay_seconds
+            self._ffmpeg_path     = rtsp.ffmpeg_path
+            self._name            = "rtsp"
+
         self._proc: subprocess.Popen | None = None
         logger.info(
-            "[audio] RTSP source — url=%s transport=%s",
-            cfg.audio.rtsp.url,
-            cfg.audio.rtsp.transport,
+            "[audio] RTSP source '%s' — url=%s transport=%s",
+            self._name, self._url, self._transport,
         )
         self._launch()
 
@@ -102,12 +132,16 @@ class RtspSource:
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _build_command(self) -> list[str]:
-        rtsp = cfg.audio.rtsp
         return [
-            rtsp.ffmpeg_path,
+            self._ffmpeg_path,
             # Input / transport
-            "-rtsp_transport", rtsp.transport,
-            "-i",              rtsp.url,
+            "-rtsp_transport", self._transport,
+            # Socket-level timeout (microseconds): fail fast if the host is
+            # silently unreachable instead of blocking forever.  10 s gives
+            # enough time for slow/congested networks while preventing the
+            # recording thread from hanging indefinitely on a bad IP/port.
+            "-timeout",        "10000000",
+            "-i",              self._url,
             # Output: raw signed 16-bit LE PCM, mono, target sample rate
             "-acodec", "pcm_s16le",
             "-ar",     str(cfg.audio.sample_rate),
@@ -122,7 +156,7 @@ class RtspSource:
     def _launch(self) -> None:
         """Start the FFmpeg subprocess.  Raises RuntimeError if the binary is missing."""
         cmd = self._build_command()
-        logger.debug("[audio/rtsp] launching: %s", " ".join(cmd))
+        logger.debug("[audio/rtsp '%s'] launching: %s", self._name, " ".join(cmd))
         try:
             self._proc = subprocess.Popen(
                 cmd,
@@ -132,8 +166,10 @@ class RtspSource:
             )
         except FileNotFoundError:
             raise RuntimeError(
-                f"[audio/rtsp] ffmpeg binary not found at {cfg.audio.rtsp.ffmpeg_path!r}. "
-                "Install ffmpeg or set [audio.rtsp] ffmpeg_path in config.toml."
+                f"[audio/rtsp '{self._name}'] ffmpeg binary not found at "
+                f"{self._ffmpeg_path!r}. "
+                "Install ffmpeg or set ffmpeg_path in the [[audio.sources]] block "
+                "(or [audio.rtsp] in legacy mode)."
             )
 
     def _kill(self) -> None:
@@ -151,14 +187,12 @@ class RtspSource:
 
     def _reconnect(self) -> None:
         """Tear down the current process and relaunch after a short delay."""
-        delay = cfg.audio.rtsp.reconnect_delay_seconds
         logger.warning(
-            "[audio/rtsp] stream dropped — reconnecting in %ds (url=%s)",
-            delay,
-            cfg.audio.rtsp.url,
+            "[audio/rtsp '%s'] stream dropped — reconnecting in %ds (url=%s)",
+            self._name, self._reconnect_delay, self._url,
         )
         self._kill()
-        time.sleep(delay)
+        time.sleep(self._reconnect_delay)
         self._launch()
 
     def _read_exact(self, n: int) -> bytes | None:

@@ -14,7 +14,9 @@ Payload schema
 {
     "timestamp":  "2026-05-07T16:20:59",   // ISO-8601 to the second
     "species":    "European Robin",         // top-confidence species
+    "bto_name":   "Robin",                 // BTO British name (null if unknown)
     "confidence": 0.9211,                  // rounded to 4 dp
+    "source_name": "garden-north",         // audio source name (null in single-source mode)
     "clip_path":  "data/detections/...",
     "secondary":  [                         // additional candidates (may be empty)
         {"species": "Song Thrush", "confidence": 0.4503}
@@ -101,6 +103,8 @@ def publish_detection(
     confidence: float,
     clip_path: Path,
     secondary: list[tuple[str, float]],
+    bto_name: str | None = None,
+    source_name: str | None = None,
 ) -> None:
     """
     Publish one detection event as JSON to ``cfg.mqtt.topic``.
@@ -113,10 +117,12 @@ def publish_detection(
         return
 
     payload = json.dumps({
-        "timestamp":  ts.isoformat(timespec="seconds"),
-        "species":    species,
-        "confidence": round(confidence, 4),
-        "clip_path":  str(clip_path),
+        "timestamp":   ts.isoformat(timespec="seconds"),
+        "species":     species,
+        "bto_name":    bto_name,
+        "confidence":  round(confidence, 4),
+        "source_name": source_name,
+        "clip_path":   str(clip_path),
         "secondary": [
             {"species": s, "confidence": round(c, 4)}
             for s, c in secondary

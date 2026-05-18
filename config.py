@@ -39,6 +39,45 @@ class PathsConfig:
 
 
 @dataclass(frozen=True)
+class AudioSourceConfig:
+    """Configuration for one source in a ``[[audio.sources]]`` multi-source block.
+
+    Used when the config file contains an array of source tables instead of a
+    single ``source = "..."`` line.  Each block runs its own independent
+    recording thread and classify loop.
+
+    Example config.toml fragment::
+
+        [[audio.sources]]
+        name   = "garden-north"
+        type   = "sounddevice"
+        device = 0
+
+        [[audio.sources]]
+        name      = "garden-south"
+        type      = "rtsp"
+        url       = "rtsp://192.168.1.10:554/audio"
+        transport = "tcp"
+        reconnect_delay_seconds = 5
+
+    Fields for ``type = "sounddevice"``:
+        *device* — PortAudio device index (None = system default).
+
+    Fields for ``type = "rtsp"``:
+        *url*, *transport*, *reconnect_delay_seconds*, *ffmpeg_path*.
+    """
+    name:                    str           # display name used in logs and clip filenames
+    type:                    str           # "sounddevice" | "rtsp"
+    # sounddevice only
+    device:                  int | None = None
+    # rtsp only
+    url:                     str        = ""
+    transport:               str        = "tcp"
+    reconnect_delay_seconds: int        = 5
+    ffmpeg_path:             str        = "ffmpeg"
+
+
+@dataclass(frozen=True)
 class AudioRtspConfig:
     """Connection settings for an RTSP audio stream.
 
@@ -78,6 +117,9 @@ class AudioConfig:
     # post_capture_seconds is NOT stored here — it depends on the active model's
     # window length, which is not known at config-load time.  Computed in
     # detector.main() once the model is selected.
+    # Multi-source mode: tuple of per-source configs (None = legacy single-source).
+    # When this is set, ``source`` is "" and ``rtsp`` / ``device`` are unused.
+    sources:                 tuple[AudioSourceConfig, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -342,6 +384,29 @@ class PrivacyFilterConfig:
 
 
 @dataclass(frozen=True)
+class DeduplicationConfig:
+    """Settings for cross-source duplicate suppression.
+
+    Only has any effect when ``[[audio.sources]]`` is configured and
+    ``enabled = true``.  In legacy single-source mode this section is ignored.
+
+    Attributes:
+        enabled:        Master switch.  ``false`` by default.
+        window_seconds: A second detection of the same species from a different
+                        source within this many seconds of the first is treated
+                        as a duplicate.  Increase to widen the window; decrease
+                        to tighten it.
+        on_duplicate:   What to do with the duplicate detection.
+                        ``"flag"`` saves it with ``deduplicated = true`` so it
+                        can be reviewed (recommended).
+                        ``"skip"`` silently discards it — no clip, no DB row.
+    """
+    enabled:        bool = False
+    window_seconds: int  = 10
+    on_duplicate:   str  = "flag"   # "flag" | "skip"
+
+
+@dataclass(frozen=True)
 class CrossValidationConfig:
     """Controls dual-model cross-validation of confirmed detections.
 
@@ -384,6 +449,7 @@ class Config:
     inference:        InferenceConfig
     cross_validation: CrossValidationConfig
     privacy_filter:   PrivacyFilterConfig
+    deduplication:    DeduplicationConfig
     filter:           FilterConfig
     retention:        RetentionConfig
     log:              LogConfig
@@ -479,11 +545,67 @@ def _load() -> Config:
         raise ValueError(
             f"[audio] window_pad_seconds must be between 0.0 and 10.0, got: {_pad}"
         )
-    _source = str(a.get("source", "sounddevice")).strip().lower()
-    if _source not in ("sounddevice", "rtsp"):
+
+    # ── Source / multi-source selection ───────────────────────────────────────
+    # Two mutually-exclusive forms are supported:
+    #
+    #   Legacy (single source):
+    #       source = "sounddevice"   or   source = "rtsp"
+    #
+    #   Multi-source:
+    #       [[audio.sources]]
+    #       name = "garden-north"
+    #       type = "sounddevice"
+    #       device = 0
+    #
+    #       [[audio.sources]]
+    #       name = "garden-south"
+    #       type = "rtsp"
+    #       ...
+    #
+    _sources_raw = a.get("sources")   # list[dict] when [[audio.sources]] is used
+    _has_legacy  = "source" in a
+
+    if _sources_raw is not None and _has_legacy:
         raise ValueError(
-            f"[audio] source must be 'sounddevice' or 'rtsp', got: {_source!r}"
+            "[audio] Cannot combine 'source = ...' and '[[audio.sources]]'. "
+            "Remove the 'source = ...' line when using [[audio.sources]]."
         )
+
+    if _sources_raw is not None:
+        # ── Multi-source mode ─────────────────────────────────────────────────
+        if not _sources_raw:
+            raise ValueError(
+                "[audio] [[audio.sources]] is empty — define at least one source block."
+            )
+        _audio_sources: list[AudioSourceConfig] = []
+        for i, s in enumerate(_sources_raw):
+            _src_type = str(s.get("type", "")).strip().lower()
+            if _src_type not in ("sounddevice", "rtsp"):
+                raise ValueError(
+                    f"[audio.sources[{i}]] type must be 'sounddevice' or 'rtsp', "
+                    f"got: {_src_type!r}"
+                )
+            _audio_sources.append(AudioSourceConfig(
+                name                    = str(s.get("name", f"source-{i}")),
+                type                    = _src_type,
+                device                  = s.get("device"),
+                url                     = str(s.get("url",                     "")),
+                transport               = str(s.get("transport",               "tcp")),
+                reconnect_delay_seconds = int(s.get("reconnect_delay_seconds", 5)),
+                ffmpeg_path             = str(s.get("ffmpeg_path",             "ffmpeg")),
+            ))
+        _sources_tuple: tuple[AudioSourceConfig, ...] | None = tuple(_audio_sources)
+        _source = ""   # not used in multi-source mode
+    else:
+        # ── Legacy single-source mode ─────────────────────────────────────────
+        _source = str(a.get("source", "sounddevice")).strip().lower()
+        if _source not in ("sounddevice", "rtsp"):
+            raise ValueError(
+                f"[audio] source must be 'sounddevice' or 'rtsp', got: {_source!r}"
+            )
+        _sources_tuple = None
+
     _rtsp = a.get("rtsp", {})
     rtsp_cfg = AudioRtspConfig(
         url                     = str(_rtsp.get("url",                     "")),
@@ -502,6 +624,7 @@ def _load() -> Config:
         capture_buffer_seconds = int(a.get("capture_buffer_seconds", 30)),
         clip_mode              = _clip_mode,
         window_pad_seconds     = _pad,
+        sources                = _sources_tuple,
     )
 
     d = raw["defaults"]
@@ -614,6 +737,19 @@ def _load() -> Config:
         min_voiced_fraction = float(pf.get("min_voiced_fraction", 0.10)),
     )
 
+    _ded = raw.get("deduplication", {})
+    _ded_on_dup = str(_ded.get("on_duplicate", "flag"))
+    if _ded_on_dup not in ("flag", "skip"):
+        raise ValueError(
+            f"[deduplication] on_duplicate must be 'flag' or 'skip', "
+            f"got: {_ded_on_dup!r}"
+        )
+    deduplication_cfg = DeduplicationConfig(
+        enabled        = bool(_ded.get("enabled",        False)),
+        window_seconds = int(_ded.get("window_seconds",  10)),
+        on_duplicate   = _ded_on_dup,
+    )
+
     w  = raw.get("weather", {})
     mb = w.get("pws_meteobridge", {})
     _default_mb_template = (
@@ -647,6 +783,7 @@ def _load() -> Config:
         inference          = inference_cfg,
         cross_validation   = cross_validation_cfg,
         privacy_filter     = privacy_filter_cfg,
+        deduplication      = deduplication_cfg,
         filter             = filter_cfg,
         retention          = retention_cfg,
         log                = log_cfg,

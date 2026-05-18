@@ -6,23 +6,31 @@ recording thread in detector.py is source-agnostic.
 
 Selecting a backend
 -------------------
-Set ``[audio] source`` in config.toml:
+**Legacy single-source** — set ``[audio] source`` in config.toml::
 
     source = "sounddevice"   # default — local USB/built-in microphone via PortAudio
     source = "rtsp"          # IP camera / network microphone via FFmpeg subprocess
 
-The factory ``get_source()`` reads ``cfg.audio.source`` and returns the
-appropriate backend instance.  Each call returns a *new* instance; the caller
-is responsible for calling ``close()`` when done.
+**Multi-source** — use ``[[audio.sources]]`` blocks instead (one per microphone).
+In this mode, ``get_source()`` is called with an explicit
+:class:`~config.AudioSourceConfig`; the legacy ``cfg.audio.source`` is ignored.
+
+The factory ``get_source()`` reads ``cfg.audio.source`` (legacy) or the supplied
+*source_config* (multi-source) and returns the appropriate backend instance.
+Each call returns a *new* instance; the caller is responsible for calling
+``close()`` when done.
 """
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
 
 from config import cfg
+
+if TYPE_CHECKING:
+    from config import AudioSourceConfig
 
 
 class AudioSource(Protocol):
@@ -48,12 +56,31 @@ class AudioSource(Protocol):
         ...
 
 
-def get_source() -> AudioSource:
-    """Return a new AudioSource instance for the backend named in config.
+def get_source(source_config: AudioSourceConfig | None = None) -> AudioSource:
+    """Return a new AudioSource instance.
+
+    Args:
+        source_config: When provided (multi-source mode), creates a backend
+            for this specific source config.  When ``None`` (legacy mode),
+            reads ``cfg.audio.source`` to determine the backend type.
 
     Raises:
-        ValueError: if ``cfg.audio.source`` is not a known backend name.
+        ValueError: if the backend name is not recognised.
     """
+    if source_config is not None:
+        src_type = source_config.type.strip().lower()
+        if src_type == "sounddevice":
+            from audio.sounddevice_source import SounddeviceSource
+            return SounddeviceSource(source_config)
+        if src_type == "rtsp":
+            from audio.rtsp_source import RtspSource
+            return RtspSource(source_config)
+        raise ValueError(
+            f"[audio.sources] type = {source_config.type!r} is not recognised. "
+            "Valid options: 'sounddevice', 'rtsp'."
+        )
+
+    # Legacy single-source path: read from cfg.audio.source.
     source = cfg.audio.source.strip().lower()
 
     if source == "sounddevice":

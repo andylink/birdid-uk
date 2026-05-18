@@ -120,6 +120,10 @@ _detections = Table(
     Column("weather_condition",       String),
     Column("weather_precipitation",   Float),
     Column("weather_provider",        String),
+    # Multi-source column — NULL in legacy single-source mode
+    Column("source_name",            String),
+    # Deduplication column — NULL when dedup is disabled or detection is primary
+    Column("deduplicated",           Boolean),
 )
 
 _detection_results = Table(
@@ -178,6 +182,21 @@ _WEATHER_COLUMNS: dict[str, str] = {
     "weather_condition":      "TEXT",
     "weather_precipitation":  "FLOAT",
     "weather_provider":       "TEXT",
+}
+
+# ── Multi-source column added in this version ─────────────────────────────────
+# NULL on all rows created before multi-source support; populated from the
+# [[audio.sources]] block name when multiple sources are active.
+_SOURCE_NAME_COLUMN: dict[str, str] = {
+    "source_name": "TEXT",
+}
+
+# ── Deduplication column ───────────────────────────────────────────────────────
+# NULL when deduplication is disabled or the detection is the first (primary)
+# from its source.  TRUE when on_duplicate = "flag" and this detection was
+# identified as a cross-source duplicate.
+_DEDUP_COLUMN: dict[str, str] = {
+    "deduplicated": "BOOLEAN",
 }
 
 
@@ -279,6 +298,65 @@ def _migrate_weather_columns(engine: sa.Engine) -> None:
                 logger.info("DB migration: added column detections.%s", col_name)
 
 
+def _migrate_source_name_column(engine: sa.Engine) -> None:
+    """Add the ``source_name`` column to an existing detections table.
+
+    Added when multi-source support was introduced.  NULL on rows created
+    before this migration; populated with the source's ``name`` field from
+    ``[[audio.sources]]`` going forward.
+
+    Idempotent — no-op when the column already exists.
+    """
+    db_type = cfg.database.type
+    with engine.begin() as conn:
+        if db_type == "sqlite":
+            rows = conn.execute(text("PRAGMA table_info(detections)")).fetchall()
+            existing = {row[1] for row in rows}
+        else:
+            rows = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'detections'"
+            )).fetchall()
+            existing = {row[0] for row in rows}
+
+        for col_name, col_type in _SOURCE_NAME_COLUMN.items():
+            if col_name not in existing:
+                conn.execute(text(
+                    f"ALTER TABLE detections ADD COLUMN {col_name} {col_type}"
+                ))
+                logger.info("DB migration: added column detections.%s", col_name)
+
+
+def _migrate_dedup_column(engine: sa.Engine) -> None:
+    """Add the ``deduplicated`` column to an existing detections table.
+
+    Added when cross-source deduplication was introduced.  NULL on all rows
+    created before this migration.  Set to ``true`` when
+    ``[deduplication] on_duplicate = "flag"`` and the detection was a
+    cross-source duplicate.
+
+    Idempotent — no-op when the column already exists.
+    """
+    db_type = cfg.database.type
+    with engine.begin() as conn:
+        if db_type == "sqlite":
+            rows = conn.execute(text("PRAGMA table_info(detections)")).fetchall()
+            existing = {row[1] for row in rows}
+        else:
+            rows = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'detections'"
+            )).fetchall()
+            existing = {row[0] for row in rows}
+
+        for col_name, col_type in _DEDUP_COLUMN.items():
+            if col_name not in existing:
+                conn.execute(text(
+                    f"ALTER TABLE detections ADD COLUMN {col_name} {col_type}"
+                ))
+                logger.info("DB migration: added column detections.%s", col_name)
+
+
 def init_db() -> None:
     """
     Open the database, ensure the schema exists, and (when configured)
@@ -311,6 +389,8 @@ def init_db() -> None:
     _migrate_detections_table(_engine)
     _migrate_species_info_table(_engine)
     _migrate_weather_columns(_engine)
+    _migrate_source_name_column(_engine)
+    _migrate_dedup_column(_engine)
 
     if cfg.database.timescaledb:
         with _engine.begin() as conn:
@@ -346,6 +426,10 @@ def record_detection(
     weather_condition:      str | None   = None,
     weather_precipitation:  float | None = None,
     weather_provider:       str | None   = None,
+    # Multi-source — None in legacy single-source mode
+    source_name:            str | None   = None,
+    # Deduplication — True when flagged as a cross-source duplicate; None otherwise
+    deduplicated:           bool | None  = None,
 ) -> None:
     """
     Persist one detection to the database.
@@ -391,8 +475,14 @@ def record_detection(
         weather_wind_direction: Wind direction in degrees (0–360) at detection time.
         weather_pressure:    Sea-level pressure in hPa at detection time.
         weather_condition:   Human-readable sky condition, e.g. "Light rain".
-        weather_precipitation: Precipitation in mm at detection time.
+        weather_precipitation:  mm of precipitation at detection time.
         weather_provider:    Data source identifier, e.g. "open_meteo".
+        source_name:         Name of the audio source that produced this detection
+                             (from ``[[audio.sources]] name``).  ``None`` (stored as
+                             SQL NULL) in legacy single-source mode.
+        deduplicated:        ``True`` when this detection was saved as a flagged
+                             cross-source duplicate (``on_duplicate = "flag"``).
+                             ``None`` (SQL NULL) in all other cases.
     """
     if _engine is None:
         return
@@ -421,6 +511,8 @@ def record_detection(
                 weather_condition      = weather_condition,
                 weather_precipitation  = weather_precipitation,
                 weather_provider       = weather_provider,
+                source_name            = source_name,
+                deduplicated           = deduplicated,
             )
         )
         detection_id = result.inserted_primary_key[0]

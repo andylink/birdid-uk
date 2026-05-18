@@ -16,7 +16,7 @@
   "species": {
     "Tawny Owl": {
       "type": "sunset_sunrise",
-      "sunset_offset_minutes": -30,
+      "sunset_offset_minutes": -60,
       "sunrise_offset_minutes": 60,
       "_note": "Strictly nocturnal. Begins hooting at dusk; occasional calls continue shortly after sunrise."
     },
