@@ -33,16 +33,11 @@ pytest-cov>=5.0.0
 # ── Optional: Perch v2 inference backend ───────────────────────────────────────
 # Set [inference] model = "perch" in config.toml to enable.
 #
-# 1. Install the package (pulls in TensorFlow CPU; ~2 GB):
-#      pip install 'perch-hoplite[tf]'
-#    For GPU support use:
-#      pip install 'perch-hoplite[tf-cuda]'
+# Install the runtime (no TensorFlow, no Kaggle account needed):
+#      pip install onnxruntime
 #
-# 2. Obtain Kaggle credentials so the model can be downloaded on first run
-#    (~400 MB, cached in ~/.cache/kagglehub/ afterwards):
-#      - Create an API token at https://www.kaggle.com/settings
-#      - Save it to ~/.config/kaggle/kaggle.json
-#        {"username":"<you>","key":"<token>"}
-#      - Or export KAGGLE_USERNAME and KAGGLE_KEY as environment variables.
+# The model (~409 MB) is downloaded automatically from HuggingFace on first
+# run, or by re-running install.sh. It is cached at:
+#      ~/.cache/birdid-uk/perch_v2_onnx/
 #
-# perch-hoplite[tf]
+# onnxruntime
