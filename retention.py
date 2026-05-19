@@ -1,14 +1,21 @@
 """
-retention.py — automatic cleanup of old audio clips in data/detections/.
+retention.py — automatic cleanup of old audio clips and spectrograms.
 
-Two cleanup passes run in order:
+Two cleanup passes run for audio clips, in order:
   1. Age pass   — delete clips older than max_age_days, but always keep the
-                  min_clips_per_species newest clips for each species.
+                   min_clips_per_species newest clips for each species.
   2. Usage pass — if disk usage still exceeds max_usage_percent, delete the
-                  oldest clips globally (still honouring per-species minimums)
-                  until usage drops below the threshold.
+                   oldest clips globally (still honouring per-species minimums)
+                   until usage drops below the threshold.
 
-Both passes are skipped when enabled = false in the [retention] config section.
+A third pass prunes spectrograms independently:
+  3. Spectrogram age pass — delete PNG files in the spectrograms directory
+                             that are older than spectrogram_max_age_days.
+                             Spectrograms are intentionally kept much longer
+                             than audio clips so the dashboard can display them
+                             after the source clip has been removed.
+
+All passes are skipped when enabled = false in the [retention] config section.
 start_retention_thread() runs cleanup on startup and then every
 run_interval_seconds seconds.
 
@@ -69,6 +76,40 @@ def _protected_set(clips: list[Path], min_keep: int) -> set[Path]:
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
+
+def run_spectrogram_cleanup(spectrograms_dir: Path | None = None) -> int:
+    """Delete spectrogram PNGs older than cfg.retention.spectrogram_max_age_days.
+
+    Uses cfg.paths.spectrograms_dir if spectrograms_dir is not provided.
+    Returns the number of files deleted.
+    """
+    rc = cfg.retention
+    if not rc.enabled or rc.spectrogram_max_age_days <= 0:
+        return 0
+
+    if spectrograms_dir is None:
+        spectrograms_dir = cfg.paths.spectrograms_dir
+
+    if not spectrograms_dir.is_dir():
+        return 0
+
+    age_cutoff = datetime.now() - timedelta(days=rc.spectrogram_max_age_days)
+    deleted = 0
+
+    for png in spectrograms_dir.glob("*.png"):
+        try:
+            mtime = datetime.fromtimestamp(png.stat().st_mtime)
+        except FileNotFoundError:
+            continue
+        if mtime < age_cutoff:
+            png.unlink(missing_ok=True)
+            deleted += 1
+
+    if deleted:
+        logger.info("[retention] deleted %d spectrogram(s)", deleted)
+
+    return deleted
+
 
 def run_cleanup(detections_dir: Path | None = None) -> int:
     """Apply the retention policy and delete clips that exceed the configured limits.
@@ -132,6 +173,9 @@ def run_cleanup(detections_dir: Path | None = None) -> int:
 
     if deleted:
         logger.info("[retention] deleted %d clip(s)", deleted)
+
+    # ── Pass 3: prune old spectrogram PNGs ────────────────────────────────────
+    run_spectrogram_cleanup()
 
     return deleted
 

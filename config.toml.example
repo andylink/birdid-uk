@@ -20,8 +20,10 @@ lon = -1.5
 
 [paths]
 # Paths are relative to the project root (where detect.py is run from).
-detections_dir = "data/detections"
-db_path        = "data/birds.db"
+detections_dir   = "data/detections"
+db_path          = "data/birds.db"
+# Spectrogram PNGs are saved here at detection time so they outlive audio clips.
+spectrograms_dir = "data/spectrograms"
 
 
 [audio]
@@ -164,6 +166,9 @@ max_age_days          = 30
 max_usage_percent     = 90.0
 min_clips_per_species = 5
 run_interval_seconds  = 3600
+# Spectrogram PNGs are kept much longer than audio clips so the dashboard can
+# still display them after the source clip has been deleted.
+spectrogram_max_age_days = 365
 
 
 [log]

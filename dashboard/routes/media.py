@@ -1,65 +1,26 @@
 """
 Audio and spectrogram serving.
 
-Spectrograms are rendered as mel-spectrogram PNGs using librosa and matplotlib,
-with a dark background to match the dashboard theme. Results are LRU-cached
-(up to 256 entries) so repeated requests don't re-render from scratch.
+Spectrograms are served from pre-rendered PNGs in the spectrograms directory
+where possible.  These are written at detection time by detector.py and persist
+after the source audio clip has been deleted by the retention policy.
+
+If no saved PNG exists (e.g. the detector hasn't run since this change was
+deployed, or saving failed), the endpoint falls back to rendering on the fly
+from the FLAC clip.  If neither is available a 404 is returned.
 """
 
 from __future__ import annotations
 
-import io
-from functools import lru_cache
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, Response
 
-from dashboard.config import DETECTIONS_DIR
+from dashboard.config import DETECTIONS_DIR, SPECTROGRAMS_DIR
+from spectrogram import render_spectrogram
 
 router = APIRouter()
-
-
-@lru_cache(maxsize=256)
-def _render_spectrogram(filepath: str) -> bytes:
-    """Render a mel-spectrogram for the given audio file and return PNG bytes.
-
-    Imports are deferred so librosa/matplotlib aren't loaded unless a
-    spectrogram is actually requested.
-    """
-    import librosa
-    import librosa.display
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    y, sr = librosa.load(filepath, sr=None, mono=True)
-    S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=80, fmax=sr // 2)
-    S_db = librosa.power_to_db(S, ref=np.max)
-
-    fig, ax = plt.subplots(figsize=(6, 1.2))
-    fig.patch.set_facecolor("#0f172a")  # slate-900, matches dashboard theme
-    ax.set_facecolor("#0f172a")
-
-    librosa.display.specshow(
-        S_db,
-        sr=sr,
-        ax=ax,
-        cmap="viridis",
-        x_axis=None,
-        y_axis=None,
-    )
-    ax.set_axis_off()
-    plt.tight_layout(pad=0)
-
-    buf = io.BytesIO()
-    plt.savefig(
-        buf, format="png", dpi=100, bbox_inches="tight", pad_inches=0,
-        facecolor="#0f172a",
-    )
-    plt.close(fig)
-    buf.seek(0)
-    return buf.read()
 
 
 @router.get("/audio/{filename}")
@@ -73,12 +34,30 @@ async def serve_audio(filename: str):
 
 @router.get("/spectrogram/{filename}")
 async def serve_spectrogram(filename: str):
-    """Return a PNG mel-spectrogram for an audio clip (cached after first render)."""
-    path = DETECTIONS_DIR / filename
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail="Audio file not found")
+    """Return a PNG mel-spectrogram for a detection clip.
+
+    Lookup order:
+      1. Pre-saved PNG in the spectrograms directory — always available even
+         after the source audio clip has been deleted by retention.
+      2. On-the-fly render from the FLAC clip — used as a fallback when no
+         saved PNG exists (e.g. detections recorded before this feature).
+      3. 404 — neither PNG nor FLAC is available.
+    """
+    stem     = Path(filename).stem
+    png_path = SPECTROGRAMS_DIR / f"{stem}.png"
+
+    # Fast path: return the pre-saved PNG directly from disk.
+    if png_path.is_file():
+        return FileResponse(str(png_path), media_type="image/png")
+
+    # Fallback: render from the FLAC if it still exists.
+    flac_path = DETECTIONS_DIR / filename
+    if not flac_path.is_file():
+        raise HTTPException(status_code=404, detail="Spectrogram not available")
+
     try:
-        png = _render_spectrogram(str(path))
+        png = render_spectrogram(str(flac_path))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Spectrogram error: {exc}") from exc
+
     return Response(content=png, media_type="image/png")

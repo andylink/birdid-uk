@@ -22,8 +22,9 @@ from config import cfg  # noqa: E402 — must follow sys.path manipulation
 # ── Paths ─────────────────────────────────────────────────────────────────────
 # Paths in config.toml are relative to CWD; resolve against project root so
 # the dashboard works correctly from any working directory.
-DB_PATH: Path = (_PROJECT_ROOT / cfg.paths.db_path).resolve()
-DETECTIONS_DIR: Path = (_PROJECT_ROOT / cfg.paths.detections_dir).resolve()
+DB_PATH:          Path = (_PROJECT_ROOT / cfg.paths.db_path).resolve()
+DETECTIONS_DIR:   Path = (_PROJECT_ROOT / cfg.paths.detections_dir).resolve()
+SPECTROGRAMS_DIR: Path = (_PROJECT_ROOT / cfg.paths.spectrograms_dir).resolve()
 
 # ── Timezone ──────────────────────────────────────────────────────────────────
 # IANA timezone name from [general] in config.toml.

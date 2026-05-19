@@ -72,6 +72,7 @@ from inference import Inferencer, get_model, get_secondary_model, get_secondary_
 from log_setup import setup_logging
 from publishers.mqtt import init_mqtt, publish_detection
 from retention import start_retention_thread
+from spectrogram import save_spectrogram
 from filters.nocturnal_filter import NocturnalFilter
 from filters.seasonal_filter import SeasonalFilter, current_iso_week
 from filters.privacy_filter import PrivacyFilter
@@ -366,6 +367,9 @@ def _deferred_save(
 
     # ── Persist ───────────────────────────────────────────────────────────────
     clip_path = save_clip(segment, ts, species, source_name=source_name)
+
+    # Pre-render and save the spectrogram PNG so it survives audio clip deletion.
+    save_spectrogram(clip_path, cfg.paths.spectrograms_dir)
 
     # Build CV keyword args only when CV actually ran.
     cv_kwargs: dict = {}

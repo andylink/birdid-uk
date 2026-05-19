@@ -34,8 +34,9 @@ class LocationConfig:
 
 @dataclass(frozen=True)
 class PathsConfig:
-    detections_dir: Path
-    db_path:        Path
+    detections_dir:   Path
+    db_path:          Path
+    spectrograms_dir: Path
 
 
 @dataclass(frozen=True)
@@ -136,11 +137,12 @@ class FilterConfig:
 
 @dataclass(frozen=True)
 class RetentionConfig:
-    enabled:               bool
-    max_age_days:          int
-    max_usage_percent:     float
-    min_clips_per_species: int
-    run_interval_seconds:  int
+    enabled:                  bool
+    max_age_days:             int
+    max_usage_percent:        float
+    min_clips_per_species:    int
+    run_interval_seconds:     int
+    spectrogram_max_age_days: int
 
 
 @dataclass(frozen=True)
@@ -492,8 +494,9 @@ def _load() -> Config:
 
     p = raw["paths"]
     paths = PathsConfig(
-        detections_dir = Path(p["detections_dir"]),
-        db_path        = Path(p["db_path"]),
+        detections_dir   = Path(p["detections_dir"]),
+        db_path          = Path(p["db_path"]),
+        spectrograms_dir = Path(p.get("spectrograms_dir", "data/spectrograms")),
     )
 
     a = raw["audio"]
@@ -608,11 +611,12 @@ def _load() -> Config:
 
     r = raw.get("retention", {})
     retention_cfg = RetentionConfig(
-        enabled               = bool(r.get("enabled",               True)),
-        max_age_days          = int(r.get("max_age_days",           30)),
-        max_usage_percent     = float(r.get("max_usage_percent",    90.0)),
-        min_clips_per_species = int(r.get("min_clips_per_species",  5)),
-        run_interval_seconds  = int(r.get("run_interval_seconds",   3600)),
+        enabled                  = bool(r.get("enabled",                  True)),
+        max_age_days             = int(r.get("max_age_days",              30)),
+        max_usage_percent        = float(r.get("max_usage_percent",       90.0)),
+        min_clips_per_species    = int(r.get("min_clips_per_species",     5)),
+        run_interval_seconds     = int(r.get("run_interval_seconds",      3600)),
+        spectrogram_max_age_days = int(r.get("spectrogram_max_age_days",  365)),
     )
 
     l = raw.get("log", {})
