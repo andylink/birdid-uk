@@ -309,7 +309,6 @@ def _deferred_save(
                 primary_species  = species,
                 primary_bto_name = bto_name,
                 primary_conf     = conf,
-                species_name     = species,
             )
     
             if cv_result.action == "drop":
