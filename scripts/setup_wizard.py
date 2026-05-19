@@ -10,6 +10,10 @@ Run after install.sh with the project venv active:
 
     source venv/bin/activate
     python scripts/setup_wizard.py
+
+Flags:
+    --skip-systemd   Skip the systemd install prompt at the end.
+                     Used by install.sh when it has already handled systemd.
 """
 
 import math
@@ -290,6 +294,8 @@ def patch_config(path: Path, patches: dict):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    skip_systemd = "--skip-systemd" in sys.argv
+
     print()
     print(f"  {BOLD}BirdID-UK — Setup Wizard{RESET}")
     print("  ─────────────────────────────────────────────")
@@ -389,21 +395,23 @@ def main():
 
     # ── Systemd ───────────────────────────────────────────────────────────────
     print()
-    if ask_yn(
+    if skip_systemd:
+        info("Systemd setup was handled by install.sh — skipping.")
+    elif ask_yn(
         "Install as a background service (auto-starts at boot)?",
         default="n",
     ):
-        info(f"Running: bash {INSTALL_SH} --systemd")
-        result = subprocess.run(["bash", str(INSTALL_SH), "--systemd"])
+        info(f"Running: bash {INSTALL_SH} --systemd-only")
+        result = subprocess.run(["bash", str(INSTALL_SH), "--systemd-only"])
         if result.returncode != 0:
             warn("Systemd install reported an error — check the output above.")
         else:
             info("Service installed.")
-            info("Start now with:  sudo systemctl start birddetector.target")
-            info("View logs with:  journalctl -u birddetector-capture -f")
+            info("Start now with:   sudo systemctl start birdid-uk.target")
+            info("View logs with:   journalctl -u birdid-uk-capture -f")
     else:
         info("Skipping systemd setup.")
-        info("Add it later with:  bash install.sh --systemd")
+        info("Add it later with:  bash install.sh --systemd-only")
 
     # ── Done ──────────────────────────────────────────────────────────────────
     print()

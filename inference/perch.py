@@ -7,11 +7,22 @@ Install the inference package::
 
     pip install 'perch-hoplite[tf]'
 
-Kaggle credentials are required for the first model download. Create an API
-token at https://www.kaggle.com/settings and save it as
-``~/.config/kaggle/kaggle.json`` (or set the ``KAGGLE_KEY`` environment
-variable). The model (~400 MB) is cached in ``~/.cache/kagglehub/`` and
-reused on subsequent runs.
+Model download
+--------------
+The Perch v2 model (~400 MB) is loaded in order of preference:
+
+1. **Local cache** — ``~/.cache/birdid-uk/perch_v2/`` (or the path set by
+   the ``BIRDID_PERCH_MODEL_PATH`` environment variable).  install.sh
+   downloads this directly from the GitHub Release asset so no Kaggle account
+   is needed.
+
+2. **Kaggle cache** — ``~/.cache/kagglehub/…`` populated by a previous run
+   with Kaggle credentials.
+
+3. **Kaggle download** — last resort if neither cache exists.  Requires a
+   free Kaggle account and an API token saved to
+   ``~/.config/kaggle/kaggle.json``.  The easiest path is to re-run
+   install.sh which handles the download automatically.
 
 Audio
 -----
@@ -52,6 +63,7 @@ from __future__ import annotations
 import csv as csv_mod
 import json
 import logging
+import os
 import time
 from math import gcd
 from pathlib import Path
@@ -66,6 +78,16 @@ logger = logging.getLogger(__name__)
 # Perch v2 native audio specification
 _PERCH_SAMPLE_RATE    = 32_000
 _PERCH_WINDOW_SECONDS = 5.0
+
+# Local model cache — populated by install.sh so users don't need a Kaggle
+# account.  Can be overridden at runtime via the BIRDID_PERCH_MODEL_PATH env var.
+_LOCAL_MODEL_DIR = Path(
+    os.environ.get("BIRDID_PERCH_MODEL_PATH", "")
+    or Path.home() / ".cache" / "birdid-uk" / "perch_v2"
+)
+
+# Kaggle model handle used as fallback when no local copy exists
+_KAGGLE_MODEL_HANDLE = "google/bird-vocalization-classifier/tensorFlow2/perch_v2"
 
 
 class PerchModel:
@@ -123,51 +145,86 @@ class PerchModel:
             )
 
     def _ensure_model(self) -> None:
-        """Load the Perch v2 TF model on first call (downloads from Kaggle if needed)."""
+        """Load the Perch v2 TF model on first call.
+
+        Loading order:
+        1. Local model cache (``~/.cache/birdid-uk/perch_v2/``) — no Kaggle needed.
+        2. Kaggle hub cache (``~/.cache/kagglehub/``) — used if already downloaded.
+        3. Kaggle download — requires credentials, downloads ~400 MB.
+        """
         if self._model is not None:
             return
         try:
-            from perch_hoplite.zoo import model_configs  # type: ignore[import]
+            from perch_hoplite.zoo import taxonomy_model_tf  # type: ignore[import]
+            from perch_hoplite.zoo import model_configs       # type: ignore[import]
+            from ml_collections import config_dict            # type: ignore[import]
         except ImportError as exc:
             raise RuntimeError(
                 "perch-hoplite is not installed.\n"
-                "Install it with:  pip install 'perch-hoplite[tf]'\n"
-                "Kaggle credentials are also required for the first model download.\n"
-                "See: https://www.kaggle.com/docs/api#authentication"
+                "Install it with:  pip install 'perch-hoplite[tf]'"
             ) from exc
 
         # Disable CUDA before TF initialises. When CUDA libraries are present
         # but broken (bad driver, systemd sandbox, etc.) TF raises a
         # RuntimeError. Perch runs fine on CPU for real-time inference.
-        import os
         os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 
-        logger.info(
-            "Loading Perch v2 model — first run downloads ~400 MB from Kaggle "
-            "(cached in ~/.cache/kagglehub/ afterwards)…"
-        )
         self._deduplicate_ebird_csv()
+
+        # ── 1. Local cache (populated by install.sh, no Kaggle needed) ─────────
+        if (_LOCAL_MODEL_DIR / "saved_model.pb").exists() or \
+           (_LOCAL_MODEL_DIR / "savedmodel" / "saved_model.pb").exists():
+            logger.info("Loading Perch v2 model from local cache: %s", _LOCAL_MODEL_DIR)
+            cfg_dict = config_dict.ConfigDict({
+                "model_path": str(_LOCAL_MODEL_DIR),
+                "window_size_s": 5.0,
+                "hop_size_s": 5.0,
+                "sample_rate": 32000,
+                "target_peak": 0.25,
+            })
+            try:
+                self._model = taxonomy_model_tf.TaxonomyModelTF.from_config(cfg_dict)
+                logger.info("Perch v2 model ready (local cache).")
+                return
+            except Exception as exc:
+                logger.warning(
+                    "Failed to load Perch v2 from local cache (%s): %s — "
+                    "falling back to Kaggle.", _LOCAL_MODEL_DIR, exc
+                )
+
+        # ── 2 & 3. Kaggle hub (cached or fresh download) ────────────────────────
+        logger.info(
+            "Loading Perch v2 model via Kaggle hub "
+            "(first run downloads ~400 MB — cached in ~/.cache/kagglehub/ afterwards)…"
+        )
         try:
             self._model = model_configs.load_model_by_name("perch_v2")
-        except RuntimeError as exc:
+        except Exception as exc:
             raise RuntimeError(
-                f"Failed to load Perch v2 model: {exc}\n"
-                "If this is a CUDA error, ensure CUDA_VISIBLE_DEVICES='' is set "
-                "in the process environment (or add Environment=CUDA_VISIBLE_DEVICES= "
-                "to the systemd unit) to force CPU-only inference."
+                f"Failed to load Perch v2 model: {exc}\n\n"
+                "The model was not found in the local cache or Kaggle hub.\n"
+                "Re-run install.sh to download it automatically:\n"
+                "    bash install.sh   # choose 'Install Perch' when prompted"
             ) from exc
-        logger.info("Perch v2 model ready.")
+        logger.info("Perch v2 model ready (Kaggle hub).")
 
     def _get_model_dir(self) -> Path | None:
-        """Return the local Kaggle cache directory for perch_v2, or None."""
+        """Return the local model directory for perch_v2, or None.
+
+        Checks the local cache first, then the Kaggle hub cache.
+        """
+        # ── 1. Local install.sh cache ──────────────────────────────────────────
+        if (_LOCAL_MODEL_DIR / "saved_model.pb").exists() or \
+           (_LOCAL_MODEL_DIR / "savedmodel" / "saved_model.pb").exists():
+            return _LOCAL_MODEL_DIR
+
+        # ── 2. Kaggle hub cache ────────────────────────────────────────────────
         try:
             import kagglehub  # type: ignore[import]
-            path = kagglehub.model_download(
-                "google/bird-vocalization-classifier/tensorFlow2/perch_v2"
-            )
+            path = kagglehub.model_download(_KAGGLE_MODEL_HANDLE)
             return Path(path)
         except Exception as exc:
-            logger.debug("Could not locate Perch v2 Kaggle model directory: %s", exc)
+            logger.debug("Could not locate Perch v2 model directory: %s", exc)
             return None
 
     def _sci_names_from_csv(self) -> list[str]:

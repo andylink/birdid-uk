@@ -5,10 +5,11 @@
 #   curl -fsSL https://raw.githubusercontent.com/andylink/birdid-uk/main/install.sh | bash
 #
 # Or from a cloned repo:
-#   bash install.sh [--systemd] [--configure] [--no-configure]
+#   bash install.sh [--systemd] [--systemd-only] [--configure] [--no-configure]
 #
 # Flags:
-#   --systemd       Also install and enable systemd services
+#   --systemd       Also install and enable systemd services (or ask interactively)
+#   --systemd-only  Only (re)install systemd units — skip all other steps
 #   --configure     Run the setup wizard after install without prompting
 #   --no-configure  Skip the "run wizard?" prompt at the end (silent install)
 #
@@ -72,11 +73,13 @@ fi
 
 REPO_ROOT="$_SCRIPT_DIR"
 INSTALL_SYSTEMD=false
+SYSTEMD_ONLY=false
 RUN_CONFIGURE="ask"   # "ask" | "yes" | "no"
 
 for arg in "$@"; do
     case "$arg" in
         --systemd)       INSTALL_SYSTEMD=true ;;
+        --systemd-only)  SYSTEMD_ONLY=true; INSTALL_SYSTEMD=true ;;
         --configure)     RUN_CONFIGURE="yes" ;;
         --no-configure)  RUN_CONFIGURE="no" ;;
         *) echo "Unknown argument: $arg" >&2; exit 1 ;;
@@ -88,6 +91,51 @@ done
 info()    { echo "  [+] $*"; }
 section() { echo ""; echo "==> $*"; }
 warn()    { echo "  [!] $*"; }
+
+_ask() {
+    # _ask <prompt> [default]
+    # Reads from /dev/tty so it works when stdin is redirected (curl | bash).
+    local prompt="$1" default="${2:-}" reply
+    if [[ -e /dev/tty ]]; then
+        printf "  %s" "$prompt" >/dev/tty
+        read -r reply </dev/tty || true
+    else
+        reply=""
+    fi
+    echo "${reply:-$default}"
+}
+
+_ask_secret() {
+    local prompt="$1" reply
+    if [[ -e /dev/tty ]]; then
+        printf "  %s" "$prompt" >/dev/tty
+        read -rs reply </dev/tty || true
+        printf "\n" >/dev/tty
+    else
+        reply=""
+    fi
+    echo "$reply"
+}
+
+_ask_yn() {
+    # _ask_yn <prompt> <default y|n>  → exits 0 for yes, 1 for no
+    local prompt="$1" default="${2:-y}" answer
+    local opts="Y/n"
+    [[ "$default" == "n" ]] && opts="y/N"
+    answer="$(_ask "$prompt [$opts]: " "$default")"
+    answer="${answer,,}"
+    [[ "$answer" =~ ^(y|yes)$ ]]
+}
+
+# ── Systemd-only shortcut ─────────────────────────────────────────────────────
+# When called with --systemd-only (from setup_wizard.py), skip all install
+# steps and go straight to the systemd section.
+
+if [[ "$SYSTEMD_ONLY" == "true" ]]; then
+    VENV="$REPO_ROOT/venv"
+    # fall through to the systemd block below
+    true
+else
 
 # ── Banner ────────────────────────────────────────────────────────────────────
 
@@ -176,6 +224,82 @@ info "This may take several minutes on a Raspberry Pi (birdnet-analyzer builds f
 pip install -r "$REPO_ROOT/requirements.txt" --quiet
 info "Dependencies installed."
 
+# ── Perch inference backend (optional) ───────────────────────────────────────
+
+section "Perch inference backend (optional)..."
+echo "  Perch is Google's bird vocalization model — an alternative to the default BirdNET."
+echo "  It requires ~2 GB of extra disk space (TensorFlow) plus a one-time ~400 MB"
+echo "  model download from Kaggle on first run."
+echo ""
+
+_PERCH_INSTALLED=false
+if "$VENV/bin/python" -c "import perch_hoplite" 2>/dev/null; then
+    _PERCH_INSTALLED=true
+    info "Perch is already installed."
+fi
+
+if [[ "$_PERCH_INSTALLED" == "false" ]]; then
+    if _ask_yn "Install Perch now?" "n"; then
+        # Detect CUDA availability to choose the right extra
+        if "$VENV/bin/python" -c "import subprocess,sys; r=subprocess.run(['nvidia-smi'],capture_output=True); sys.exit(0 if r.returncode==0 else 1)" 2>/dev/null; then
+            _PERCH_EXTRA="tf-cuda"
+            info "NVIDIA GPU detected — installing perch-hoplite[tf-cuda] (GPU support)"
+        else
+            _PERCH_EXTRA="tf"
+            info "No NVIDIA GPU detected — installing perch-hoplite[tf] (CPU)"
+        fi
+
+        pip install "perch-hoplite[$_PERCH_EXTRA]" --quiet
+        info "Perch installed."
+        _PERCH_INSTALLED=true
+
+        # ── Model download ──────────────────────────────────────────────
+        # The Perch v2 model (~362 MB compressed) is hosted as a GitHub
+        # Release asset so users don't need a Kaggle account.
+        # CPU and GPU variants differ in saved_model.pb, so we pick the
+        # right one based on whether nvidia-smi is available.
+        PERCH_MODEL_DIR="$HOME/.cache/birdid-uk/perch_v2"
+        _GH_RELEASE_BASE="https://github.com/andylink/birdid-uk/releases/download/models%2Fperch-v2"
+
+        if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
+            _PERCH_TARBALL_URL="$_GH_RELEASE_BASE/perch_v2_gpu.tar.gz"
+            _PERCH_VARIANT="GPU"
+        else
+            _PERCH_TARBALL_URL="$_GH_RELEASE_BASE/perch_v2_cpu.tar.gz"
+            _PERCH_VARIANT="CPU"
+        fi
+
+        if [[ -f "$PERCH_MODEL_DIR/saved_model.pb" || \
+              -f "$PERCH_MODEL_DIR/savedmodel/saved_model.pb" ]]; then
+            info "Perch model already cached at $PERCH_MODEL_DIR"
+        else
+            info "Downloading Perch v2 model ($_PERCH_VARIANT, ~362 MB)..."
+            mkdir -p "$PERCH_MODEL_DIR"
+            if curl -fsSL --retry 3 "$_PERCH_TARBALL_URL" | tar -xz -C "$PERCH_MODEL_DIR"; then
+                info "Perch model downloaded to $PERCH_MODEL_DIR"
+            else
+                warn "Download failed — Perch will attempt to download on first run."
+                warn "If that also fails, re-run:  bash $REPO_ROOT/install.sh"
+            fi
+        fi
+
+        # Switch config.toml to use perch if it exists
+        if [[ -f "$REPO_ROOT/config.toml" ]]; then
+            echo ""
+            if _ask_yn "Switch inference model to 'perch' in config.toml?" "n"; then
+                sed -i 's/^model\s*=\s*"birdnet"/model = "perch"/' "$REPO_ROOT/config.toml"
+                info "config.toml updated: model = \"perch\""
+            else
+                info "Keeping model = \"birdnet\" in config.toml."
+                info "Change it manually to \"perch\" when ready."
+            fi
+        fi
+    else
+        info "Skipping Perch — using BirdNET (default)."
+        info "Install it later by re-running:  bash $REPO_ROOT/install.sh"
+    fi
+fi
+
 # ── Frontend build ────────────────────────────────────────────────────────────
 
 section "Building frontend..."
@@ -194,7 +318,8 @@ fi
 section "Creating data directories..."
 mkdir -p "$REPO_ROOT/data/detections"
 mkdir -p "$REPO_ROOT/data/species_images"
-info "data/detections/ and data/species_images/ ready."
+mkdir -p "$REPO_ROOT/data/spectrograms"
+info "data/detections/, data/spectrograms/, and data/species_images/ ready."
 
 # ── Config file ───────────────────────────────────────────────────────────────
 
@@ -210,16 +335,20 @@ fi
 
 section "Setting up admin dashboard password..."
 echo "  The admin password protects destructive actions (delete, bulk-delete, etc.)."
-echo "  Leave blank to skip — you can set a password later by re-running install.sh."
+
+# Check if a password is already set
+_HASH_EMPTY=false
+if grep -q 'password_hash\s*=\s*""' "$REPO_ROOT/config.toml" 2>/dev/null; then
+    _HASH_EMPTY=true
+fi
+
+if [[ "$_HASH_EMPTY" == "false" ]]; then
+    echo "  A password is already set."
+    echo "  Leave the new password blank to keep the existing one."
+fi
 echo ""
 
-if [[ -e /dev/tty ]]; then
-    printf "  Admin password (leave blank to skip): " >/dev/tty
-    read -rs _admin_pass </dev/tty || true
-    printf "\n" >/dev/tty
-else
-    _admin_pass=""
-fi
+_admin_pass="$(_ask_secret "Admin password (leave blank to skip): ")"
 
 if [[ -n "$_admin_pass" ]]; then
     BIRDID_ADMIN_PASS="$_admin_pass" BIRDID_CONFIG="$REPO_ROOT/config.toml" \
@@ -241,9 +370,88 @@ config_path.write_text(text, encoding="utf-8")
 PYEOF
     info "Admin password and session secret written to config.toml."
 else
-    warn "Skipped. Admin features will not require a password until one is set."
-    warn "Re-run install.sh to set a password later."
+    if [[ "$_HASH_EMPTY" == "true" ]]; then
+        warn "Skipped. Admin features will not require a password until one is set."
+        warn "Re-run install.sh to set a password later."
+    else
+        info "Password unchanged."
+    fi
 fi
+
+# ── BirdWeather integration (optional) ───────────────────────────────────────
+
+section "BirdWeather integration (optional)..."
+echo "  BirdWeather (app.birdweather.com) lets you share detections publicly"
+echo "  and see what other stations are hearing nearby."
+echo ""
+
+_BIRDWEATHER_ENABLED=false
+if grep -q 'enabled\s*=\s*true' "$REPO_ROOT/config.toml" 2>/dev/null &&
+   grep -A5 '\[birdweather\]' "$REPO_ROOT/config.toml" 2>/dev/null | grep -q 'enabled\s*=\s*true'; then
+    _BIRDWEATHER_ENABLED=true
+fi
+_BIRDWEATHER_TOKEN=""
+_existing_token=$(grep -A5 '\[birdweather\]' "$REPO_ROOT/config.toml" 2>/dev/null \
+    | grep 'token\s*=' | sed 's/.*=\s*"\(.*\)"/\1/' || true)
+
+if [[ -n "$_existing_token" && "$_existing_token" != "" ]]; then
+    info "BirdWeather token already set (${_existing_token:0:8}…)."
+    info "Leave blank below to keep the existing token."
+fi
+
+if _ask_yn "Enable BirdWeather uploads?" "${_BIRDWEATHER_ENABLED:+y}n"; then
+    _BIRDWEATHER_TOKEN="$(_ask "BirdWeather station token: " "$_existing_token")"
+    if [[ -n "$_BIRDWEATHER_TOKEN" ]]; then
+        BIRDID_BW_TOKEN="$_BIRDWEATHER_TOKEN" BIRDID_CONFIG="$REPO_ROOT/config.toml" \
+            "$VENV/bin/python" - <<'PYEOF'
+import os, re
+from pathlib import Path
+
+config_path = Path(os.environ["BIRDID_CONFIG"])
+token       = os.environ["BIRDID_BW_TOKEN"]
+
+text = config_path.read_text(encoding="utf-8")
+# Set enabled = true and token in the [birdweather] section
+# Match inside the section by replacing the first occurrence after [birdweather]
+in_bw = False
+lines_out = []
+for line in text.splitlines(keepends=True):
+    if re.match(r'^\[birdweather\]', line):
+        in_bw = True
+    elif re.match(r'^\[', line):
+        in_bw = False
+    if in_bw:
+        line = re.sub(r'^enabled\s*=.*$', 'enabled      = true', line, flags=re.MULTILINE)
+        line = re.sub(r'^token\s*=.*$',   f'token        = "{token}"', line, flags=re.MULTILINE)
+    lines_out.append(line)
+config_path.write_text("".join(lines_out), encoding="utf-8")
+PYEOF
+        info "BirdWeather enabled with token ${_BIRDWEATHER_TOKEN:0:8}… written to config.toml."
+    else
+        warn "No token entered — BirdWeather not enabled."
+        warn "Register a station at https://app.birdweather.com to get a token."
+    fi
+else
+    info "BirdWeather uploads disabled."
+fi
+
+# ── Ask about systemd (interactive, not flag-required) ───────────────────────
+
+if [[ "$INSTALL_SYSTEMD" == "false" ]]; then
+    section "Background service (systemd)..."
+    echo "  Installing as a systemd service means BirdID-UK starts automatically at boot"
+    echo "  and keeps running in the background without a terminal."
+    echo ""
+    if _ask_yn "Install as a systemd background service?" "y"; then
+        INSTALL_SYSTEMD=true
+    else
+        info "Skipping systemd.  Start manually with:"
+        info "  source $VENV/bin/activate && python $REPO_ROOT/main.py"
+        info "Add it later with:  bash $REPO_ROOT/install.sh --systemd-only"
+    fi
+fi
+
+fi   # end of [[ "$SYSTEMD_ONLY" == "false" ]] block
 
 # ── Systemd services ──────────────────────────────────────────────────────────
 
@@ -306,6 +514,11 @@ if [[ "$INSTALL_SYSTEMD" == "true" ]]; then
     info "Systemd services installed and enabled."
     info "Start with:  sudo systemctl start birdid-uk.target"
     info "Logs:        journalctl -u birdid-uk-capture -f"
+
+    # If this was a systemd-only call, exit cleanly here
+    if [[ "$SYSTEMD_ONLY" == "true" ]]; then
+        exit 0
+    fi
 fi
 
 # ── Setup wizard ──────────────────────────────────────────────────────────────
@@ -314,21 +527,13 @@ WIZARD="$REPO_ROOT/scripts/setup_wizard.py"
 
 if [[ "$RUN_CONFIGURE" == "yes" ]]; then
     echo ""
-    "$VENV/bin/python" "$WIZARD"
+    "$VENV/bin/python" "$WIZARD" --skip-systemd
 elif [[ "$RUN_CONFIGURE" == "ask" ]]; then
     echo ""
     echo "  ─────────────────────────────────────────────"
     echo ""
-    # Read from /dev/tty in case stdin was redirected
-    if [[ -e /dev/tty ]]; then
-        printf "  Run the setup wizard to configure your mic and location? [Y/n]: " >/dev/tty
-        read -r _wiz_answer </dev/tty || true
-    else
-        _wiz_answer="y"
-    fi
-    _wiz_answer="${_wiz_answer:-y}"
-    if [[ "$_wiz_answer" =~ ^[Yy]$ ]]; then
-        "$VENV/bin/python" "$WIZARD"
+    if _ask_yn "Run the setup wizard to configure your mic, location, and station name?" "y"; then
+        "$VENV/bin/python" "$WIZARD" --skip-systemd
     else
         echo ""
         echo "  Skipped.  Run the wizard later with:"
@@ -350,10 +555,4 @@ elif [[ "$RUN_CONFIGURE" == "ask" ]]; then
         echo "  Open the dashboard:  http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo '<your-ip>'):8080"
         echo ""
     fi
-fi
-
-if [[ "$INSTALL_SYSTEMD" == "false" && "$RUN_CONFIGURE" != "yes" ]]; then
-    echo "  Tip: install as a background service with:"
-    echo "       bash $REPO_ROOT/install.sh --systemd"
-    echo ""
 fi

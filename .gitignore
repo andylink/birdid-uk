@@ -25,8 +25,11 @@ data/
 logs/
 *.log
 
-# Checkpoints / models (large binaries)
+# Checkpoints / models (large binaries — upload as GitHub Release assets instead)
+# To regenerate: bash scripts/package_perch_model.sh
 checkpoints/
+perch_v2_cpu.tar.gz
+perch_v2_gpu.tar.gz
 
 # Frontend build output and deps
 dashboard/frontend/node_modules/
