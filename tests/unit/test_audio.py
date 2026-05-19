@@ -149,33 +149,17 @@ class TestSaveClip:
 
     def test_detections_dir_created_if_missing(self, test_cfg, tmp_path, monkeypatch):
         """save_clip should create the detections directory if it doesn't exist yet."""
-        import config as config_mod
+        import dataclasses
         from config import PathsConfig
 
         new_dir = tmp_path / "new_detections"
         assert not new_dir.exists()
 
-        new_cfg = config_mod.Config(
-            paths=PathsConfig(detections_dir=new_dir, db_path=test_cfg.paths.db_path),
-            audio=test_cfg.audio,
-            inference=test_cfg.inference,
-            cross_validation=test_cfg.cross_validation,
-            filter=test_cfg.filter,
-            retention=test_cfg.retention,
-            log=test_cfg.log,
-            database=test_cfg.database,
-            mqtt=test_cfg.mqtt,
-            birdmap=test_cfg.birdmap,
-            birdweather=test_cfg.birdweather,
-            seasonal_filter=test_cfg.seasonal_filter,
-            nocturnal_filter=test_cfg.nocturnal_filter,
-            species_filter=test_cfg.species_filter,
-            defaults=test_cfg.defaults,
-            general=test_cfg.general,
-            location=test_cfg.location,
-            exclude=test_cfg.exclude,
-            weather=test_cfg.weather,
+        new_paths = dataclasses.replace(
+            test_cfg.paths,
+            detections_dir=new_dir,
         )
+        new_cfg = dataclasses.replace(test_cfg, paths=new_paths)
         monkeypatch.setattr(audio.utils, "cfg", new_cfg)
         ts = datetime(2026, 5, 13, 12, 0, 0, tzinfo=timezone.utc)
         save_clip(np.zeros(48000, dtype=np.int16), ts, "Placeholder")

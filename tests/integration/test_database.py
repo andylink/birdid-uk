@@ -167,7 +167,6 @@ class TestRecordDetection:
             cv_bto_name="Robin",
             cv_confidence=0.72,
             cv_agree=True,
-            flagged=None,
         )
         engine = database._engine
         with engine.connect() as conn:
@@ -176,7 +175,7 @@ class TestRecordDetection:
         assert row["cross_validated"] == 1
         assert row["cv_secondary_model"] == "perch"
         assert row["cv_agree"] == 1
-        assert row["flagged"] is None
+        assert row["verification_status"] == "cv"
 
     def test_flagged_detection_stored(self, db_cfg):
         ts = datetime(2026, 5, 13, 10, 0, 0, tzinfo=timezone.utc)
@@ -185,12 +184,11 @@ class TestRecordDetection:
             Path("clip.flac"), [],
             cross_validated=True,
             cv_agree=False,
-            flagged=True,
         )
         engine = database._engine
         with engine.connect() as conn:
-            rows = conn.execute(text("SELECT flagged FROM detections")).fetchall()
-        assert rows[0][0] == 1
+            rows = conn.execute(text("SELECT verification_status FROM detections")).fetchall()
+        assert rows[0][0] == "unverified"
 
     def test_no_engine_is_noop(self, monkeypatch):
         """record_detection should return silently when the engine is not initialised."""

@@ -41,6 +41,7 @@ def _retention_cfg(test_cfg, **kwargs) -> object:
         max_usage_percent=100.0,  # disables usage pass by default
         min_clips_per_species=0,
         run_interval_seconds=3600,
+        spectrogram_max_age_days=365,
     )
     base.update(kwargs)
     new_ret = RetentionConfig(**base)

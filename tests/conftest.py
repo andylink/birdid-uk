@@ -24,10 +24,12 @@ import numpy as np
 import pytest
 
 from config import (
+    AdminConfig,
     AudioConfig,
     AudioRtspConfig,
     BirdmapConfig,
     BirdweatherConfig,
+    DeduplicationConfig,
     SpeciesFilterConfig,
     Config,
     CrossValidationConfig,
@@ -40,6 +42,7 @@ from config import (
     MqttConfig,
     NocturnalFilterConfig,
     PathsConfig,
+    PrivacyFilterConfig,
     RetentionConfig,
     SeasonalFilterConfig,
     SpeciesConfig,
@@ -58,10 +61,14 @@ def test_cfg(tmp_path: Path) -> Config:
     detections_dir.mkdir()
     db_path = tmp_path / "test.db"
 
+    spectrograms_dir = tmp_path / "spectrograms"
+    spectrograms_dir.mkdir()
+
     return Config(
         paths=PathsConfig(
             detections_dir=detections_dir,
             db_path=db_path,
+            spectrograms_dir=spectrograms_dir,
         ),
         audio=AudioConfig(
             sample_rate=48000,
@@ -87,6 +94,16 @@ def test_cfg(tmp_path: Path) -> Config:
             on_disagree="drop",
             cv_min_confidence=0.01,
         ),
+        privacy_filter=PrivacyFilterConfig(
+            enabled=False,
+            threshold=0.5,
+            min_voiced_fraction=0.10,
+        ),
+        deduplication=DeduplicationConfig(
+            enabled=False,
+            window_seconds=10,
+            on_duplicate="flag",
+        ),
         filter=FilterConfig(enabled=False, cutoff_hz=150.0, order=5),
         retention=RetentionConfig(
             enabled=True,
@@ -94,6 +111,7 @@ def test_cfg(tmp_path: Path) -> Config:
             max_usage_percent=90.0,
             min_clips_per_species=5,
             run_interval_seconds=3600,
+            spectrogram_max_age_days=365,
         ),
         log=LogConfig(
             enabled=False,
@@ -170,6 +188,12 @@ def test_cfg(tmp_path: Path) -> Config:
                 station_id=0,
                 token="",
             ),
+        ),
+        admin=AdminConfig(
+            password_hash="",
+            session_secret="",
+            session_ttl=86400,
+            auto_verify_threshold=0.9,
         ),
     )
 

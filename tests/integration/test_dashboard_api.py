@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS detections (
     cv_bto_name TEXT,
     cv_confidence REAL,
     cv_agree INTEGER,
-    flagged INTEGER
+    flagged INTEGER,
+    verification_status TEXT
 )
 """
 
@@ -210,16 +211,16 @@ async def test_list_detections_timestamp_iso8601(api_client):
 
 
 async def test_list_detections_flagged_filter(api_client, test_db):
-    """?flagged=true should return only detections with flagged=1."""
+    """?verification_status=unverified should return only explicitly unverified detections."""
     async with aiosqlite.connect(str(test_db)) as conn:
         await conn.execute(
-            "INSERT INTO detections (timestamp, species, confidence, clip_path, flagged) "
-            "VALUES ('2026-05-13 11:00:00', 'Song Thrush', 0.6, 'x.flac', 1)"
+            "INSERT INTO detections (timestamp, species, confidence, clip_path, verification_status) "
+            "VALUES ('2026-05-13 11:00:00', 'Song Thrush', 0.6, 'x.flac', 'unverified')"
         )
         await conn.commit()
 
     async with api_client as client:
-        resp = await client.get("/api/v1/detections?flagged=true")
+        resp = await client.get("/api/v1/detections?verification_status=unverified")
     data = resp.json()
     assert len(data) == 1
     assert data[0]["species"] == "Song Thrush"
