@@ -269,3 +269,4 @@ cache_seconds = 300
 password_hash  = ""   # bcrypt hash of the admin password
 session_secret = ""   # random key used to sign the HTTP-only session cookie
 session_ttl    = 86400   # cookie lifetime in seconds (default: 24 hours)
+auto_verify_threshold = 0.9   # detections at or above this confidence are auto-verified

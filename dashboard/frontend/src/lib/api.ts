@@ -96,7 +96,8 @@ export interface Detection extends SpeciesInfo {
 	cv_bto_name: string | null;         // BTO name from the secondary model
 	cv_confidence: number | null;       // secondary model's confidence score
 	cv_agree: number | null;            // 1 = both models agreed, 0 = disagreed
-	flagged: number | null;             // 1 = models disagreed but detection was kept
+	flagged: number | null;             // 1 = models disagreed but detection was kept (legacy; use verification_status)
+	verification_status: string;        // 'unverified' | 'auto' | 'cv' | 'verified'
 }
 
 // ── Shared species metadata (from species_info table) ─────────────────────
@@ -244,11 +245,12 @@ export function getSpeciesDetail(name: string): Promise<SpeciesStats> {
 /** Fetch a paginated list of individual detections for one species, newest first. */
 export function getSpeciesDetections(
 	name: string,
-	params: { limit?: number; offset?: number } = {}
+	params: { limit?: number; offset?: number; verification_status?: string } = {}
 ): Promise<SpeciesDetectionsResponse> {
 	const q = new URLSearchParams();
-	if (params.limit  !== undefined) q.set('limit',  String(params.limit));
-	if (params.offset !== undefined) q.set('offset', String(params.offset));
+	if (params.limit              !== undefined) q.set('limit',               String(params.limit));
+	if (params.offset             !== undefined) q.set('offset',              String(params.offset));
+	if (params.verification_status !== undefined) q.set('verification_status', params.verification_status);
 	return apiFetch<SpeciesDetectionsResponse>(
 		`/api/v1/species/${encodeURIComponent(name)}/detections?${q}`
 	);
@@ -411,9 +413,9 @@ export interface AdminDeleteResult {
 	deleted_files: number;
 }
 
-export interface AdminFlagResult {
+export interface AdminVerificationResult {
 	id: number;
-	flagged: boolean;
+	verification_status: string;
 }
 
 export interface SystemStatus {
@@ -451,11 +453,11 @@ export function adminExportUrl(species?: string): string {
 	return `/api/v1/admin/detections/export${q}`;
 }
 
-/** Set or clear the flagged field on a detection. */
-export function adminSetFlag(id: number, flagged: boolean): Promise<AdminFlagResult> {
-	return apiFetch<AdminFlagResult>(`/api/v1/admin/detections/${id}/flag`, {
-		method: 'POST',
-		body: JSON.stringify({ flagged }),
+/** Set the verification_status on a detection. Valid values: unverified, auto, cv, verified. */
+export function adminSetVerification(id: number, status: string): Promise<AdminVerificationResult> {
+	return apiFetch<AdminVerificationResult>(`/api/v1/admin/detections/${id}/verification`, {
+		method: 'PATCH',
+		body: JSON.stringify({ verification_status: status }),
 	});
 }
 

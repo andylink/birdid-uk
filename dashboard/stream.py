@@ -28,9 +28,12 @@ def _row_to_dict(row: dict) -> dict:
     d["timestamp"] = to_utc_iso(d.get("timestamp"))
     # PostgreSQL returns booleans; SQLite returns integers.
     # Normalise to integers so frontend === 1 checks work on both backends.
-    for key in ("flagged", "cross_validated", "cv_agree"):
+    for key in ("cross_validated", "cv_agree"):
         if key in d and isinstance(d[key], bool):
             d[key] = int(d[key])
+    # Ensure verification_status is never NULL in the payload.
+    if not d.get("verification_status"):
+        d["verification_status"] = "unverified"
     return d
 
 
@@ -58,7 +61,8 @@ async def detection_generator() -> AsyncGenerator[dict, None]:
                                    d.clip_path, d.model,
                                    d.primary_confidence, d.cross_validated,
                                    d.cv_secondary_model, d.cv_species, d.cv_bto_name,
-                                   d.cv_confidence, d.cv_agree, d.flagged,
+                                   d.cv_confidence, d.cv_agree,
+                                   COALESCE(d.verification_status, 'unverified') AS verification_status,
                                    si.scientific_name, si.group_name, si.uk_bocc,
                                    si.species_status, si.bto_2letter_code, si.bto_5letter_code
                             FROM detections d

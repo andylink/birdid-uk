@@ -378,11 +378,7 @@ def _deferred_save(
             cv_bto_name         = cv_result.secondary_bto_name,
             cv_confidence       = cv_result.secondary_confidence,
             cv_agree            = cv_result.agree,
-            flagged             = (cv_result.action == "flag") or None,
         )
-        # Store None rather than False for un-flagged rows to keep the column sparse.
-        if cv_kwargs["flagged"] is False:
-            cv_kwargs["flagged"] = None
 
     # Attach weather snapshot if available (cached; returns None when disabled).
     _wx = weather.get_weather(ts)

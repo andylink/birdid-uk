@@ -111,6 +111,9 @@ _detections = Table(
     Column("cv_confidence",       Float),
     Column("cv_agree",            Boolean),
     Column("flagged",             Boolean),
+    # Verification status — set automatically at insert time, overridable by admin.
+    # Values: 'unverified' | 'auto' | 'cv' | 'human'
+    Column("verification_status", String, default="unverified"),
     # Weather columns — NULL means weather was disabled or the fetch failed
     Column("weather_temp",           Float),
     Column("weather_humidity",        Float),
@@ -190,10 +193,17 @@ _SOURCE_NAME_COLUMN: dict[str, str] = {
 }
 
 # Column added when cross-source deduplication was introduced.
-# NULL when dedup is off or this is the first detection from its source.
+# NULL when dedup is off or this is the primary detection.
 # TRUE when on_duplicate = "flag" and this is a flagged duplicate.
 _DEDUP_COLUMN: dict[str, str] = {
     "deduplicated": "BOOLEAN",
+}
+
+# Column added when the verification status system was introduced.
+# Replaces the boolean flagged column with a richer status string.
+# Values: 'unverified' | 'auto' | 'cv' | 'human'
+_VERIFICATION_STATUS_COLUMN: dict[str, str] = {
+    "verification_status": "TEXT",
 }
 
 
@@ -346,6 +356,53 @@ def _migrate_dedup_column(engine: sa.Engine) -> None:
                 logger.info("DB migration: added column detections.%s", col_name)
 
 
+def _migrate_verification_status_column(engine: sa.Engine) -> None:
+    """Add the verification_status column and back-fill existing rows.
+
+    Introduced to replace the simple boolean flagged column with a richer
+    verification workflow. Values: 'unverified', 'auto', 'cv', 'human'.
+
+    Back-fill rules applied to existing rows:
+      - 'cv'   if cross_validated=1 AND cv_agree=1
+      - 'auto' if confidence >= auto_verify_threshold (from config)
+      - 'unverified' otherwise
+
+    No-op if the column already exists.
+    """
+    db_type = cfg.database.type
+    threshold = cfg.admin.auto_verify_threshold
+    with engine.begin() as conn:
+        if db_type == "sqlite":
+            rows = conn.execute(text("PRAGMA table_info(detections)")).fetchall()
+            existing = {row[1] for row in rows}
+        else:
+            rows = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'detections'"
+            )).fetchall()
+            existing = {row[0] for row in rows}
+
+        if "verification_status" not in existing:
+            conn.execute(text(
+                "ALTER TABLE detections ADD COLUMN verification_status TEXT DEFAULT 'unverified'"
+            ))
+            logger.info("DB migration: added column detections.verification_status")
+            # Back-fill cv rows first (strongest signal)
+            conn.execute(text(
+                "UPDATE detections SET verification_status = 'cv' "
+                "WHERE cross_validated = 1 AND cv_agree = 1"
+            ))
+            # Back-fill auto rows where confidence meets the threshold
+            conn.execute(text(
+                "UPDATE detections SET verification_status = 'auto' "
+                "WHERE verification_status = 'unverified' AND confidence >= :t"
+            ), {"t": threshold})
+            logger.info(
+                "DB migration: back-filled verification_status (auto threshold=%.2f)",
+                threshold,
+            )
+
+
 def init_db() -> None:
     """Open the database, create tables if needed, and run any pending migrations.
 
@@ -375,6 +432,7 @@ def init_db() -> None:
     _migrate_weather_columns(_engine)
     _migrate_source_name_column(_engine)
     _migrate_dedup_column(_engine)
+    _migrate_verification_status_column(_engine)
 
     if cfg.database.timescaledb:
         with _engine.begin() as conn:
@@ -400,7 +458,6 @@ def record_detection(
     cv_bto_name:         str | None   = None,
     cv_confidence:       float | None = None,
     cv_agree:            bool | None  = None,
-    flagged:             bool | None  = None,
     # Weather fields — None when weather is disabled or unavailable
     weather_temp:           float | None = None,
     weather_humidity:       float | None = None,
@@ -421,6 +478,11 @@ def record_detection(
     entry in ``secondary`` into ``detection_results``. Both inserts share a
     single transaction.
 
+    verification_status is computed automatically:
+      - 'cv'          when cross_validated=True and cv_agree=True
+      - 'auto'        when confidence >= cfg.admin.auto_verify_threshold
+      - 'unverified'  otherwise
+
     Args:
         ts:                  UTC timestamp of the detection.
         species:             Primary model common name (e.g. "European Robin").
@@ -438,7 +500,6 @@ def record_detection(
         cv_bto_name:         BTO-resolved name for cv_species.
         cv_confidence:       Secondary model's top confidence score.
         cv_agree:            True if both models agreed on the same BTO name.
-        flagged:             True when models disagreed and on_disagree="flag".
         weather_temp:        Air temperature in °C at detection time.
         weather_humidity:    Relative humidity (%) at detection time.
         weather_wind_speed:  Wind speed in m/s at detection time.
@@ -452,6 +513,14 @@ def record_detection(
         deduplicated:        True when saved as a flagged cross-source duplicate.
                              None in all other cases.
     """
+    # Compute verification status at insert time — admin can override later.
+    if cross_validated and cv_agree:
+        verification_status = "cv"
+    elif confidence >= cfg.admin.auto_verify_threshold:
+        verification_status = "auto"
+    else:
+        verification_status = "unverified"
+
     if _engine is None:
         return
     with _engine.begin() as conn:
@@ -470,7 +539,7 @@ def record_detection(
                 cv_bto_name            = cv_bto_name,
                 cv_confidence          = cv_confidence,
                 cv_agree               = cv_agree,
-                flagged                = flagged,
+                verification_status    = verification_status,
                 weather_temp           = weather_temp,
                 weather_humidity       = weather_humidity,
                 weather_wind_speed     = weather_wind_speed,

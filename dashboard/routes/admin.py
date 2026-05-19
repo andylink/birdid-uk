@@ -4,15 +4,15 @@ Admin-only endpoints — all require a valid session cookie (require_admin depen
 Route order matters: the static path /detections/count is registered before
 the parameterised /detections/{id} to avoid it being captured as a wildcard.
 
-GET    /api/v1/admin/detections/count        — count detections (optional species filter)
-GET    /api/v1/admin/detections/export       — download all detections as CSV
-DELETE /api/v1/admin/detections/{id}         — delete one detection + its audio clip
-DELETE /api/v1/admin/detections              — bulk delete (optional species filter)
-POST   /api/v1/admin/detections/{id}/flag    — set or clear the flagged field
-GET    /api/v1/admin/system/status           — disk usage, detection counts
-POST   /api/v1/admin/system/retention        — trigger a retention run immediately
-POST   /api/v1/admin/system/clear-image-cache — delete cached species images
-POST   /api/v1/admin/system/reseed-species   — wipe and re-seed the species_info table
+GET    /api/v1/admin/detections/count            — count detections (optional species filter)
+GET    /api/v1/admin/detections/export           — download all detections as CSV
+DELETE /api/v1/admin/detections/{id}             — delete one detection + its audio clip
+DELETE /api/v1/admin/detections                  — bulk delete (optional species filter)
+PATCH  /api/v1/admin/detections/{id}/verification — set verification_status
+GET    /api/v1/admin/system/status               — disk usage, detection counts
+POST   /api/v1/admin/system/retention            — trigger a retention run immediately
+POST   /api/v1/admin/system/clear-image-cache    — delete cached species images
+POST   /api/v1/admin/system/reseed-species       — wipe and re-seed the species_info table
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ async def export_detections(
     columns = [
         "id", "timestamp", "species", "confidence", "filename",
         "model", "primary_confidence", "cross_validated", "cv_secondary_model",
-        "cv_species", "cv_confidence", "cv_agree", "flagged",
+        "cv_species", "cv_confidence", "cv_agree", "verification_status",
     ]
 
     buf = io.StringIO()
@@ -177,26 +177,39 @@ async def bulk_delete_detections(species: Optional[str] = Query(None)):
     return {"deleted_rows": len(rows), "deleted_files": deleted_files}
 
 
-# ── Toggle flag ────────────────────────────────────────────────────────────────
+# ── Set verification status ────────────────────────────────────────────────────
 
-class FlagBody(BaseModel):
-    flagged: bool
+# Valid values for verification_status
+_VALID_STATUSES = {"unverified", "auto", "cv", "human"}
 
 
-@router.post(
-    "/api/v1/admin/detections/{det_id}/flag",
+class VerificationBody(BaseModel):
+    verification_status: str
+
+
+@router.patch(
+    "/api/v1/admin/detections/{det_id}/verification",
     dependencies=[Depends(require_admin)],
 )
-async def set_flag(det_id: int, body: FlagBody):
-    """Set or clear the flagged field on a single detection."""
+async def set_verification(det_id: int, body: VerificationBody):
+    """Set the verification_status on a single detection.
+
+    Valid values: unverified, auto, cv, human.
+    """
+    if body.verification_status not in _VALID_STATUSES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid status '{body.verification_status}'. "
+                   f"Must be one of: {', '.join(sorted(_VALID_STATUSES))}",
+        )
     async with get_engine().begin() as conn:
         result = await conn.execute(
-            text("UPDATE detections SET flagged = :flagged WHERE id = :id"),
-            {"flagged": int(body.flagged), "id": det_id},
+            text("UPDATE detections SET verification_status = :vs WHERE id = :id"),
+            {"vs": body.verification_status, "id": det_id},
         )
     if result.rowcount == 0:
         raise HTTPException(status_code=404, detail=f"Detection {det_id} not found")
-    return {"id": det_id, "flagged": body.flagged}
+    return {"id": det_id, "verification_status": body.verification_status}
 
 
 # ── System status ──────────────────────────────────────────────────────────────

@@ -332,9 +332,10 @@ class AdminConfig:
     password_hash and session_secret are written by install.sh; do not edit
     these manually.  Leave both empty to disable admin auth entirely.
     """
-    password_hash:  str  # bcrypt hash of the admin password
-    session_secret: str  # random secret for signing HTTP-only session cookies
-    session_ttl:    int  # session cookie lifetime in seconds (default 86400 = 24h)
+    password_hash:         str    # bcrypt hash of the admin password
+    session_secret:        str    # random secret for signing HTTP-only session cookies
+    session_ttl:           int    # session cookie lifetime in seconds (default 86400 = 24h)
+    auto_verify_threshold: float  # confidence >= this value sets verification_status to 'auto'
 
 
 @dataclass(frozen=True)
@@ -714,9 +715,10 @@ def _load() -> Config:
 
     adm = raw.get("admin", {})
     admin_cfg = AdminConfig(
-        password_hash  = str(adm.get("password_hash",  "")),
-        session_secret = str(adm.get("session_secret", "")),
-        session_ttl    = int(adm.get("session_ttl",    86400)),
+        password_hash         = str(adm.get("password_hash",         "")),
+        session_secret        = str(adm.get("session_secret",        "")),
+        session_ttl           = int(adm.get("session_ttl",           86400)),
+        auto_verify_threshold = float(adm.get("auto_verify_threshold", 0.9)),
     )
 
     w  = raw.get("weather", {})

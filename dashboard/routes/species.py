@@ -92,12 +92,12 @@ async def _fetch_image_bytes(url: str) -> bytes | None:
 
 
 def _normalise_bools(d: dict) -> dict:
-    """Coerce flagging/validation boolean fields to integers.
+    """Coerce cross-validation boolean fields to integers.
 
     SQLite returns 0/1; PostgreSQL returns Python bools. The frontend uses
     strict equality (=== 1), so we normalise to integers for both backends.
     """
-    for key in ("flagged", "cross_validated", "cv_agree"):
+    for key in ("cross_validated", "cv_agree"):
         if key in d and isinstance(d[key], bool):
             d[key] = int(d[key])
     return d
@@ -308,38 +308,54 @@ async def species_detection_list(
     name: str,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    verification_status: Optional[str] = None,
     db: AsyncConnection = Depends(get_db),
 ):
     """Paginated list of individual recordings for a single species, newest first.
 
     Includes uk_bocc and species_status so the frontend can apply
     notable-species highlighting without a separate lookup.
+    Pass verification_status=unverified|auto|cv|verified to filter by review state.
     """
+    # Build an optional extra WHERE clause for the verification filter.
+    vs_clause = "AND COALESCE(d.verification_status, 'unverified') = :vs" if verification_status else ""
+    params: dict = {"name": name, "limit": limit, "offset": offset}
+    if verification_status:
+        params["vs"] = verification_status
+
     rows = (
         await db.execute(
-            text("""
+            text(f"""
             SELECT
                 d.id, d.timestamp, d.species, d.confidence, d.clip_path, d.bto_name,
                 d.model,
                 d.primary_confidence, d.cross_validated,
                 d.cv_secondary_model, d.cv_species, d.cv_bto_name,
-                d.cv_confidence, d.cv_agree, d.flagged,
+                d.cv_confidence, d.cv_agree,
+                COALESCE(d.verification_status, 'unverified') AS verification_status,
                 si.scientific_name, si.group_name, si.uk_bocc, si.species_status,
                 si.bto_2letter_code, si.bto_5letter_code
             FROM detections d
             LEFT JOIN species_info si ON si.name = d.bto_name
-            WHERE d.species = :name
+            WHERE d.species = :name {vs_clause}
             ORDER BY d.id DESC
             LIMIT :limit OFFSET :offset
             """),
-            {"name": name, "limit": limit, "offset": offset},
+            params,
         )
     ).mappings().all()
 
+    count_params: dict = {"name": name}
+    if verification_status:
+        count_params["vs"] = verification_status
     total_row = (
         await db.execute(
-            text("SELECT COUNT(*) AS n FROM detections WHERE species = :name"),
-            {"name": name},
+            text(
+                f"SELECT COUNT(*) AS n FROM detections "
+                f"WHERE species = :name "
+                f"{'AND COALESCE(verification_status, \'unverified\') = :vs' if verification_status else ''}"
+            ),
+            count_params,
         )
     ).mappings().one()
 

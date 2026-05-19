@@ -5,7 +5,7 @@
 		getSpeciesDetections,
 		speciesImageUrl,
 		adminDeleteDetection,
-		adminSetFlag,
+		adminSetVerification,
 		adminBulkDelete,
 		type SpeciesStats,
 		type Detection,
@@ -35,6 +35,9 @@
 	let listLoading    = $state(true);
 	let listError      = $state<string | null>(null);
 
+	// null = show all; otherwise filter to this verification_status value
+	let verificationFilter = $state<string | null>(null);
+
 	const totalPages  = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
 	const currentPage = $derived(Math.floor(offset / PAGE_SIZE) + 1);
 
@@ -53,23 +56,28 @@
 			.catch(e => { statsError = (e as Error).message; statsLoading = false; });
 	});
 
-	// Stale-response guard: compare name+offset at response time to discard
+	// Stale-response guard: compare name+offset+filter at response time to discard
 	// results from superseded requests.
 	$effect(() => {
 		const name = speciesName;
 		const off  = offset;
+		const vsf  = verificationFilter;
 		listLoading = true;
 		listError   = null;
-		getSpeciesDetections(name, { limit: PAGE_SIZE, offset: off })
+		getSpeciesDetections(name, {
+			limit: PAGE_SIZE,
+			offset: off,
+			...(vsf !== null ? { verification_status: vsf } : {}),
+		})
 			.then(r => {
-				if (speciesName === name && offset === off) {
+				if (speciesName === name && offset === off && verificationFilter === vsf) {
 					detections  = r.detections;
 					total       = r.total;
 					listLoading = false;
 				}
 			})
 			.catch(e => {
-				if (speciesName === name && offset === off) {
+				if (speciesName === name && offset === off && verificationFilter === vsf) {
 					listError   = (e as Error).message;
 					listLoading = false;
 				}
@@ -79,8 +87,16 @@
 	function prevPage() { offset = Math.max(0, offset - PAGE_SIZE); }
 	function nextPage() { offset = offset + PAGE_SIZE; }
 
-	// Admin: per-detection flag overrides (id → flagged boolean)
-	let flagOverrides = $state<Map<number, boolean>>(new Map());
+	// Set (or clear) the verification filter and reset to page 1.
+	function setFilter(status: string | null) {
+		verificationFilter = status;
+		offset = 0;
+		// Clear local overrides — they're no longer meaningful for the new result set.
+		verificationOverrides = new Map();
+	}
+
+	// Admin: per-detection verification overrides (id → verification_status string)
+	let verificationOverrides = $state<Map<number, string>>(new Map());
 	let deletingId    = $state<number | null>(null);
 
 	// Admin: bulk-delete state for this species
@@ -88,8 +104,10 @@
 	let bulkDeleting = $state(false);
 	let bulkMsg      = $state<string | null>(null);
 
-	function isFlaggedLocal(det: Detection): boolean {
-		return flagOverrides.has(det.id) ? (flagOverrides.get(det.id) as boolean) : det.flagged === 1;
+	function verificationStatusLocal(det: Detection): string {
+		return verificationOverrides.has(det.id)
+			? (verificationOverrides.get(det.id) as string)
+			: (det.verification_status ?? 'unverified');
 	}
 
 	async function handleDeleteRow(id: number) {
@@ -104,15 +122,20 @@
 		}
 	}
 
-	async function handleToggleFlagRow(det: Detection) {
-		const current = isFlaggedLocal(det);
+	async function handleSetVerificationRow(det: Detection, target: string) {
 		try {
-			const result = await adminSetFlag(det.id, !current);
-			const next = new Map(flagOverrides);
-			next.set(det.id, result.flagged);
-			flagOverrides = next;
+			const result = await adminSetVerification(det.id, target);
+			const updated = new Map(verificationOverrides);
+			updated.set(det.id, result.verification_status);
+			verificationOverrides = updated;
+			// If a filter is active and the new status no longer matches it, remove
+			// the row from view immediately (same UX as deleting while filtered).
+			if (verificationFilter !== null && result.verification_status !== verificationFilter) {
+				detections = detections.filter(d => d.id !== det.id);
+				total = Math.max(0, total - 1);
+			}
 		} catch {
-			// Leave flag state unchanged on error
+			// Leave status unchanged on error
 		}
 	}
 
@@ -259,6 +282,35 @@
 					{/if}
 				{/if}
 			</div>
+
+			<!-- Verification filter pills -->
+			<div class="filter-row" role="group" aria-label="Filter by verification status">
+				<button
+					class="filter-pill"
+					class:filter-active={verificationFilter === null}
+					onclick={() => setFilter(null)}
+				>All</button>
+				<button
+					class="filter-pill filter-pill-auto"
+					class:filter-active={verificationFilter === 'auto'}
+					onclick={() => setFilter('auto')}
+				>Auto ✓</button>
+				<button
+					class="filter-pill filter-pill-cv"
+					class:filter-active={verificationFilter === 'cv'}
+					onclick={() => setFilter('cv')}
+				>CV ✓</button>
+				<button
+					class="filter-pill filter-pill-human"
+					class:filter-active={verificationFilter === 'human'}
+					onclick={() => setFilter('human')}
+				>Human ✓</button>
+				<button
+					class="filter-pill filter-pill-unverified"
+					class:filter-active={verificationFilter === 'unverified'}
+					onclick={() => setFilter('unverified')}
+				>Unverified</button>
+			</div>
 			{#if bulkMsg}
 				<p class="bulk-msg" role="status">{bulkMsg}</p>
 			{/if}
@@ -286,17 +338,18 @@
 			{:else}
 				<div class="det-surface">
 				{#each detections as det (det.id)}
-					{@const isNotable   = det.uk_bocc === 'Red' || det.species_status === 'Rare' || det.species_status === 'Very rare'}
-					{@const rowFlagged  = isFlaggedLocal(det)}
-					{@const cvRan       = det.cross_validated === 1}
-					{@const cvAgreed    = cvRan && det.cv_agree === 1}
-					{@const cvDisagreed = cvRan && det.cv_agree === 0}
-					{@const badgeClass  = confidenceBadgeClass(det.confidence)}
+					{@const isNotable    = det.uk_bocc === 'Red' || det.species_status === 'Rare' || det.species_status === 'Very rare'}
+					{@const rowStatus    = verificationStatusLocal(det)}
+					{@const rowHuman     = rowStatus === 'human'}
+					{@const cvRan        = det.cross_validated === 1}
+					{@const cvAgreed     = cvRan && det.cv_agree === 1}
+					{@const cvDisagreed  = cvRan && det.cv_agree === 0}
+					{@const badgeClass   = confidenceBadgeClass(det.confidence)}
 					<div
 						class="det-row"
-						class:det-notable={isNotable}
-						class:det-flagged={rowFlagged && !isNotable}
-						class:det-normal={!isNotable && !rowFlagged}
+					class:det-notable={isNotable}
+					class:det-human={rowHuman && !isNotable}
+					class:det-normal={!isNotable && !rowHuman}
 					>
 						<!-- Confidence bar -->
 						<div class="conf-bar-wrap">
@@ -304,12 +357,12 @@
 								class="conf-bar-track"
 								aria-label="Confidence {formatConfidence(det.confidence)}"
 							>
-								<div
-									class="conf-bar-fill"
-									class:conf-bar-notable={isNotable}
-									class:conf-bar-flagged={rowFlagged && !isNotable}
-									style="height: {det.confidence * 100}%"
-								></div>
+							<div
+								class="conf-bar-fill"
+						class:conf-bar-notable={isNotable}
+							class:conf-bar-human={rowHuman && !isNotable}
+								style="height: {det.confidence * 100}%"
+							></div>
 							</div>
 						</div>
 
@@ -330,10 +383,13 @@
 											{det.uk_bocc === 'Red' ? 'Red List' : det.species_status === 'Very rare' ? 'Very rare' : 'Rare'}
 										</span>
 									{/if}
-									{#if rowFlagged}
-										<span class="micro-badge flagged-badge">Flagged</span>
-									{:else if cvAgreed}
-										<span class="micro-badge cv-agree-badge">CV ✓</span>
+									<!-- Verification status badge -->
+									{#if rowHuman}
+										<span class="micro-badge badge-human" title="Verified by a human">Human ✓</span>
+									{:else if rowStatus === 'cv'}
+										<span class="micro-badge badge-cv" title="Both models agreed on this species">CV ✓</span>
+									{:else if rowStatus === 'auto'}
+										<span class="micro-badge badge-auto" title="Auto-approved: confidence above threshold">Auto ✓</span>
 									{/if}
 								</div>
 							</div>
@@ -355,17 +411,25 @@
 									{/if}
 								</div>
 							{/if}
-							<!-- Admin controls: shown when logged in -->
-							{#if $auth.authenticated}
-								<div class="row-admin-row">
+						<!-- Admin controls: shown when logged in.
+						     Verify   → mark as human-verified.
+						     Unverify → reset to unverified (shown for auto, cv, human). -->
+						{#if $auth.authenticated}
+							<div class="row-admin-row">
+								{#if rowStatus !== 'human'}
 									<button
-										class="row-admin-btn row-flag-btn"
-										class:flag-active={rowFlagged}
-										onclick={() => handleToggleFlagRow(det)}
-										title={rowFlagged ? 'Unflag' : 'Flag for review'}
-									>
-										{rowFlagged ? 'Unflag' : 'Flag'}
-									</button>
+										class="row-admin-btn row-verify-btn"
+										onclick={() => handleSetVerificationRow(det, 'human')}
+										title="Mark as human-verified"
+									>Verify</button>
+								{/if}
+									{#if rowStatus !== 'unverified'}
+										<button
+											class="row-admin-btn row-unverify-btn"
+											onclick={() => handleSetVerificationRow(det, 'unverified')}
+											title="Reset to unverified"
+										>Unverify</button>
+									{/if}
 									<button
 										class="row-admin-btn row-delete-btn"
 										disabled={deletingId === det.id}
@@ -545,6 +609,35 @@
 		color: var(--color-text-muted);
 	}
 
+	/* Verification filter pills */
+	.filter-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+	}
+	.filter-pill {
+		padding: 0.2rem 0.65rem;
+		border-radius: 999px;
+		font-size: 0.7rem;
+		font-weight: 500;
+		border: 1px solid var(--color-border);
+		background: transparent;
+		color: var(--color-text-muted);
+		cursor: pointer;
+		transition: background 0.15s, color 0.15s, border-color 0.15s;
+	}
+	.filter-pill:hover { background: var(--color-surface); color: var(--color-text); }
+	.filter-pill.filter-active {
+		border-color: currentColor;
+		color: var(--color-text);
+		background: var(--color-surface);
+	}
+	/* Colour accents when active, matching badge palette */
+	.filter-pill-auto.filter-active  { color: #d97706; border-color: #d97706; background: rgba(217,119,6,0.08); }
+	.filter-pill-cv.filter-active    { color: #16a34a; border-color: #16a34a; background: rgba(22,163,74,0.08); }
+	.filter-pill-human.filter-active { color: #2563eb; border-color: #2563eb; background: rgba(37,99,235,0.08); }
+	.filter-pill-unverified.filter-active { color: var(--color-text-muted); border-color: var(--color-border); }
+
 	/* Detection surface */
 	.det-surface {
 		background: var(--color-surface);
@@ -567,9 +660,10 @@
 		border-left: 2px solid #ef4444;
 		background: rgba(239, 68, 68, 0.04);
 	}
-	.det-flagged {
-		border-left: 2px solid #f59e0b;
-		background: rgba(245, 158, 11, 0.03);
+	/* Blue left border for human-verified detections */
+	.det-human {
+		border-left: 2px solid #3b82f6;
+		background: rgba(59, 130, 246, 0.03);
 	}
 
 	/* Confidence bar */
@@ -598,7 +692,7 @@
 		background: var(--color-accent);
 	}
 	.conf-bar-notable { background: #ef4444; }
-	.conf-bar-flagged { background: #f59e0b; }
+	.conf-bar-human   { background: #3b82f6; }
 
 	/* Detection content */
 	.det-content {
@@ -637,14 +731,20 @@
 		padding: 0.0625rem 0.375rem;
 		border-radius: 0.25rem;
 	}
-	.flagged-badge {
-		background: rgba(245, 158, 11, 0.15);
-		color: #f59e0b;
+	/* Blue = human-verified by admin */
+	.badge-human {
+		background: rgba(59, 130, 246, 0.15);
+		color: #3b82f6;
 	}
-	.cv-agree-badge {
+	/* Green = both models agreed (cross-validation) */
+	.badge-cv {
 		background: rgba(16, 185, 129, 0.15);
 		color: #10b981;
-		font-weight: 500;
+	}
+	/* Amber = auto-approved by confidence threshold, no human review */
+	.badge-auto {
+		background: rgba(245, 158, 11, 0.15);
+		color: #f59e0b;
 	}
 
 	/* CV detail row */
@@ -805,8 +905,12 @@
 		transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 	}
 	.row-admin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-	.row-flag-btn:hover,
-	.row-flag-btn.flag-active {
+	.row-verify-btn:hover {
+		background: rgba(59, 130, 246, 0.12);
+		color: #3b82f6;
+		border-color: #3b82f6;
+	}
+	.row-unverify-btn:hover {
 		background: rgba(245, 158, 11, 0.12);
 		color: #f59e0b;
 		border-color: #f59e0b;

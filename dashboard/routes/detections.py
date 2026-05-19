@@ -19,12 +19,12 @@ router = APIRouter()
 
 
 def _normalise_bools(d: dict) -> dict:
-    """Coerce flagging/validation boolean fields to integers.
+    """Coerce cross-validation boolean fields to integers.
 
     SQLite returns 0/1; PostgreSQL returns Python bools. The frontend uses
     strict equality (=== 1), so we normalise to integers for both backends.
     """
-    for key in ("flagged", "cross_validated", "cv_agree"):
+    for key in ("cross_validated", "cv_agree"):
         if key in d and isinstance(d[key], bool):
             d[key] = int(d[key])
     return d
@@ -36,7 +36,7 @@ async def list_detections(
     offset: int = Query(0, ge=0),
     species: Optional[str] = None,
     date: Optional[str] = None,
-    flagged: Optional[bool] = None,
+    verification_status: Optional[str] = None,
     db: AsyncConnection = Depends(get_db),
 ):
     """Return a paginated list of detections, newest first.
@@ -45,7 +45,8 @@ async def list_detections(
     UTC range bounds derived from the configured timezone so detections are
     bucketed by local date, not raw UTC.
 
-    Pass `flagged=true` to show only detections flagged for manual review.
+    Pass `verification_status=unverified` to show only detections that need
+    manual review. Other values: auto, cv, human.
     Timestamps are returned as ISO 8601 with +00:00 so the frontend parses them as UTC.
     """
     clauses: list[str] = []
@@ -60,12 +61,9 @@ async def list_detections(
         clauses.append("timestamp >= :ts_start AND timestamp < :ts_end")
         params["ts_start"] = start
         params["ts_end"] = end
-    if flagged is not None:
-        # IS TRUE / IS NOT TRUE works on PostgreSQL BOOLEAN and SQLite 3.23+
-        if flagged:
-            clauses.append("flagged IS TRUE")
-        else:
-            clauses.append("(flagged IS NULL OR flagged IS NOT TRUE)")
+    if verification_status is not None:
+        clauses.append("verification_status = :vs")
+        params["vs"] = verification_status
 
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     params["limit"] = limit
@@ -79,7 +77,8 @@ async def list_detections(
                 d.model,
                 d.primary_confidence, d.cross_validated,
                 d.cv_secondary_model, d.cv_species, d.cv_bto_name,
-                d.cv_confidence, d.cv_agree, d.flagged,
+                d.cv_confidence, d.cv_agree,
+                COALESCE(d.verification_status, 'unverified') AS verification_status,
                 si.scientific_name, si.group_name, si.uk_bocc, si.species_status,
                 si.bto_2letter_code, si.bto_5letter_code
             FROM detections d

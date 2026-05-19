@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Detection } from '$lib/api';
-	import { adminDeleteDetection, adminSetFlag } from '$lib/api';
+	import { adminDeleteDetection, adminSetVerification } from '$lib/api';
 	import { auth } from '$lib/auth';
 	import { untrack } from 'svelte';
 	import { confidenceBadgeClass, formatConfidence } from '$lib/confidence';
@@ -16,9 +16,10 @@
 		ondelete?:  (id: number) => void;
 	} = $props();
 
-	let flagged = $state(untrack(() => detection.flagged === 1));
-	let flagging = $state(false);
-	let deleting = $state(false);
+	// Local copy of verification_status so admin toggling is instant.
+	let verificationStatus = $state(untrack(() => detection.verification_status ?? 'unverified'));
+	let verifying = $state(false);
+	let deleting  = $state(false);
 
 	const time       = $derived(formatTime(detection.timestamp));
 	const date       = $derived(formatDate(detection.timestamp));
@@ -32,8 +33,8 @@
 	);
 
 	const notableLabel = $derived(
-		detection.uk_bocc === 'Red'                      ? 'Red List'
-		: detection.species_status === 'Very rare'       ? 'Very rare'
+		detection.uk_bocc === 'Red'                ? 'Red List'
+		: detection.species_status === 'Very rare' ? 'Very rare'
 		: 'Rare'
 	);
 
@@ -52,14 +53,15 @@
 		}
 	}
 
-	async function handleToggleFlag() {
-		if (flagging) return;
-		flagging = true;
+	// Set verification_status to an explicit target value.
+	async function handleSetVerification(target: string) {
+		if (verifying) return;
+		verifying = true;
 		try {
-			const result = await adminSetFlag(detection.id, !flagged);
-			flagged = result.flagged;
+			const result = await adminSetVerification(detection.id, target);
+			verificationStatus = result.verification_status;
 		} finally {
-			flagging = false;
+			verifying = false;
 		}
 	}
 </script>
@@ -67,7 +69,7 @@
 <article
 	class="detection-card"
 	class:notable={isNotable}
-	class:flagged={flagged && !isNotable}
+	class:manually-human={verificationStatus === 'human' && !isNotable}
 >
 	<!-- Vertical confidence bar on the left edge -->
 	<div class="conf-bar-wrap" aria-label="Confidence {formatConfidence(detection.confidence)}">
@@ -75,7 +77,7 @@
 			<div
 				class="conf-bar-fill"
 				class:fill-notable={isNotable}
-				class:fill-flagged={flagged && !isNotable}
+				class:fill-human={verificationStatus === 'human' && !isNotable}
 				style:height="{detection.confidence * 100}%"
 			></div>
 		</div>
@@ -96,10 +98,13 @@
 						{notableLabel}
 					</span>
 				{/if}
-				{#if flagged}
-					<span class="micro-badge flagged-badge">Flagged</span>
-				{:else if cvAgreed}
-					<span class="micro-badge cv-agree-badge">CV ✓</span>
+				<!-- Verification status badge — shows how the detection was approved -->
+			{#if verificationStatus === 'human'}
+				<span class="micro-badge badge-human" title="Verified by a human">Human ✓</span>
+				{:else if verificationStatus === 'cv'}
+					<span class="micro-badge badge-cv" title="Both models agreed on this species">CV ✓</span>
+				{:else if verificationStatus === 'auto'}
+					<span class="micro-badge badge-auto" title="Auto-approved: confidence above threshold">Auto ✓</span>
 				{/if}
 			</div>
 			<time class="detection-time tabular" datetime={detection.timestamp}>{time}</time>
@@ -128,18 +133,27 @@
 			</div>
 		{/if}
 
-		<!-- Admin controls: shown when logged in -->
+		<!-- Admin controls: shown when logged in.
+		     Verify   → mark as human-verified.
+		     Unverify → reset to unverified (shown when status is auto, cv, or human). -->
 		{#if $auth.authenticated}
 			<div class="admin-row">
-				<button
-					class="admin-btn flag-btn"
-					class:flag-active={flagged}
-					onclick={handleToggleFlag}
-					disabled={flagging}
-					title={flagged ? 'Unflag this detection' : 'Flag this detection for review'}
-				>
-					{flagged ? 'Unflag' : 'Flag'}
-				</button>
+				{#if verificationStatus !== 'human'}
+					<button
+						class="admin-btn verify-btn"
+						onclick={() => handleSetVerification('human')}
+						disabled={verifying}
+						title="Mark as human-verified"
+					>Verify</button>
+				{/if}
+				{#if verificationStatus !== 'unverified'}
+					<button
+						class="admin-btn unverify-btn"
+						onclick={() => handleSetVerification('unverified')}
+						disabled={verifying}
+						title="Reset to unverified"
+					>Unverify</button>
+				{/if}
 				<button
 					class="admin-btn delete-btn"
 					onclick={handleDelete}
@@ -169,10 +183,10 @@
 		border-left: 2px solid #ef4444;
 		background: rgba(239, 68, 68, 0.03);
 	}
-	/* Amber left border for manually flagged detections */
-	.detection-card.flagged {
-		border-left: 2px solid #f59e0b;
-		background: rgba(245, 158, 11, 0.03);
+	/* Blue left border for human-verified detections */
+	.detection-card.manually-human {
+		border-left: 2px solid #3b82f6;
+		background: rgba(59, 130, 246, 0.03);
 	}
 
 	/* Vertical confidence bar */
@@ -202,7 +216,7 @@
 		transition: height 0.3s;
 	}
 	.conf-bar-fill.fill-notable { background: #ef4444; }
-	.conf-bar-fill.fill-flagged { background: #f59e0b; }
+	.conf-bar-fill.fill-human   { background: #3b82f6; }
 
 	.detection-body {
 		flex: 1;
@@ -245,14 +259,20 @@
 		padding: 0.0625rem 0.375rem;
 		border-radius: 0.25rem;
 	}
-	.flagged-badge {
-		background: rgba(245, 158, 11, 0.15);
-		color: #f59e0b;
+	/* Blue = human-verified by admin */
+	.badge-human {
+		background: rgba(59, 130, 246, 0.15);
+		color: #3b82f6;
 	}
-	.cv-agree-badge {
+	/* Green = both models agreed (cross-validation) */
+	.badge-cv {
 		background: rgba(16, 185, 129, 0.15);
 		color: #10b981;
-		font-weight: 500;
+	}
+	/* Amber = auto-approved by confidence threshold, no human review */
+	.badge-auto {
+		background: rgba(245, 158, 11, 0.15);
+		color: #f59e0b;
 	}
 
 	/* Cross-validation result row below the spectrogram */
@@ -267,7 +287,7 @@
 	.cv-agree    { color: #34d399; }
 	.cv-disagree { color: #fbbf24; }
 
-	/* Admin controls: flag and delete buttons shown when logged in */
+	/* Admin controls: verify and delete buttons shown when logged in */
 	.admin-row {
 		display: flex;
 		gap: 0.375rem;
@@ -286,8 +306,12 @@
 	}
 	.admin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-	.flag-btn:hover:not(:disabled),
-	.flag-btn.flag-active {
+	.verify-btn:hover:not(:disabled) {
+		background: rgba(59, 130, 246, 0.12);
+		color: #3b82f6;
+		border-color: #3b82f6;
+	}
+	.unverify-btn:hover:not(:disabled) {
 		background: rgba(245, 158, 11, 0.12);
 		color: #f59e0b;
 		border-color: #f59e0b;
