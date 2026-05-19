@@ -22,11 +22,25 @@ from spectrogram import render_spectrogram
 
 router = APIRouter()
 
+_log = __import__("logging").getLogger(__name__)
+
+
+def _safe_path(base: Path, filename: str) -> Path:
+    """Resolve *filename* relative to *base* and verify it stays within *base*.
+
+    Raises HTTP 400 if the resolved path escapes the base directory, preventing
+    path-traversal attacks such as ``../../etc/passwd``.
+    """
+    resolved = (base / filename).resolve()
+    if not resolved.is_relative_to(base.resolve()):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    return resolved
+
 
 @router.get("/audio/{filename}")
 async def serve_audio(filename: str):
     """Serve a FLAC clip from the detections directory."""
-    path = DETECTIONS_DIR / filename
+    path = _safe_path(DETECTIONS_DIR, filename)
     if not path.is_file() or path.suffix.lower() != ".flac":
         raise HTTPException(status_code=404, detail="Audio file not found")
     return FileResponse(str(path), media_type="audio/flac")
@@ -44,20 +58,21 @@ async def serve_spectrogram(filename: str):
       3. 404 — neither PNG nor FLAC is available.
     """
     stem     = Path(filename).stem
-    png_path = SPECTROGRAMS_DIR / f"{stem}.png"
+    png_path = _safe_path(SPECTROGRAMS_DIR, f"{stem}.png")
 
     # Fast path: return the pre-saved PNG directly from disk.
     if png_path.is_file():
         return FileResponse(str(png_path), media_type="image/png")
 
     # Fallback: render from the FLAC if it still exists.
-    flac_path = DETECTIONS_DIR / filename
+    flac_path = _safe_path(DETECTIONS_DIR, filename)
     if not flac_path.is_file():
         raise HTTPException(status_code=404, detail="Spectrogram not available")
 
     try:
         png = render_spectrogram(str(flac_path))
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Spectrogram error: {exc}") from exc
+        _log.exception("Spectrogram render failed for %s", flac_path)
+        raise HTTPException(status_code=500, detail="Spectrogram rendering failed") from exc
 
     return Response(content=png, media_type="image/png")

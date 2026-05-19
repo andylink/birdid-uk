@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import threading
 from math import gcd
 from typing import TYPE_CHECKING
 
@@ -60,7 +61,8 @@ class PrivacyFilter:
         self._sample_rate = sample_rate
 
         # Model is loaded on first use to avoid slowing startup
-        self._model = None
+        self._model     = None
+        self._load_lock = threading.Lock()
 
         logger.info(
             "Privacy filter: threshold=%.2f  min_voiced_fraction=%.2f",
@@ -69,10 +71,13 @@ class PrivacyFilter:
         )
 
     def _ensure_model(self) -> None:
-        if self._model is None:
-            from silero_vad import load_silero_vad
-            self._model = load_silero_vad()
-            logger.debug("silero-vad model loaded")
+        if self._model is not None:
+            return
+        with self._load_lock:
+            if self._model is None:  # double-checked locking
+                from silero_vad import load_silero_vad
+                self._model = load_silero_vad()
+                logger.debug("silero-vad model loaded")
 
     @property
     def enabled(self) -> bool:

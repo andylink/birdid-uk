@@ -475,6 +475,8 @@ def record_detection(
     source_name:            str | None   = None,
     # True when flagged as a cross-source duplicate; None otherwise
     deduplicated:           bool | None  = None,
+    # True when CV returned action="flag" (models disagree but detection is saved)
+    flagged:                bool         = False,
 ) -> None:
     """Write one detection to the database.
 
@@ -516,6 +518,8 @@ def record_detection(
                              None (SQL NULL) in single-source mode.
         deduplicated:        True when saved as a flagged cross-source duplicate.
                              None in all other cases.
+        flagged:             True when CV returned action="flag" — both models ran
+                             but disagreed; detection is saved for manual review.
     """
     # Compute verification status at insert time — admin can override later.
     if cross_validated and cv_agree:
@@ -554,6 +558,7 @@ def record_detection(
                 weather_provider       = weather_provider,
                 source_name            = source_name,
                 deduplicated           = deduplicated,
+                flagged                = flagged,
             )
         )
         detection_id = result.inserted_primary_key[0]

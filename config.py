@@ -718,9 +718,12 @@ def _load() -> Config:
     )
 
     adm = raw.get("admin", {})
+    _session_secret = str(adm.get("session_secret", ""))
+    if _session_secret and len(_session_secret) < 32:
+        raise ValueError("admin.session_secret must be at least 32 characters")
     admin_cfg = AdminConfig(
         password_hash         = str(adm.get("password_hash",         "")),
-        session_secret        = str(adm.get("session_secret",        "")),
+        session_secret        = _session_secret,
         session_ttl           = int(adm.get("session_ttl",           86400)),
         auto_verify_threshold = float(adm.get("auto_verify_threshold", 0.9)),
     )

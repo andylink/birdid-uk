@@ -191,7 +191,9 @@ if _DIST.exists():
         This allows SvelteKit's client-side router to handle all page navigations
         even when the user refreshes the browser or pastes a deep-link URL.
         """
-        file_path = _DIST / full_path
+        file_path = (_DIST / full_path).resolve()
+        if not file_path.is_relative_to(_DIST.resolve()):
+            return FileResponse(str(_DIST / "index.html"))
         if file_path.is_file():
             return FileResponse(str(file_path))
         return FileResponse(str(_DIST / "index.html"))

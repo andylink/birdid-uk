@@ -12,6 +12,8 @@
 		speciesInitials,
 	} from '$lib/bto';
 
+	function todayStr(): string { return localToday(); }
+
 	let { selectedDate = $bindable(todayStr()) }: { selectedDate?: string } = $props();
 
 	let summaries  = $state<DailySpeciesSummary[]>([]);
@@ -64,8 +66,6 @@
 	const sunsetHour = $derived(
 		sunTimes ? parseInt(sunTimes.sunset.slice(0, 2), 10) : null
 	);
-
-	function todayStr(): string { return localToday(); }
 
 	function formatDisplayDate(d: string): string {
 		return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', {

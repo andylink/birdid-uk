@@ -219,207 +219,216 @@ def _deferred_save(
                         CV-dropped, privacy-filtered, or dedup-skipped detections do
                         not consume the cooldown window.
     """
-    window_samples = int(get_model().window_seconds) * cfg.audio.sample_rate
-
-    if cfg.audio.clip_mode == "window":
-        # Save only the model window plus a short leading pad — no sleep needed
-        # because the detection window is already in the buffer.
-        pre_samples  = int(cfg.audio.window_pad_seconds * cfg.audio.sample_rate)
-        clip_samples = window_samples + pre_samples
-    else:
-        # Full-clip mode: wait for post-capture audio to be recorded.
-        post_capture = (
-            cfg.audio.clip_seconds
-            - int(get_model().window_seconds)
-            - cfg.audio.pre_capture_seconds
-        )
-        if post_capture > 0:
-            time.sleep(post_capture)
-        pre_samples  = cfg.audio.pre_capture_seconds * cfg.audio.sample_rate
-        clip_samples = cfg.audio.clip_seconds        * cfg.audio.sample_rate
-
-    # The recording thread writes in 1-second chunks, so the last few samples
-    # may not be committed yet. Retry briefly before falling back to the
-    # analysis-window clip.
-    segment: np.ndarray | None = None
-    for _attempt in range(10):
-        segment = capture_buffer.read_segment(begin_sample - pre_samples, clip_samples)
-        if segment is not None:
-            break
-        time.sleep(0.1)
-
-    if segment is None:
-        logger.warning(
-            "[%s] capture buffer miss for %s at sample %d "
-            "(clip_mode=%s, pre=%d samples); "
-            "saving fallback clip (one analysis window)",
-            source_name or "default",
-            species, begin_sample, cfg.audio.clip_mode, pre_samples,
-        )
-        segment = fallback_audio
-
-    # ── Cross-validation ──────────────────────────────────────────────────────
-    cv_result: CrossValidationResult | None = None
-    effective_conf = conf   # may be updated by CV result (always primary conf)
-
-    if _cross_validator is not None:
-        sample_rate   = cfg.audio.sample_rate
-        cv_win_samp   = int(_cross_validator.window_seconds * sample_rate)
-        cv_start      = pre_samples
-
-        if len(segment) >= cv_start + cv_win_samp:
-            cv_audio = segment[cv_start : cv_start + cv_win_samp]
+    try:
+        window_samples = int(get_model().window_seconds) * cfg.audio.sample_rate
+    
+        if cfg.audio.clip_mode == "window":
+            # Save only the model window plus a short leading pad — no sleep needed
+            # because the detection window is already in the buffer.
+            pre_samples  = int(cfg.audio.window_pad_seconds * cfg.audio.sample_rate)
+            clip_samples = window_samples + pre_samples
         else:
-            # Segment is shorter than expected — pass the full segment and let
-            # the secondary model handle it.
-            logger.debug(
-                "CV: audio segment shorter than secondary window "
-                "(%d < %d samples); using full segment",
-                len(segment), cv_start + cv_win_samp,
+            # Full-clip mode: wait for post-capture audio to be recorded.
+            post_capture = (
+                cfg.audio.clip_seconds
+                - int(get_model().window_seconds)
+                - cfg.audio.pre_capture_seconds
             )
-            cv_audio = segment
-
-        # Apply the same high-pass filter used for primary inference so both
-        # models see consistent audio.
-        if cfg.filter.enabled:
-            try:
-                cv_audio = apply_highpass(
-                    cv_audio,
-                    sample_rate,
-                    cfg.filter.cutoff_hz,
-                    cfg.filter.order,
+            if post_capture > 0:
+                time.sleep(post_capture)
+            pre_samples  = cfg.audio.pre_capture_seconds * cfg.audio.sample_rate
+            clip_samples = cfg.audio.clip_seconds        * cfg.audio.sample_rate
+    
+        # The recording thread writes in 1-second chunks, so the last few samples
+        # may not be committed yet. Retry briefly before falling back to the
+        # analysis-window clip.
+        segment: np.ndarray | None = None
+        for _attempt in range(10):
+            segment = capture_buffer.read_segment(begin_sample - pre_samples, clip_samples)
+            if segment is not None:
+                break
+            time.sleep(0.1)
+    
+        if segment is None:
+            logger.warning(
+                "[%s] capture buffer miss for %s at sample %d "
+                "(clip_mode=%s, pre=%d samples); "
+                "saving fallback clip (one analysis window)",
+                source_name or "default",
+                species, begin_sample, cfg.audio.clip_mode, pre_samples,
+            )
+            segment = fallback_audio
+    
+        # ── Cross-validation ──────────────────────────────────────────────────────
+        cv_result: CrossValidationResult | None = None
+        effective_conf = conf   # may be updated by CV result (always primary conf)
+    
+        if _cross_validator is not None:
+            sample_rate   = cfg.audio.sample_rate
+            cv_win_samp   = int(_cross_validator.window_seconds * sample_rate)
+            cv_start      = pre_samples
+    
+            if len(segment) >= cv_start + cv_win_samp:
+                cv_audio = segment[cv_start : cv_start + cv_win_samp]
+            else:
+                # Segment is shorter than expected — pass the full segment and let
+                # the secondary model handle it.
+                logger.debug(
+                    "CV: audio segment shorter than secondary window "
+                    "(%d < %d samples); using full segment",
+                    len(segment), cv_start + cv_win_samp,
                 )
-            except Exception:
-                logger.warning(
-                    "high-pass filter failed for CV audio on %s — "
-                    "using raw audio for secondary model",
-                    species,
-                )
-
-        cv_result = _cross_validator.validate(
-            audio            = cv_audio,
-            primary_species  = species,
-            primary_bto_name = bto_name,
-            primary_conf     = conf,
-            species_name     = species,
-        )
-
-        if cv_result.action == "drop":
-            logger.info(
-                "%-32s CV DROP   primary_bto=%-20s  secondary=%s (%.2f)",
-                species,
-                bto_name or "?",
-                cv_result.secondary_bto_name or cv_result.secondary_species or "none",
-                cv_result.secondary_confidence or 0.0,
+                cv_audio = segment
+    
+            # Apply the same high-pass filter used for primary inference so both
+            # models see consistent audio.
+            if cfg.filter.enabled:
+                try:
+                    cv_audio = apply_highpass(
+                        cv_audio,
+                        sample_rate,
+                        cfg.filter.cutoff_hz,
+                        cfg.filter.order,
+                    )
+                except Exception:
+                    logger.warning(
+                        "high-pass filter failed for CV audio on %s — "
+                        "using raw audio for secondary model",
+                        species,
+                    )
+    
+            cv_result = _cross_validator.validate(
+                audio            = cv_audio,
+                primary_species  = species,
+                primary_bto_name = bto_name,
+                primary_conf     = conf,
+                species_name     = species,
             )
-            return   # models disagree — discard, no clip saved, no DB row
-
-        if cv_result.action == "flag":
-            logger.info(
-                "%-32s CV FLAG   primary_bto=%-20s  secondary=%s (%.2f)",
-                species,
-                bto_name or "?",
-                cv_result.secondary_bto_name or cv_result.secondary_species or "none",
-                cv_result.secondary_confidence or 0.0,
-            )
-        else:
-            # Both models agree — log for monitoring.
-            if cv_result.performed and cv_result.agree:
+    
+            if cv_result.action == "drop":
                 logger.info(
-                    "%-32s CV AGREE  primary_bto=%-20s  secondary=%s "
-                    "(mean_conf=%.2f)",
+                    "%-32s CV DROP   primary_bto=%-20s  secondary=%s (%.2f)",
                     species,
                     bto_name or "?",
-                    cv_result.secondary_bto_name or cv_result.secondary_species or "?",
-                    cv_result.final_confidence,
+                    cv_result.secondary_bto_name or cv_result.secondary_species or "none",
+                    cv_result.secondary_confidence or 0.0,
                 )
-
-        effective_conf = cv_result.final_confidence
-
-    # ── Privacy filter ────────────────────────────────────────────────────────
-    # Scan the clip for human sounds after CV, so we only pay the cost for
-    # clips that would otherwise be saved.
-    if _privacy_filter is not None:
-        # Use one model window starting at pre_samples — same slice CV uses.
-        # Fall back to the full segment if the clip is shorter than expected.
-        privacy_audio = segment[pre_samples : pre_samples + window_samples]
-        if len(privacy_audio) < window_samples:
-            privacy_audio = segment
-        if _privacy_filter.scan(privacy_audio):
-            logger.info(
-                "%-32s PRIVACY DROP — human sound detected in clip",
-                species,
+                return   # models disagree — discard, no clip saved, no DB row
+    
+            if cv_result.action == "flag":
+                logger.info(
+                    "%-32s CV FLAG   primary_bto=%-20s  secondary=%s (%.2f)",
+                    species,
+                    bto_name or "?",
+                    cv_result.secondary_bto_name or cv_result.secondary_species or "none",
+                    cv_result.secondary_confidence or 0.0,
+                )
+            else:
+                # Both models agree — log for monitoring.
+                if cv_result.performed and cv_result.agree:
+                    logger.info(
+                        "%-32s CV AGREE  primary_bto=%-20s  secondary=%s "
+                        "(mean_conf=%.2f)",
+                        species,
+                        bto_name or "?",
+                        cv_result.secondary_bto_name or cv_result.secondary_species or "?",
+                        cv_result.final_confidence,
+                    )
+    
+            effective_conf = cv_result.final_confidence
+    
+        # ── Privacy filter ────────────────────────────────────────────────────────
+        # Scan the clip for human sounds after CV, so we only pay the cost for
+        # clips that would otherwise be saved.
+        if _privacy_filter is not None:
+            # Use one model window starting at pre_samples — same slice CV uses.
+            # Fall back to the full segment if the clip is shorter than expected.
+            privacy_audio = segment[pre_samples : pre_samples + window_samples]
+            if len(privacy_audio) < window_samples:
+                privacy_audio = segment
+            if _privacy_filter.scan(privacy_audio):
+                logger.info(
+                    "%-32s PRIVACY DROP — human sound detected in clip",
+                    species,
+                )
+                return   # discard — no clip saved, no DB row, no publish
+    
+        # ── Cross-source deduplication ────────────────────────────────────────────
+        # Only active in multi-source mode (source_name is not None).
+        _deduplicated: bool | None = None
+        if source_name is not None and _check_dedup(species, source_name, ts):
+            if cfg.deduplication.on_duplicate == "skip":
+                logger.info(
+                    "%-32s DEDUP SKIP  source=%s — same species heard by another "
+                    "source within %ds window",
+                    species, source_name, cfg.deduplication.window_seconds,
+                )
+                return  # discard — no clip saved, no DB row
+            else:  # "flag"
+                logger.info(
+                    "%-32s DEDUP FLAG  source=%s — saved with deduplicated=true",
+                    species, source_name,
+                )
+                _deduplicated = True
+    
+        # ── Persist ───────────────────────────────────────────────────────────────
+        # Stamp the cooldown timestamp now — after all filters have passed — so that
+        # CV-dropped, privacy-filtered, or dedup-skipped detections do not block the
+        # cooldown window for genuine future detections.
+        last_detected[species] = ts
+        clip_path = save_clip(segment, ts, species, source_name=source_name)
+    
+        # Pre-render and save the spectrogram PNG so it survives audio clip deletion.
+        save_spectrogram(clip_path, cfg.paths.spectrograms_dir)
+    
+        # Build CV keyword args only when CV actually ran.
+        is_flagged: bool = cv_result is not None and cv_result.action == "flag"
+        cv_kwargs: dict = {}
+        if cv_result is not None:
+            cv_kwargs = dict(
+                primary_confidence  = conf,
+                cross_validated     = cv_result.performed,
+                cv_secondary_model  = cv_result.secondary_model_name,
+                cv_species          = cv_result.secondary_species,
+                cv_bto_name         = cv_result.secondary_bto_name,
+                cv_confidence       = cv_result.secondary_confidence,
+                cv_agree            = cv_result.agree,
             )
-            return   # discard — no clip saved, no DB row, no publish
-
-    # ── Cross-source deduplication ────────────────────────────────────────────
-    # Only active in multi-source mode (source_name is not None).
-    _deduplicated: bool | None = None
-    if source_name is not None and _check_dedup(species, source_name, ts):
-        if cfg.deduplication.on_duplicate == "skip":
-            logger.info(
-                "%-32s DEDUP SKIP  source=%s — same species heard by another "
-                "source within %ds window",
-                species, source_name, cfg.deduplication.window_seconds,
+    
+        # Attach weather snapshot if available (cached; returns None when disabled).
+        _wx = weather.get_weather(ts)
+        weather_kwargs: dict = {}
+        if _wx is not None:
+            weather_kwargs = dict(
+                weather_temp           = _wx.temperature,
+                weather_humidity       = _wx.humidity,
+                weather_wind_speed     = _wx.wind_speed,
+                weather_wind_direction = _wx.wind_direction,
+                weather_pressure       = _wx.pressure,
+                weather_condition      = _wx.condition,
+                weather_precipitation  = _wx.precipitation,
+                weather_provider       = _wx.provider,
             )
-            return  # discard — no clip saved, no DB row
-        else:  # "flag"
-            logger.info(
-                "%-32s DEDUP FLAG  source=%s — saved with deduplicated=true",
-                species, source_name,
-            )
-            _deduplicated = True
-
-    # ── Persist ───────────────────────────────────────────────────────────────
-    # Stamp the cooldown timestamp now — after all filters have passed — so that
-    # CV-dropped, privacy-filtered, or dedup-skipped detections do not block the
-    # cooldown window for genuine future detections.
-    last_detected[species] = ts
-    clip_path = save_clip(segment, ts, species, source_name=source_name)
-
-    # Pre-render and save the spectrogram PNG so it survives audio clip deletion.
-    save_spectrogram(clip_path, cfg.paths.spectrograms_dir)
-
-    # Build CV keyword args only when CV actually ran.
-    cv_kwargs: dict = {}
-    if cv_result is not None:
-        cv_kwargs = dict(
-            primary_confidence  = conf,
-            cross_validated     = cv_result.performed,
-            cv_secondary_model  = cv_result.secondary_model_name,
-            cv_species          = cv_result.secondary_species,
-            cv_bto_name         = cv_result.secondary_bto_name,
-            cv_confidence       = cv_result.secondary_confidence,
-            cv_agree            = cv_result.agree,
+    
+        record_detection(
+            ts, species, effective_conf, clip_path, [],
+            bto_name, model_name,
+            source_name  = source_name,
+            deduplicated = _deduplicated,
+            flagged      = is_flagged,
+            **cv_kwargs,
+            **weather_kwargs,
         )
-
-    # Attach weather snapshot if available (cached; returns None when disabled).
-    _wx = weather.get_weather(ts)
-    weather_kwargs: dict = {}
-    if _wx is not None:
-        weather_kwargs = dict(
-            weather_temp           = _wx.temperature,
-            weather_humidity       = _wx.humidity,
-            weather_wind_speed     = _wx.wind_speed,
-            weather_wind_direction = _wx.wind_direction,
-            weather_pressure       = _wx.pressure,
-            weather_condition      = _wx.condition,
-            weather_precipitation  = _wx.precipitation,
-            weather_provider       = _wx.provider,
+        publish_detection(ts, species, effective_conf, clip_path, [],
+                          bto_name=bto_name, source_name=source_name)
+        birdmap.post_detection(ts, species, effective_conf, clip_path)
+        birdweather.post_detection(ts, species, effective_conf, clip_path)
+    except Exception:
+        logger.exception(
+            "Unhandled error in _deferred_save for %s (source=%s) "
+            "— detection lost",
+            species, source_name,
         )
-
-    record_detection(
-        ts, species, effective_conf, clip_path, [],
-        bto_name, model_name,
-        source_name  = source_name,
-        deduplicated = _deduplicated,
-        **cv_kwargs,
-        **weather_kwargs,
-    )
-    publish_detection(ts, species, effective_conf, clip_path, [],
-                      bto_name=bto_name, source_name=source_name)
-    birdmap.post_detection(ts, species, effective_conf, clip_path)
-    birdweather.post_detection(ts, species, effective_conf, clip_path)
 
 
 # ── Threads ───────────────────────────────────────────────────────────────────
@@ -622,7 +631,7 @@ def _classify_loop(
 
         # ── Steps 5–7: confirmation filter + cooldown + deferred save ─────────
         now_mono     = time.monotonic()
-        begin_sample = ctx.capture_buffer.total_written - window_samples
+        begin_sample = max(0, ctx.capture_buffer.total_written - window_samples)
 
         for species, conf in candidates:
             sc = get_species_config(species)

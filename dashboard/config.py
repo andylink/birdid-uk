@@ -68,5 +68,11 @@ SSE_POLL_SECONDS: float = 2.0
 # ── Admin authentication ──────────────────────────────────────────────────────
 # Written to config.toml by install.sh.  Empty values = auth disabled.
 ADMIN_PASSWORD_HASH: str = cfg.admin.password_hash
-SESSION_SECRET: str      = cfg.admin.session_secret or "insecure-default-change-me"
-SESSION_TTL: int         = cfg.admin.session_ttl
+
+if not cfg.admin.session_secret:
+    raise RuntimeError(
+        "admin.session_secret must be set in config.toml. "
+        'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+    )
+SESSION_SECRET: str = cfg.admin.session_secret
+SESSION_TTL: int    = cfg.admin.session_ttl

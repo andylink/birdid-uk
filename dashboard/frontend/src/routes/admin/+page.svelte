@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { auth, logout } from '$lib/auth';
 	import {
@@ -33,12 +32,19 @@
 
 	// ── Lifecycle ────────────────────────────────────────────────────────────
 
-	onMount(async () => {
+	// Track whether we've already kicked off the initial status load so that
+	// the $effect below doesn't call loadStatus() more than once if the auth
+	// store emits a further update (e.g. the layout re-checks the session).
+	let _statusRequested = false;
+
+	$effect(() => {
 		if ($auth.checked && !$auth.authenticated) {
 			goto('/login');
-			return;
 		}
-		await loadStatus();
+		if ($auth.checked && $auth.authenticated && !_statusRequested) {
+			_statusRequested = true;
+			loadStatus();
+		}
 	});
 
 	// ── Helpers ──────────────────────────────────────────────────────────────
