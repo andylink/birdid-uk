@@ -7,9 +7,14 @@ Run with:
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
+import sqlite3 as _sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+_log = logging.getLogger(__name__)
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -25,7 +30,7 @@ from dashboard.routes.weather import router as weather_router
 from dashboard.routes.auth import router as auth_router
 from dashboard.routes.admin import router as admin_router
 from dashboard.stream import detection_generator
-from dashboard.config import DB_TYPE, TIMEZONE, STATION_NAME
+from dashboard.config import DB_PATH, DB_TYPE, TIMEZONE, STATION_NAME
 from dashboard.database import get_engine, startup_db, shutdown_db
 
 _JSON_PATH = Path(__file__).parent.parent / "filters" / "uk_species_filter.json"
@@ -109,31 +114,25 @@ async def _ensure_species_info() -> None:
             rows,
         )
 
-        # Backfill attribution columns for any rows that are missing them
-        # (safe to run on every startup — only touches NULL cells).
-        attr_rows = [
-            {
-                "name":    r["name"],
-                "by":      r["avicommons_image_by"],
-                "lic":     r["avicommons_image_license"],
-                "ec":      r["ebird_code"],
-                "img_url": r["avicommons_image_url"],
-            }
-            for r in rows
-            if r["avicommons_image_by"]
-        ]
-        if attr_rows:
-            await conn.execute(
-                text(
-                    "UPDATE species_info SET "
-                    "  avicommons_image_by      = :by, "
-                    "  avicommons_image_license  = :lic, "
-                    "  ebird_code               = COALESCE(ebird_code, :ec), "
-                    "  avicommons_image_url      = COALESCE(avicommons_image_url, :img_url) "
-                    "WHERE name = :name AND avicommons_image_by IS NULL"
-                ),
-                attr_rows,
-            )
+    # Backfill attribution for rows that are missing it using raw sqlite3,
+    # which we know is reliable (bypasses SQLAlchemy async executemany quirks).
+    attr_params = [
+        (r["avicommons_image_by"], r["avicommons_image_license"], r["name"])
+        for r in rows
+        if r["avicommons_image_by"]
+    ]
+    if attr_params:
+        def _backfill(db_path: Path, params: list) -> int:
+            with _sqlite3.connect(db_path) as raw:
+                cur = raw.executemany(
+                    "UPDATE species_info SET avicommons_image_by=?, avicommons_image_license=? "
+                    "WHERE name=? AND avicommons_image_by IS NULL",
+                    params,
+                )
+                return cur.rowcount
+
+        updated = await asyncio.to_thread(_backfill, DB_PATH, attr_params)
+        _log.info("_ensure_species_info: backfilled attribution for %d species", updated)
 
 
 @asynccontextmanager

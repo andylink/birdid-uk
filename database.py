@@ -152,6 +152,8 @@ _species_info = Table(
     Column("group_name",                 String),
     Column("ebird_code",                 String),
     Column("avicommons_image_url",       String),
+    Column("avicommons_image_by",        String),
+    Column("avicommons_image_license",   String),
 )
 
 # Columns added when cross-validation support was introduced.
@@ -169,8 +171,10 @@ _CV_COLUMNS: dict[str, str] = {
 
 # Columns added to species_info after the initial schema.
 _SPECIES_INFO_COLUMNS: dict[str, str] = {
-    "ebird_code":           "TEXT",
-    "avicommons_image_url": "TEXT",
+    "ebird_code":                "TEXT",
+    "avicommons_image_url":      "TEXT",
+    "avicommons_image_by":       "TEXT",
+    "avicommons_image_license":  "TEXT",
 }
 
 # Columns added when weather logging was introduced.
@@ -597,6 +601,8 @@ def seed_species_info(json_path: Path) -> None:
             "group_name":                 e.get("group_name"),
             "ebird_code":                 e.get("ebird_code") or None,
             "avicommons_image_url":       e.get("avicommons_image_url") or None,
+            "avicommons_image_by":        e.get("avicommons_image_by") or None,
+            "avicommons_image_license":   e.get("avicommons_image_license") or None,
         }
         for e in entries
         if e.get("name")
@@ -615,12 +621,14 @@ def seed_species_info(json_path: Path) -> None:
                     "(name, scientific_name, british_list_status, population_estimate, "
                     " bto_2letter_code, bto_5letter_code, species_status, uk_bocc, "
                     " birdfacts_url, international_english_name, group_name, "
-                    " ebird_code, avicommons_image_url) "
+                    " ebird_code, avicommons_image_url, "
+                    " avicommons_image_by, avicommons_image_license) "
                     "VALUES (:name, :scientific_name, :british_list_status, "
                     " :population_estimate, :bto_2letter_code, :bto_5letter_code, "
                     " :species_status, :uk_bocc, :birdfacts_url, "
                     " :international_english_name, :group_name, "
-                    " :ebird_code, :avicommons_image_url)"
+                    " :ebird_code, :avicommons_image_url, "
+                    " :avicommons_image_by, :avicommons_image_license)"
                 ),
                 rows,
             )
