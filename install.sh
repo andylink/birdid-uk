@@ -254,26 +254,21 @@ if [[ "$_PERCH_INSTALLED" == "false" ]]; then
         _PERCH_INSTALLED=true
 
         # ── Model download ──────────────────────────────────────────────
-        # The Perch v2 model (~362 MB compressed) is hosted as a GitHub
+        # The Perch v2 CPU model (~362 MB compressed) is hosted as a GitHub
         # Release asset so users don't need a Kaggle account.
-        # CPU and GPU variants differ in saved_model.pb, so we pick the
-        # right one based on whether nvidia-smi is available.
+        # We always use the CPU variant: the GPU (XLA) saved_model has a
+        # DEVICE_TYPE_INVALID bug in its embedded cuDNN backend config that
+        # prevents execution on sm_86+ hardware with cuDNN 9. BirdNET runs on
+        # GPU; Perch runs on CPU with acceptable latency for secondary validation.
         PERCH_MODEL_DIR="$HOME/.cache/birdid-uk/perch_v2"
         _GH_RELEASE_BASE="https://github.com/andylink/birdid-uk/releases/download/models%2Fperch-v2"
-
-        if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
-            _PERCH_TARBALL_URL="$_GH_RELEASE_BASE/perch_v2_gpu.tar.gz"
-            _PERCH_VARIANT="GPU"
-        else
-            _PERCH_TARBALL_URL="$_GH_RELEASE_BASE/perch_v2_cpu.tar.gz"
-            _PERCH_VARIANT="CPU"
-        fi
+        _PERCH_TARBALL_URL="$_GH_RELEASE_BASE/perch_v2_cpu.tar.gz"
 
         if [[ -f "$PERCH_MODEL_DIR/saved_model.pb" || \
               -f "$PERCH_MODEL_DIR/savedmodel/saved_model.pb" ]]; then
             info "Perch model already cached at $PERCH_MODEL_DIR"
         else
-            info "Downloading Perch v2 model ($_PERCH_VARIANT, ~362 MB)..."
+            info "Downloading Perch v2 model (CPU, ~362 MB)..."
             mkdir -p "$PERCH_MODEL_DIR"
             if curl -fsSL --retry 3 "$_PERCH_TARBALL_URL" | tar -xz -C "$PERCH_MODEL_DIR"; then
                 info "Perch model downloaded to $PERCH_MODEL_DIR"
@@ -494,14 +489,14 @@ if [[ "$INSTALL_SYSTEMD" == "true" ]]; then
     sudo cp "$TMP_SYSTEMD/"* "$UNIT_DIR/"
 
     # Generate cuda.env so the systemd service can find CUDA runtime libraries
-    # that were installed as pip packages (e.g. nvidia-cuda-runtime-cu12/cu13).
-    # Those libraries live inside the venv's site-packages at a non-standard
-    # path that the system dynamic linker doesn't know about.
-    CUDA_LIB_PATH="$(find "$VENV/lib" -maxdepth 6 -name "libcudart.so*" 2>/dev/null \
-        | head -1 | xargs -I{} dirname {} 2>/dev/null || true)"
+    # installed as pip packages (nvidia-cuda-runtime-cu12, nvidia-cublas-cu12, etc.).
+    # These live inside the venv at non-standard paths the system linker won't find.
+    # Collect every nvidia/*/lib dir that contains at least one .so file.
+    CUDA_LIB_PATH="$(find "$VENV/lib" -maxdepth 7 -name "*.so*" -not -name "*_static*" \
+        2>/dev/null | sed 's|/[^/]*$||' | sort -u | tr '\n' ':' | sed 's/:$//')"
     if [[ -n "$CUDA_LIB_PATH" ]]; then
         echo "LD_LIBRARY_PATH=$CUDA_LIB_PATH" > "$REPO_ROOT/cuda.env"
-        info "CUDA libraries found at $CUDA_LIB_PATH — written to cuda.env"
+        info "CUDA libraries written to cuda.env ($(echo "$CUDA_LIB_PATH" | tr ':' '\n' | wc -l) paths)"
     else
         echo "# No CUDA pip libraries detected — GPU inference will use system CUDA or CPU." \
             > "$REPO_ROOT/cuda.env"
