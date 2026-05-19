@@ -19,7 +19,8 @@
 	import StatCard from '$lib/components/StatCard.svelte';
 	import Spectrogram from '$lib/components/Spectrogram.svelte';
 
-	const PAGE_SIZE = 50;
+	const PAGE_SIZES = [10, 25, 50, 100];
+	let pageSize = $state(25);
 
 	const speciesName = $derived($page.params.name ?? '');
 	// Derive back-navigation target from the 'from' query param set by callers.
@@ -42,8 +43,8 @@
 	// null = show all; otherwise filter to this verification_status value
 	let verificationFilter = $state<string | null>(null);
 
-	const totalPages  = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
-	const currentPage = $derived(Math.floor(offset / PAGE_SIZE) + 1);
+	const totalPages  = $derived(Math.max(1, Math.ceil(total / pageSize)));
+	const currentPage = $derived(Math.floor(offset / pageSize) + 1);
 
 	const boccColor   = $derived(stats?.uk_bocc ? BOCC_COLOR[stats.uk_bocc] : null);
 	const statusStyle = $derived(
@@ -73,30 +74,53 @@
 		const name = speciesName;
 		const off  = offset;
 		const vsf  = verificationFilter;
+		const ps   = pageSize;
 		listLoading = true;
 		listError   = null;
 		getSpeciesDetections(name, {
-			limit: PAGE_SIZE,
+			limit: ps,
 			offset: off,
 			...(vsf !== null ? { verification_status: vsf } : {}),
 		})
 			.then(r => {
-				if (speciesName === name && offset === off && verificationFilter === vsf) {
+				if (speciesName === name && offset === off && verificationFilter === vsf && pageSize === ps) {
 					detections  = r.detections;
 					total       = r.total;
 					listLoading = false;
 				}
 			})
 			.catch(e => {
-				if (speciesName === name && offset === off && verificationFilter === vsf) {
+				if (speciesName === name && offset === off && verificationFilter === vsf && pageSize === ps) {
 					listError   = (e as Error).message;
 					listLoading = false;
 				}
 			});
 	});
 
-	function prevPage() { offset = Math.max(0, offset - PAGE_SIZE); }
-	function nextPage() { offset = offset + PAGE_SIZE; }
+	function prevPage() { offset = Math.max(0, offset - pageSize); }
+	function nextPage() { offset = offset + pageSize; }
+
+	/** Build a windowed list of page numbers with null gaps for ellipsis. */
+	function buildPageNumbers(current: number, total: number): (number | null)[] {
+		if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+		const include = new Set<number>();
+		include.add(1);
+		include.add(total);
+		for (let i = Math.max(2, current - 2); i <= Math.min(total - 1, current + 2); i++) {
+			include.add(i);
+		}
+		const sorted = [...include].sort((a, b) => a - b);
+		const pages: (number | null)[] = [];
+		let prev = 0;
+		for (const p of sorted) {
+			if (p - prev > 1) pages.push(null);
+			pages.push(p);
+			prev = p;
+		}
+		return pages;
+	}
+
+	const pageNumbers = $derived(buildPageNumbers(currentPage, totalPages));
 
 	// Set (or clear) the verification filter and reset to page 1.
 	function setFilter(status: string | null) {
@@ -104,6 +128,11 @@
 		offset = 0;
 		// Clear local overrides — they're no longer meaningful for the new result set.
 		verificationOverrides = new Map();
+	}
+
+	function setPageSize(n: number) {
+		pageSize = n;
+		offset = 0;
 	}
 
 	// Admin: per-detection verification overrides (id → verification_status string)
@@ -311,8 +340,18 @@
 				<h2 class="recordings-title">Recordings</h2>
 				{#if !listLoading && total > 0}
 					<span class="recordings-count tabular">
-						{offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of {total.toLocaleString()}
+						{offset + 1}–{Math.min(offset + pageSize, total)} of {total.toLocaleString()}
 					</span>
+					<select
+						class="per-page-select"
+						value={pageSize}
+						onchange={e => setPageSize(Number(e.currentTarget.value))}
+						aria-label="Clips per page"
+					>
+						{#each PAGE_SIZES as n}
+							<option value={n}>{n} per page</option>
+						{/each}
+					</select>
 				{/if}
 				{#if $auth.authenticated && total > 0}
 					{#if !bulkConfirm}
@@ -493,12 +532,24 @@
 				{/each}
 				</div>
 
-				<!-- Pagination -->
-				{#if total > PAGE_SIZE}
+				<!-- Numbered pagination -->
+				{#if totalPages > 1}
 					<div class="pagination">
-						<button class="page-btn" disabled={offset === 0} onclick={prevPage}>← Prev</button>
-						<span class="page-info tabular">Page {currentPage} of {totalPages}</span>
-						<button class="page-btn" disabled={offset + PAGE_SIZE >= total} onclick={nextPage}>Next →</button>
+						<button class="page-btn" disabled={offset === 0} onclick={prevPage} aria-label="Previous page">←</button>
+						{#each pageNumbers as p}
+							{#if p === null}
+								<span class="page-ellipsis">…</span>
+							{:else}
+								<button
+									class="page-btn"
+									class:page-current={p === currentPage}
+									onclick={() => (offset = (p - 1) * pageSize)}
+									aria-label="Page {p}"
+									aria-current={p === currentPage ? 'page' : undefined}
+								>{p}</button>
+							{/if}
+						{/each}
+						<button class="page-btn" disabled={offset + pageSize >= total} onclick={nextPage} aria-label="Next page">→</button>
 					</div>
 				{/if}
 			{/if}
@@ -707,7 +758,8 @@
 	.recordings-header {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		gap: 0.5rem;
+		flex-wrap: wrap;
 	}
 	.recordings-title {
 		margin: 0;
@@ -720,6 +772,20 @@
 	.recordings-count {
 		font-size: 0.75rem;
 		color: var(--color-text-muted);
+	}
+	.per-page-select {
+		margin-left: auto;
+		font-size: 0.6875rem;
+		background: var(--color-surface-2);
+		border: 1px solid var(--color-border-strong);
+		color: var(--color-text-muted);
+		border-radius: 0.25rem;
+		padding: 0.1875rem 0.5rem;
+		cursor: pointer;
+	}
+	.per-page-select:focus {
+		outline: none;
+		box-shadow: 0 0 0 2px var(--color-accent-ring);
 	}
 
 	/* Verification filter pills */
@@ -924,24 +990,43 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 1rem;
+		flex-wrap: wrap;
+		gap: 0.25rem;
 		padding: 0.5rem 0;
 	}
 	.page-btn {
-		padding: 0.375rem 0.75rem;
+		min-width: 2rem;
+		height: 2rem;
+		padding: 0 0.375rem;
 		border-radius: 0.25rem;
 		border: 1px solid var(--color-border-strong);
 		background: transparent;
 		cursor: pointer;
-		font-size: 0.875rem;
+		font-size: 0.8125rem;
 		color: var(--color-text-muted);
-		transition: color 0.15s;
+		transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
 	}
-	.page-btn:hover:not(:disabled) { color: var(--color-text); }
-	.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-	.page-info {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
+	.page-btn:hover:not(:disabled) {
+		color: var(--color-text);
+		border-color: var(--color-accent-border);
+	}
+	.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+	.page-btn.page-current {
+		background: var(--color-accent);
+		border-color: var(--color-accent);
+		color: #fff;
+		font-weight: 600;
+		cursor: default;
+	}
+	.page-ellipsis {
+		min-width: 1.5rem;
+		text-align: center;
+		font-size: 0.8125rem;
+		color: var(--color-text-dim);
+		user-select: none;
 	}
 
 	/* Bulk-delete controls in the recordings header */
