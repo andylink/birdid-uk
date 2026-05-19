@@ -182,6 +182,9 @@ export interface SpeciesStats extends SpeciesInfo {
 	avicommons_image_by:          string | null;  // photographer name
 	avicommons_image_license:     string | null;  // e.g. "CC BY-NC"
 	avicommons_attribution_url:   string | null;  // https://avicommons.org/species/{code}
+	// ── British list / population ────────────────────────────────────────────
+	british_list_status:          string | null;  // e.g. "A"
+	population_estimate:          string | null;  // e.g. "6,700,000 pairs"
 }
 
 export interface SpeciesListResponse {
@@ -245,6 +248,19 @@ export function getNewSpeciesTimeline(period: Period): Promise<NewSpeciesEntry[]
 /** Fetch aggregate stats and metadata for a single species. */
 export function getSpeciesDetail(name: string): Promise<SpeciesStats> {
 	return apiFetch<SpeciesStats>(`/api/v1/species/${encodeURIComponent(name)}`);
+}
+
+// ── Species summary (Wikipedia) ────────────────────────────────────────────
+
+export interface SpeciesSummary {
+	extract:       string;        // plain-text Wikipedia intro paragraph
+	wikipedia_url: string | null; // link to the full article
+}
+
+/** Fetch a short Wikipedia description for a species. Returns null on failure. */
+export function getSpeciesSummary(name: string): Promise<SpeciesSummary | null> {
+	return apiFetch<SpeciesSummary>(`/api/v1/species/${encodeURIComponent(name)}/summary`)
+		.catch(() => null);
 }
 
 /** Fetch a paginated list of individual detections for one species, newest first. */

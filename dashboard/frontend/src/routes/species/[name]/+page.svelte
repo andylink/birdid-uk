@@ -3,11 +3,13 @@
 	import {
 		getSpeciesDetail,
 		getSpeciesDetections,
+		getSpeciesSummary,
 		speciesImageUrl,
 		adminDeleteDetection,
 		adminSetVerification,
 		adminBulkDelete,
 		type SpeciesStats,
+		type SpeciesSummary,
 		type Detection,
 	} from '$lib/api';
 	import { auth } from '$lib/auth';
@@ -28,6 +30,8 @@
 	let statsLoading   = $state(true);
 	let statsError     = $state<string | null>(null);
 	let headerImgError = $state(false);
+
+	let summary        = $state<SpeciesSummary | null>(null);
 
 	let detections     = $state<Detection[]>([]);
 	let total          = $state(0);
@@ -54,6 +58,13 @@
 		getSpeciesDetail(name)
 			.then(s => { stats = s; statsLoading = false; })
 			.catch(e => { statsError = (e as Error).message; statsLoading = false; });
+	});
+
+	// Non-blocking: fetch Wikipedia summary; silently ignored if unavailable.
+	$effect(() => {
+		const name = speciesName;
+		summary = null;
+		getSpeciesSummary(name).then(s => { if (speciesName === name) summary = s; });
 	});
 
 	// Stale-response guard: compare name+offset+filter at response time to discard
@@ -166,39 +177,41 @@
 			{backLabel}
 		</a>
 
-		<!-- Species header card -->
+		<!-- Species header card: image left, details right -->
 		<div class="header-card">
-			<!-- Banner image -->
-			<div class="banner">
+			<!-- Left: image -->
+			<div class="header-img-col">
 				{#if !headerImgError}
-				<img
-					src={speciesImageUrl(stats?.bto_name ?? speciesName)}
-					alt={speciesName}
-						class="banner-img"
+					<img
+						src={speciesImageUrl(stats?.bto_name ?? speciesName)}
+						alt={speciesName}
+						class="header-img"
 						onerror={() => (headerImgError = true)}
 					/>
-					<div class="banner-gradient"></div>
 					{#if stats?.avicommons_attribution_url && stats?.avicommons_image_by}
 						<a
 							href={stats.avicommons_attribution_url}
 							target="_blank"
 							rel="noopener noreferrer"
-							class="banner-attribution"
+							class="header-attribution"
 						>
 							© {stats.avicommons_image_by}{stats.avicommons_image_license ? ` / ${stats.avicommons_image_license}` : ''}
 						</a>
 					{/if}
 				{:else}
-					<div class="banner-fallback" style="background-color: {groupColor}"></div>
-					<div class="banner-fallback-icon">
+					<div class="header-fallback" style="background-color: {groupColor}"></div>
+					<div class="header-fallback-icon">
 						<svg viewBox="0 0 24 24" class="bird-icon" aria-hidden="true">
 							<path d="M23 7c0 0-3 .5-4.5 1.5C17.1 5.1 14 3 10.5 3 5.8 3 2 6.8 2 11.5S5.8 20 10.5 20c2.5 0 4.8-1.1 6.4-2.8C18.5 18.5 23 17 23 17V7z"/>
 						</svg>
 					</div>
 				{/if}
+			</div>
 
-				<!-- Badges over image -->
-				<div class="banner-badges">
+			<!-- Right: details -->
+			<div class="header-details">
+				<!-- Badges -->
+				<div class="header-badges">
 					{#if stats?.group_name}
 						<span class="badge" style="background-color: {groupColor}; color: #fff">
 							{stats.group_name}
@@ -215,17 +228,15 @@
 						</span>
 					{/if}
 				</div>
-			</div>
 
-			<!-- Name row -->
-			<div class="name-section">
 				{#if statsLoading}
 					<div class="skel skel-h7 skeleton-pulse" style="width:12rem"></div>
 					<div class="skel skel-h4 skeleton-pulse" style="width:8rem;margin-top:.5rem"></div>
+					<div class="skel skel-h4 skeleton-pulse" style="width:6rem;margin-top:.375rem"></div>
 				{:else if statsError}
 					<p class="error-text">{statsError}</p>
 				{:else if stats}
-					<h1 class="species-h1">{stats.species}</h1>
+					<h1 class="species-h1">{stats.bto_name ?? stats.species}</h1>
 					{#if stats.scientific_name}
 						<p class="sci-name">{stats.scientific_name}</p>
 					{/if}
@@ -233,6 +244,33 @@
 						<p class="bto-code">
 							BTO {[stats.bto_5letter_code, stats.bto_2letter_code].filter(Boolean).join(' / ')}
 						</p>
+					{/if}
+					{#if stats.british_list_status || stats.population_estimate}
+						<div class="species-extra">
+							{#if stats.british_list_status}
+								<div class="species-extra-row">
+									<span class="extra-label">British list</span>
+									<span class="extra-value">{stats.british_list_status}</span>
+								</div>
+							{/if}
+							{#if stats.population_estimate}
+								<div class="species-extra-row">
+									<span class="extra-label">Population</span>
+									<span class="extra-value">{stats.population_estimate}</span>
+								</div>
+							{/if}
+						</div>
+					{/if}
+					{#if summary}
+						<p class="wiki-summary">{summary.extract}</p>
+						{#if summary.wikipedia_url}
+							<a
+								href={summary.wikipedia_url}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="wiki-link"
+							>Source: Wikipedia</a>
+						{/if}
 					{/if}
 				{/if}
 			</div>
@@ -506,26 +544,35 @@
 		border: 1px solid var(--color-border);
 		border-radius: 0.5rem;
 		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+	}
+	@media (min-width: 640px) {
+		.header-card { flex-direction: row; }
 	}
 
-	.banner {
+	/* Left: image column */
+	.header-img-col {
 		position: relative;
-		height: 11rem;
-		background: var(--color-skeleton);
 		overflow: hidden;
+		background: var(--color-skeleton);
+		height: 12rem;
+		flex-shrink: 0;
 	}
-	.banner-img {
+	@media (min-width: 640px) {
+		.header-img-col {
+			width: 42%;
+			height: auto;
+			min-height: 11rem;
+		}
+	}
+	.header-img {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
 		display: block;
 	}
-	.banner-gradient {
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(to top, rgba(15,23,42,0.9) 0%, rgba(15,23,42,0.3) 50%, transparent 100%);
-	}
-	.banner-attribution {
+	.header-attribution {
 		position: absolute;
 		bottom: 0.375rem;
 		right: 0.5rem;
@@ -536,15 +583,13 @@
 		z-index: 2;
 		transition: color 0.15s;
 	}
-	.banner-attribution:hover {
-		color: rgba(255, 255, 255, 0.95);
-	}
-	.banner-fallback {
+	.header-attribution:hover { color: rgba(255, 255, 255, 0.95); }
+	.header-fallback {
 		position: absolute;
 		inset: 0;
 		opacity: 0.2;
 	}
-	.banner-fallback-icon {
+	.header-fallback-icon {
 		position: absolute;
 		inset: 0;
 		display: flex;
@@ -552,20 +597,25 @@
 		justify-content: center;
 	}
 	.bird-icon {
-		width: 5rem;
-		height: 5rem;
+		width: 4rem;
+		height: 4rem;
 		fill: currentColor;
 		color: var(--color-text-ghost);
 	}
 
-	.banner-badges {
-		position: absolute;
-		top: 0.75rem;
-		left: 0.75rem;
+	/* Right: details column */
+	.header-details {
+		flex: 1;
+		padding: 1.25rem;
 		display: flex;
-		align-items: center;
-		gap: 0.375rem;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+	.header-badges {
+		display: flex;
 		flex-wrap: wrap;
+		gap: 0.375rem;
+		margin-bottom: 0.375rem;
 	}
 	.badge {
 		height: 1.25rem;
@@ -576,10 +626,6 @@
 		display: inline-flex;
 		align-items: center;
 	}
-
-	.name-section {
-		padding: 1.25rem;
-	}
 	.species-h1 {
 		margin: 0;
 		font-size: 1.5rem;
@@ -588,17 +634,60 @@
 		line-height: 1.25;
 	}
 	.sci-name {
-		margin: 0.25rem 0 0;
+		margin: 0;
 		font-size: 0.875rem;
 		color: var(--color-text-muted);
 		font-style: italic;
 	}
 	.bto-code {
-		margin: 0.25rem 0 0;
+		margin: 0;
 		font-size: 0.75rem;
 		color: var(--color-text-dim);
 		font-family: ui-monospace, 'Cascadia Code', monospace;
 	}
+	.species-extra {
+		margin-top: 0.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		border-top: 1px solid var(--color-border);
+		padding-top: 0.5rem;
+	}
+	.species-extra-row {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+	}
+	.extra-label {
+		font-size: 0.625rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--color-text-muted);
+		min-width: 5rem;
+		flex-shrink: 0;
+	}
+	.extra-value {
+		font-size: 0.8125rem;
+		color: var(--color-text);
+	}
+	.wiki-summary {
+		margin: 0.625rem 0 0;
+		font-size: 0.8125rem;
+		color: var(--color-text-muted);
+		line-height: 1.6;
+		border-top: 1px solid var(--color-border);
+		padding-top: 0.625rem;
+	}
+	.wiki-link {
+		display: inline-block;
+		margin-top: 0.25rem;
+		font-size: 0.6875rem;
+		color: var(--color-text-dim);
+		text-decoration: none;
+		transition: color 0.15s;
+	}
+	.wiki-link:hover { color: var(--color-text-muted); }
 
 	/* Stat cards grid */
 	.stats-grid {

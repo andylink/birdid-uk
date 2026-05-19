@@ -9,6 +9,7 @@ written when no image is available so failed lookups aren't retried too often.
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from datetime import datetime
 from pathlib import Path
@@ -38,6 +39,22 @@ _UA = "bird-detector/1.0 (local garden monitor; contact via github)"
 
 # Cap concurrent outbound image fetches to avoid hammering the CDN.
 _IMG_SEM = asyncio.Semaphore(4)
+
+# ── Wikipedia summary cache ────────────────────────────────────────────────────
+
+SUMMARY_DIR: Path = IMAGE_DIR.parent / "species_summaries"
+SUMMARY_DIR.mkdir(parents=True, exist_ok=True)
+
+SUMMARY_TTL_DAYS      = 90   # re-fetch cached summaries after this many days
+SUMMARY_NEG_TTL_DAYS  = 7    # retry failed lookups after this many days
+
+
+def _summary_path(species: str) -> Path:
+    return SUMMARY_DIR / f"{_slug(species)}.json"
+
+
+def _summary_neg_path(species: str) -> Path:
+    return SUMMARY_DIR / f"{_slug(species)}.none"
 
 # Allowed sort keys mapped to the SQL ORDER BY expression they produce.
 SORT_COLS = {
@@ -229,13 +246,16 @@ async def list_species(
                 si.bto_5letter_code,
                 si.ebird_code,
                 si.avicommons_image_by,
-                si.avicommons_image_license
+                si.avicommons_image_license,
+                si.british_list_status,
+                si.population_estimate
             FROM detections d
             LEFT JOIN species_info si ON si.name = d.bto_name
             WHERE {where}
             GROUP BY d.species, d.bto_name, si.scientific_name, si.group_name, si.uk_bocc,
                      si.species_status, si.bto_2letter_code, si.bto_5letter_code,
-                     si.ebird_code, si.avicommons_image_by, si.avicommons_image_license
+                     si.ebird_code, si.avicommons_image_by, si.avicommons_image_license,
+                     si.british_list_status, si.population_estimate
             ORDER BY {order}
             LIMIT :limit OFFSET :offset
             """),
@@ -275,6 +295,8 @@ async def list_species(
                 "bto_5letter_code":          r["bto_5letter_code"],
                 "avicommons_image_by":       r["avicommons_image_by"],
                 "avicommons_image_license":  r["avicommons_image_license"],
+                "british_list_status":       r["british_list_status"],
+                "population_estimate":       r["population_estimate"],
                 "avicommons_attribution_url": (
                     f"https://avicommons.org/species/{r['ebird_code']}"
                     if r["ebird_code"] else None
@@ -310,13 +332,16 @@ async def species_detail(
                 si.bto_5letter_code,
                 si.ebird_code,
                 si.avicommons_image_by,
-                si.avicommons_image_license
+                si.avicommons_image_license,
+                si.british_list_status,
+                si.population_estimate
             FROM detections d
             LEFT JOIN species_info si ON si.name = d.bto_name
             WHERE d.species = :name
             GROUP BY d.species, d.bto_name, si.scientific_name, si.group_name, si.uk_bocc,
                      si.species_status, si.bto_2letter_code, si.bto_5letter_code,
-                     si.ebird_code, si.avicommons_image_by, si.avicommons_image_license
+                     si.ebird_code, si.avicommons_image_by, si.avicommons_image_license,
+                     si.british_list_status, si.population_estimate
             """),
             {"name": name},
         )
@@ -340,11 +365,111 @@ async def species_detail(
         "bto_5letter_code":          r["bto_5letter_code"],
         "avicommons_image_by":       r["avicommons_image_by"],
         "avicommons_image_license":  r["avicommons_image_license"],
+        "british_list_status":       r["british_list_status"],
+        "population_estimate":       r["population_estimate"],
         "avicommons_attribution_url": (
             f"https://avicommons.org/species/{r['ebird_code']}"
             if r["ebird_code"] else None
         ),
     }
+
+
+@router.get("/api/v1/species/{name}/summary")
+async def species_summary(
+    name: str,
+    db: AsyncConnection = Depends(get_db),
+):
+    """Return a short Wikipedia description for a species, with disk caching.
+
+    Resolves the scientific name from species_info (with eBird→BTO fallback),
+    fetches the Wikipedia page summary, and caches the result as a JSON file.
+    Falls back to an OpenSearch query if the scientific-name title isn't found.
+    """
+    cache = _summary_path(name)
+    neg   = _summary_neg_path(name)
+
+    # Serve from cache if fresh
+    if cache.exists() and _age_days(cache) < SUMMARY_TTL_DAYS:
+        return json.loads(cache.read_text())
+
+    # Honour the negative-cache TTL to avoid repeated failed fetches
+    if neg.exists() and _age_days(neg) < SUMMARY_NEG_TTL_DAYS:
+        raise HTTPException(status_code=404, detail="No summary available")
+
+    # Resolve scientific name (BTO direct or via eBird→BTO mapping)
+    rows = (
+        await db.execute(
+            text("""
+                SELECT si.scientific_name
+                FROM species_info si
+                WHERE si.name = :name
+                UNION
+                SELECT si2.scientific_name
+                FROM species_info si2
+                WHERE si2.name = (
+                    SELECT d.bto_name FROM detections d
+                    WHERE d.species = :name AND d.bto_name IS NOT NULL
+                    LIMIT 1
+                )
+                LIMIT 1
+            """),
+            {"name": name},
+        )
+    ).mappings().all()
+
+    sci_name: str | None = rows[0]["scientific_name"] if rows else None
+    if not sci_name:
+        neg.touch()
+        raise HTTPException(status_code=404, detail="No scientific name found")
+
+    # Fetch from Wikipedia
+    title = sci_name.replace(" ", "_")
+    try:
+        async with httpx.AsyncClient(headers={"User-Agent": _UA}, timeout=10) as client:
+            r = await client.get(
+                f"https://en.wikipedia.org/api/rest_v1/page/summary/{title}"
+            )
+            if r.status_code == 404:
+                # Try OpenSearch to locate the canonical article title
+                os_r = await client.get(
+                    "https://en.wikipedia.org/w/api.php",
+                    params={
+                        "action": "opensearch",
+                        "search": sci_name,
+                        "limit": "1",
+                        "format": "json",
+                    },
+                )
+                candidates = os_r.json()[1] if os_r.status_code == 200 else []
+                if not candidates:
+                    neg.touch()
+                    raise HTTPException(status_code=404, detail="No Wikipedia article found")
+                r = await client.get(
+                    f"https://en.wikipedia.org/api/rest_v1/page/summary/{candidates[0].replace(' ', '_')}"
+                )
+            if r.status_code != 200:
+                neg.touch()
+                raise HTTPException(status_code=404, detail="Wikipedia fetch failed")
+
+            data = r.json()
+    except HTTPException:
+        raise
+    except Exception:
+        neg.touch()
+        raise HTTPException(status_code=503, detail="Wikipedia request failed")
+
+    extract: str = data.get("extract", "").strip()
+    if not extract:
+        neg.touch()
+        raise HTTPException(status_code=404, detail="No extract in Wikipedia response")
+
+    result = {
+        "extract":       extract,
+        "wikipedia_url": data.get("content_urls", {}).get("desktop", {}).get("page"),
+    }
+    cache.write_text(json.dumps(result))
+    neg.unlink(missing_ok=True)
+    return result
 
 
 @router.get("/api/v1/species/{name}/detections")
