@@ -326,6 +326,18 @@ class WeatherConfig:
 
 
 @dataclass(frozen=True)
+class AdminConfig:
+    """Credentials and session settings for the dashboard admin interface.
+
+    password_hash and session_secret are written by install.sh; do not edit
+    these manually.  Leave both empty to disable admin auth entirely.
+    """
+    password_hash:  str  # bcrypt hash of the admin password
+    session_secret: str  # random secret for signing HTTP-only session cookies
+    session_ttl:    int  # session cookie lifetime in seconds (default 86400 = 24h)
+
+
+@dataclass(frozen=True)
 class PrivacyFilterConfig:
     """Discards clips that contain audible human speech before saving.
 
@@ -420,6 +432,7 @@ class Config:
     general:          GeneralConfig
     location:         LocationConfig
     weather:          WeatherConfig
+    admin:            AdminConfig
     exclude:          frozenset[str]   # species names to always suppress (case-insensitive)
     # Per-species override dicts from [species."Name"] blocks, keyed by common name.
     _species_overrides: dict[str, dict] = field(default_factory=dict, repr=False)
@@ -699,6 +712,13 @@ def _load() -> Config:
         on_duplicate   = _ded_on_dup,
     )
 
+    adm = raw.get("admin", {})
+    admin_cfg = AdminConfig(
+        password_hash  = str(adm.get("password_hash",  "")),
+        session_secret = str(adm.get("session_secret", "")),
+        session_ttl    = int(adm.get("session_ttl",    86400)),
+    )
+
     w  = raw.get("weather", {})
     mb = w.get("pws_meteobridge", {})
     _default_mb_template = (
@@ -747,6 +767,7 @@ def _load() -> Config:
         general            = general_cfg,
         location           = location_cfg,
         weather            = weather_cfg,
+        admin              = admin_cfg,
         exclude            = exclude,
         _species_overrides = raw.get("species", {}),
     )

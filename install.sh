@@ -206,6 +206,45 @@ else
     info "Copied config.toml.example → config.toml"
 fi
 
+# ── Admin password setup ──────────────────────────────────────────────────────
+
+section "Setting up admin dashboard password..."
+echo "  The admin password protects destructive actions (delete, bulk-delete, etc.)."
+echo "  Leave blank to skip — you can set a password later by re-running install.sh."
+echo ""
+
+if [[ -e /dev/tty ]]; then
+    printf "  Admin password (leave blank to skip): " >/dev/tty
+    read -rs _admin_pass </dev/tty || true
+    printf "\n" >/dev/tty
+else
+    _admin_pass=""
+fi
+
+if [[ -n "$_admin_pass" ]]; then
+    BIRDID_ADMIN_PASS="$_admin_pass" BIRDID_CONFIG="$REPO_ROOT/config.toml" \
+        "$VENV/bin/python" - <<'PYEOF'
+import os, re, secrets
+from pathlib import Path
+from passlib.context import CryptContext
+
+config_path = Path(os.environ["BIRDID_CONFIG"])
+pwd_ctx     = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pw_hash     = pwd_ctx.hash(os.environ["BIRDID_ADMIN_PASS"])
+secret      = secrets.token_hex(32)
+
+text = config_path.read_text(encoding="utf-8")
+# Overwrite existing values (handles both empty "" and previously set hashes)
+text = re.sub(r'password_hash\s*=\s*"[^"]*"',  f'password_hash  = "{pw_hash}"',  text)
+text = re.sub(r'session_secret\s*=\s*"[^"]*"', f'session_secret = "{secret}"', text)
+config_path.write_text(text, encoding="utf-8")
+PYEOF
+    info "Admin password and session secret written to config.toml."
+else
+    warn "Skipped. Admin features will not require a password until one is set."
+    warn "Re-run install.sh to set a password later."
+fi
+
 # ── Systemd services ──────────────────────────────────────────────────────────
 
 if [[ "$INSTALL_SYSTEMD" == "true" ]]; then

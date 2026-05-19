@@ -22,6 +22,8 @@ from dashboard.routes.media import router as media_router
 from dashboard.routes.species import router as species_router
 from dashboard.routes.sun import router as sun_router
 from dashboard.routes.weather import router as weather_router
+from dashboard.routes.auth import router as auth_router
+from dashboard.routes.admin import router as admin_router
 from dashboard.stream import detection_generator
 from dashboard.config import DB_TYPE, TIMEZONE, STATION_NAME
 from dashboard.database import get_engine, startup_db, shutdown_db
@@ -124,6 +126,8 @@ app.include_router(media_router)
 app.include_router(species_router)
 app.include_router(sun_router)
 app.include_router(weather_router)
+app.include_router(auth_router)
+app.include_router(admin_router)
 
 
 # ── SSE stream ────────────────────────────────────────────────────────────────

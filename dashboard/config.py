@@ -63,3 +63,9 @@ else:
 
 # ── SSE polling interval ──────────────────────────────────────────────────────
 SSE_POLL_SECONDS: float = 2.0
+
+# ── Admin authentication ──────────────────────────────────────────────────────
+# Written to config.toml by install.sh.  Empty values = auth disabled.
+ADMIN_PASSWORD_HASH: str = cfg.admin.password_hash
+SESSION_SECRET: str      = cfg.admin.session_secret or "insecure-default-change-me"
+SESSION_TTL: int         = cfg.admin.session_ttl

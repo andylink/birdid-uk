@@ -258,3 +258,14 @@ cache_seconds = 300
 # [species."Eurasian Skylark"]
 # min_confidence = 0.40
 # min_detections = 1
+
+
+# ── Admin dashboard authentication ────────────────────────────────────────────
+# password_hash and session_secret are written by install.sh.
+# Do not edit these manually — re-run install.sh to change the password.
+# Leave both empty to disable the admin auth layer entirely.
+
+[admin]
+password_hash  = ""   # bcrypt hash of the admin password
+session_secret = ""   # random key used to sign the HTTP-only session cookie
+session_ttl    = 86400   # cookie lifetime in seconds (default: 24 hours)

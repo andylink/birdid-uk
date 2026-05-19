@@ -87,7 +87,10 @@
 			</div>
 		{:else}
 			{#each detections as detection (detection.id)}
-				<DetectionCard {detection} />
+				<DetectionCard
+					{detection}
+					ondelete={(id) => { detections = detections.filter(d => d.id !== id); }}
+				/>
 			{/each}
 		{/if}
 	</div>

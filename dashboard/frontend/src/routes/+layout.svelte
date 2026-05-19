@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import { initTimezone } from '$lib/timezone';
 	import { currentTheme, toggleTheme } from '$lib/theme';
+	import { auth, checkAuth } from '$lib/auth';
 
 	let { children } = $props();
 
@@ -15,6 +16,8 @@
 		const config = await initTimezone();
 		if (config?.station_name) stationName = config.station_name;
 		isDark = currentTheme() === 'dark';
+		// Silently check whether the admin session cookie is valid.
+		await checkAuth();
 	});
 
 	function handleToggle() {
@@ -58,6 +61,23 @@
 			>
 				Species
 			</a>
+			{#if $auth.authenticated}
+				<a
+					href="/admin"
+					class="nav-link nav-link-admin"
+					aria-current={$page.url.pathname.startsWith('/admin') ? 'page' : undefined}
+				>
+					Admin
+				</a>
+			{:else if $auth.checked}
+				<a
+					href="/login"
+					class="nav-link nav-link-login"
+					aria-current={$page.url.pathname === '/login' ? 'page' : undefined}
+				>
+					Login
+				</a>
+			{/if}
 		</nav>
 
 		<div class="header-end">
@@ -149,6 +169,12 @@
 	.nav-link[aria-current="page"] {
 		color: var(--color-text);
 		background: var(--color-surface-2);
+	}
+	.nav-link-admin {
+		color: var(--color-accent);
+	}
+	.nav-link-login {
+		opacity: 0.6;
 	}
 
 	/* Push theme toggle and location hint to the right */

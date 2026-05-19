@@ -184,7 +184,7 @@
 		border-radius: 0.25rem;
 	}
 
-	/* Fixed-width right columns keep the table-like layout stable -->
+	/* Fixed-width right columns keep the table-like layout stable */
 	.col-det {
 		width: 6rem;
 		text-align: right;

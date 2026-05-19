@@ -4,9 +4,13 @@
 		getSpeciesDetail,
 		getSpeciesDetections,
 		speciesImageUrl,
+		adminDeleteDetection,
+		adminSetFlag,
+		adminBulkDelete,
 		type SpeciesStats,
 		type Detection,
 	} from '$lib/api';
+	import { auth } from '$lib/auth';
 	import { BOCC_COLOR, SPECIES_STATUS_STYLE, groupBadgeColor } from '$lib/bto';
 	import { confidenceBadgeClass, formatConfidence } from '$lib/confidence';
 	import { formatDate, formatTime, formatFullDate } from '$lib/time';
@@ -74,6 +78,57 @@
 
 	function prevPage() { offset = Math.max(0, offset - PAGE_SIZE); }
 	function nextPage() { offset = offset + PAGE_SIZE; }
+
+	// Admin: per-detection flag overrides (id → flagged boolean)
+	let flagOverrides = $state<Map<number, boolean>>(new Map());
+	let deletingId    = $state<number | null>(null);
+
+	// Admin: bulk-delete state for this species
+	let bulkConfirm  = $state(false);
+	let bulkDeleting = $state(false);
+	let bulkMsg      = $state<string | null>(null);
+
+	function isFlaggedLocal(det: Detection): boolean {
+		return flagOverrides.has(det.id) ? (flagOverrides.get(det.id) as boolean) : det.flagged === 1;
+	}
+
+	async function handleDeleteRow(id: number) {
+		if (deletingId !== null) return;
+		deletingId = id;
+		try {
+			await adminDeleteDetection(id);
+			detections = detections.filter(d => d.id !== id);
+			total = Math.max(0, total - 1);
+		} finally {
+			deletingId = null;
+		}
+	}
+
+	async function handleToggleFlagRow(det: Detection) {
+		const current = isFlaggedLocal(det);
+		try {
+			const result = await adminSetFlag(det.id, !current);
+			const next = new Map(flagOverrides);
+			next.set(det.id, result.flagged);
+			flagOverrides = next;
+		} catch {
+			// Leave flag state unchanged on error
+		}
+	}
+
+	async function handleBulkDelete() {
+		bulkDeleting = true;
+		bulkMsg = null;
+		try {
+			const r = await adminBulkDelete(speciesName);
+			bulkMsg = `Deleted ${r.deleted_rows} detection${r.deleted_rows !== 1 ? 's' : ''} and ${r.deleted_files} clip file${r.deleted_files !== 1 ? 's' : ''}.`;
+			detections = [];
+			total = 0;
+			bulkConfirm = false;
+		} finally {
+			bulkDeleting = false;
+		}
+	}
 </script>
 
 <div class="page-scroll">
@@ -188,7 +243,25 @@
 						{offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of {total.toLocaleString()}
 					</span>
 				{/if}
+				{#if $auth.authenticated && total > 0}
+					{#if !bulkConfirm}
+						<button class="bulk-delete-btn" onclick={() => { bulkConfirm = true; bulkMsg = null; }}>
+							Delete all {total.toLocaleString()}
+						</button>
+					{:else}
+						<span class="bulk-confirm-row">
+							<span class="bulk-confirm-label">Delete all {total.toLocaleString()} detections?</span>
+							<button class="bulk-confirm-yes" disabled={bulkDeleting} onclick={handleBulkDelete}>
+								{bulkDeleting ? 'Deleting…' : 'Confirm'}
+							</button>
+							<button class="bulk-cancel-btn" onclick={() => (bulkConfirm = false)}>Cancel</button>
+						</span>
+					{/if}
+				{/if}
 			</div>
+			{#if bulkMsg}
+				<p class="bulk-msg" role="status">{bulkMsg}</p>
+			{/if}
 
 			{#if listLoading}
 				<div class="det-surface">
@@ -214,7 +287,7 @@
 				<div class="det-surface">
 				{#each detections as det (det.id)}
 					{@const isNotable   = det.uk_bocc === 'Red' || det.species_status === 'Rare' || det.species_status === 'Very rare'}
-					{@const isFlagged   = det.flagged === 1}
+					{@const rowFlagged  = isFlaggedLocal(det)}
 					{@const cvRan       = det.cross_validated === 1}
 					{@const cvAgreed    = cvRan && det.cv_agree === 1}
 					{@const cvDisagreed = cvRan && det.cv_agree === 0}
@@ -222,8 +295,8 @@
 					<div
 						class="det-row"
 						class:det-notable={isNotable}
-						class:det-flagged={isFlagged && !isNotable}
-						class:det-normal={!isNotable && !isFlagged}
+						class:det-flagged={rowFlagged && !isNotable}
+						class:det-normal={!isNotable && !rowFlagged}
 					>
 						<!-- Confidence bar -->
 						<div class="conf-bar-wrap">
@@ -234,7 +307,7 @@
 								<div
 									class="conf-bar-fill"
 									class:conf-bar-notable={isNotable}
-									class:conf-bar-flagged={isFlagged && !isNotable}
+									class:conf-bar-flagged={rowFlagged && !isNotable}
 									style="height: {det.confidence * 100}%"
 								></div>
 							</div>
@@ -257,7 +330,7 @@
 											{det.uk_bocc === 'Red' ? 'Red List' : det.species_status === 'Very rare' ? 'Very rare' : 'Rare'}
 										</span>
 									{/if}
-									{#if isFlagged}
+									{#if rowFlagged}
 										<span class="micro-badge flagged-badge">Flagged</span>
 									{:else if cvAgreed}
 										<span class="micro-badge cv-agree-badge">CV ✓</span>
@@ -280,6 +353,27 @@
 											{det.cv_confidence != null ? formatConfidence(det.cv_confidence) : ''}
 										</span>
 									{/if}
+								</div>
+							{/if}
+							<!-- Admin controls: shown when logged in -->
+							{#if $auth.authenticated}
+								<div class="row-admin-row">
+									<button
+										class="row-admin-btn row-flag-btn"
+										class:flag-active={rowFlagged}
+										onclick={() => handleToggleFlagRow(det)}
+										title={rowFlagged ? 'Unflag' : 'Flag for review'}
+									>
+										{rowFlagged ? 'Unflag' : 'Flag'}
+									</button>
+									<button
+										class="row-admin-btn row-delete-btn"
+										disabled={deletingId === det.id}
+										onclick={() => handleDeleteRow(det.id)}
+										title="Delete this detection and its audio clip"
+									>
+										{deletingId === det.id ? '…' : 'Delete'}
+									</button>
 								</div>
 							{/if}
 						</div>
@@ -635,5 +729,91 @@
 	.page-info {
 		font-size: 0.75rem;
 		color: var(--color-text-muted);
+	}
+
+	/* Bulk-delete controls in the recordings header */
+	.bulk-delete-btn {
+		margin-left: auto;
+		padding: 0.25rem 0.625rem;
+		border-radius: 0.25rem;
+		border: 1px solid rgba(239, 68, 68, 0.4);
+		background: transparent;
+		color: #f87171;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: background-color 0.15s;
+	}
+	.bulk-delete-btn:hover { background: rgba(239, 68, 68, 0.08); }
+
+	.bulk-confirm-row {
+		margin-left: auto;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+	.bulk-confirm-label {
+		font-size: 0.6875rem;
+		color: #fbbf24;
+	}
+	.bulk-confirm-yes {
+		padding: 0.25rem 0.625rem;
+		border-radius: 0.25rem;
+		border: none;
+		background: #ef4444;
+		color: #fff;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.bulk-confirm-yes:disabled { opacity: 0.4; cursor: not-allowed; }
+	.bulk-cancel-btn {
+		padding: 0.25rem 0.625rem;
+		border-radius: 0.25rem;
+		border: 1px solid var(--color-border-strong);
+		background: transparent;
+		color: var(--color-text-muted);
+		font-size: 0.6875rem;
+		cursor: pointer;
+	}
+	.bulk-msg {
+		margin: 0;
+		font-size: 0.8125rem;
+		color: #34d399;
+		background: rgba(52, 211, 153, 0.08);
+		border: 1px solid rgba(52, 211, 153, 0.2);
+		border-radius: 0.375rem;
+		padding: 0.5rem 0.75rem;
+	}
+
+	/* Per-row admin buttons */
+	.row-admin-row {
+		display: flex;
+		gap: 0.375rem;
+		margin-top: 0.375rem;
+	}
+	.row-admin-btn {
+		padding: 0.1875rem 0.5rem;
+		border-radius: 0.25rem;
+		border: 1px solid var(--color-border-strong);
+		background: transparent;
+		font-size: 0.625rem;
+		font-weight: 600;
+		cursor: pointer;
+		color: var(--color-text-muted);
+		transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+	}
+	.row-admin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+	.row-flag-btn:hover,
+	.row-flag-btn.flag-active {
+		background: rgba(245, 158, 11, 0.12);
+		color: #f59e0b;
+		border-color: #f59e0b;
+	}
+	.row-delete-btn:hover:not(:disabled) {
+		background: rgba(239, 68, 68, 0.12);
+		color: #ef4444;
+		border-color: #ef4444;
 	}
 </style>

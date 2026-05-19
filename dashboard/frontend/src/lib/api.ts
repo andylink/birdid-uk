@@ -375,3 +375,106 @@ export function getWeatherByTemperature(period: Period): Promise<WeatherTempEntr
 export function getWeatherWindRose(period: Period): Promise<WeatherWindRoseEntry[]> {
 	return apiFetch<WeatherWindRoseEntry[]>(`/api/v1/weather/wind-rose?period=${period}`);
 }
+
+// ── Auth ───────────────────────────────────────────────────────────────────
+
+export interface AuthStatus {
+	authenticated: boolean;
+}
+
+/** Check whether the current session cookie is valid. Never throws. */
+export function authMe(): Promise<AuthStatus> {
+	return apiFetch<AuthStatus>('/api/v1/auth/me').catch(() => ({ authenticated: false }));
+}
+
+/** Submit the admin password; sets the session cookie on success. Throws on failure. */
+export function authLogin(password: string): Promise<AuthStatus> {
+	return apiFetch<AuthStatus>('/api/v1/auth/login', {
+		method: 'POST',
+		body: JSON.stringify({ password }),
+	});
+}
+
+/** Clear the session cookie. */
+export function authLogout(): Promise<AuthStatus> {
+	return apiFetch<AuthStatus>('/api/v1/auth/logout', { method: 'POST' });
+}
+
+// ── Admin types ────────────────────────────────────────────────────────────
+
+export interface AdminCount {
+	count: number;
+}
+
+export interface AdminDeleteResult {
+	deleted_rows: number;
+	deleted_files: number;
+}
+
+export interface AdminFlagResult {
+	id: number;
+	flagged: boolean;
+}
+
+export interface SystemStatus {
+	total_detections: number;
+	newest_detection: string | null;
+	oldest_detection: string | null;
+	disk_total_gb:    number;
+	disk_used_gb:     number;
+	disk_free_gb:     number;
+	disk_used_pct:    number;
+}
+
+// ── Admin API functions ────────────────────────────────────────────────────
+
+/** Count detections, optionally filtered by species. */
+export function adminCountDetections(species?: string): Promise<AdminCount> {
+	const q = species ? `?species=${encodeURIComponent(species)}` : '';
+	return apiFetch<AdminCount>(`/api/v1/admin/detections/count${q}`);
+}
+
+/** Delete a single detection by ID. */
+export function adminDeleteDetection(id: number): Promise<{ id: number; deleted: boolean }> {
+	return apiFetch(`/api/v1/admin/detections/${id}`, { method: 'DELETE' });
+}
+
+/** Bulk-delete detections, optionally filtered by species. */
+export function adminBulkDelete(species?: string): Promise<AdminDeleteResult> {
+	const q = species ? `?species=${encodeURIComponent(species)}` : '';
+	return apiFetch<AdminDeleteResult>(`/api/v1/admin/detections${q}`, { method: 'DELETE' });
+}
+
+/** Return the URL for the CSV export (use as an <a href> download link). */
+export function adminExportUrl(species?: string): string {
+	const q = species ? `?species=${encodeURIComponent(species)}` : '';
+	return `/api/v1/admin/detections/export${q}`;
+}
+
+/** Set or clear the flagged field on a detection. */
+export function adminSetFlag(id: number, flagged: boolean): Promise<AdminFlagResult> {
+	return apiFetch<AdminFlagResult>(`/api/v1/admin/detections/${id}/flag`, {
+		method: 'POST',
+		body: JSON.stringify({ flagged }),
+	});
+}
+
+/** Fetch current system status (disk usage, detection counts). */
+export function adminSystemStatus(): Promise<SystemStatus> {
+	return apiFetch<SystemStatus>('/api/v1/admin/system/status');
+}
+
+/** Trigger a retention cleanup run. */
+export function adminRunRetention(): Promise<{ clips_deleted: number }> {
+	return apiFetch('/api/v1/admin/system/retention', { method: 'POST' });
+}
+
+/** Delete all cached species thumbnail images. */
+export function adminClearImageCache(): Promise<{ deleted_files: number }> {
+	return apiFetch('/api/v1/admin/system/clear-image-cache', { method: 'POST' });
+}
+
+/** Wipe and re-seed the species_info table from the JSON filter file. */
+export function adminReseedSpecies(): Promise<{ seeded: number }> {
+	return apiFetch('/api/v1/admin/system/reseed-species', { method: 'POST' });
+}

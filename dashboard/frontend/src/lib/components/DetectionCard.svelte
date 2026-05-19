@@ -1,14 +1,27 @@
 <script lang="ts">
 	import type { Detection } from '$lib/api';
+	import { adminDeleteDetection, adminSetFlag } from '$lib/api';
+	import { auth } from '$lib/auth';
+	import { untrack } from 'svelte';
 	import { confidenceBadgeClass, formatConfidence } from '$lib/confidence';
 	import { formatTime, formatDate } from '$lib/time';
 	import { BOCC_COLOR } from '$lib/bto';
 	import Spectrogram from './Spectrogram.svelte';
 
-	let { detection }: { detection: Detection } = $props();
+	let {
+		detection,
+		ondelete,
+	}: {
+		detection:  Detection;
+		ondelete?:  (id: number) => void;
+	} = $props();
 
-	const time      = $derived(formatTime(detection.timestamp));
-	const date      = $derived(formatDate(detection.timestamp));
+	let flagged = $state(untrack(() => detection.flagged === 1));
+	let flagging = $state(false);
+	let deleting = $state(false);
+
+	const time       = $derived(formatTime(detection.timestamp));
+	const date       = $derived(formatDate(detection.timestamp));
 	const badgeClass = $derived(confidenceBadgeClass(detection.confidence));
 
 	// Notable = UK Red List, Rare, or Very rare
@@ -24,16 +37,37 @@
 		: 'Rare'
 	);
 
-	const isFlagged   = $derived(detection.flagged        === 1);
 	const cvRan       = $derived(detection.cross_validated === 1);
 	const cvAgreed    = $derived(cvRan && detection.cv_agree === 1);
 	const cvDisagreed = $derived(cvRan && detection.cv_agree === 0);
+
+	async function handleDelete() {
+		if (deleting) return;
+		deleting = true;
+		try {
+			await adminDeleteDetection(detection.id);
+			ondelete?.(detection.id);
+		} finally {
+			deleting = false;
+		}
+	}
+
+	async function handleToggleFlag() {
+		if (flagging) return;
+		flagging = true;
+		try {
+			const result = await adminSetFlag(detection.id, !flagged);
+			flagged = result.flagged;
+		} finally {
+			flagging = false;
+		}
+	}
 </script>
 
 <article
 	class="detection-card"
 	class:notable={isNotable}
-	class:flagged={isFlagged && !isNotable}
+	class:flagged={flagged && !isNotable}
 >
 	<!-- Vertical confidence bar on the left edge -->
 	<div class="conf-bar-wrap" aria-label="Confidence {formatConfidence(detection.confidence)}">
@@ -41,7 +75,7 @@
 			<div
 				class="conf-bar-fill"
 				class:fill-notable={isNotable}
-				class:fill-flagged={isFlagged && !isNotable}
+				class:fill-flagged={flagged && !isNotable}
 				style:height="{detection.confidence * 100}%"
 			></div>
 		</div>
@@ -62,7 +96,7 @@
 						{notableLabel}
 					</span>
 				{/if}
-				{#if isFlagged}
+				{#if flagged}
 					<span class="micro-badge flagged-badge">Flagged</span>
 				{:else if cvAgreed}
 					<span class="micro-badge cv-agree-badge">CV ✓</span>
@@ -91,6 +125,29 @@
 						{detection.cv_confidence != null ? formatConfidence(detection.cv_confidence) : ''}
 					</span>
 				{/if}
+			</div>
+		{/if}
+
+		<!-- Admin controls: shown when logged in -->
+		{#if $auth.authenticated}
+			<div class="admin-row">
+				<button
+					class="admin-btn flag-btn"
+					class:flag-active={flagged}
+					onclick={handleToggleFlag}
+					disabled={flagging}
+					title={flagged ? 'Unflag this detection' : 'Flag this detection for review'}
+				>
+					{flagged ? 'Unflag' : 'Flag'}
+				</button>
+				<button
+					class="admin-btn delete-btn"
+					onclick={handleDelete}
+					disabled={deleting}
+					title="Delete this detection and its audio clip"
+				>
+					{deleting ? '…' : 'Delete'}
+				</button>
 			</div>
 		{/if}
 	</div>
@@ -209,4 +266,35 @@
 	}
 	.cv-agree    { color: #34d399; }
 	.cv-disagree { color: #fbbf24; }
+
+	/* Admin controls: flag and delete buttons shown when logged in */
+	.admin-row {
+		display: flex;
+		gap: 0.375rem;
+		margin-top: 0.375rem;
+	}
+	.admin-btn {
+		padding: 0.1875rem 0.5rem;
+		border-radius: 0.25rem;
+		border: 1px solid var(--color-border-strong);
+		background: transparent;
+		font-size: 0.625rem;
+		font-weight: 600;
+		cursor: pointer;
+		color: var(--color-text-muted);
+		transition: opacity 0.15s, background-color 0.15s, color 0.15s, border-color 0.15s;
+	}
+	.admin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+	.flag-btn:hover:not(:disabled),
+	.flag-btn.flag-active {
+		background: rgba(245, 158, 11, 0.12);
+		color: #f59e0b;
+		border-color: #f59e0b;
+	}
+	.delete-btn:hover:not(:disabled) {
+		background: rgba(239, 68, 68, 0.12);
+		color: #ef4444;
+		border-color: #ef4444;
+	}
 </style>
