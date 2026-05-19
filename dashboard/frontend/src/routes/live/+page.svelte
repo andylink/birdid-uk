@@ -251,7 +251,7 @@
 				{/if}
 			</div>
 
-			<Spectrogram filename={latest.filename} species={latest.species} height="6rem" />
+			<Spectrogram filename={latest.filename} species={latest.species} />
 		{:else}
 			<div class="hero-waiting">
 				<svg viewBox="0 0 24 24" class="waiting-icon" aria-hidden="true">

@@ -412,7 +412,7 @@
 									<div class="skel skel-h4 skeleton-pulse" style="width:6rem"></div>
 									<div class="skel skel-h4 skeleton-pulse" style="width:4rem"></div>
 								</div>
-								<div class="skel skel-h12 skeleton-pulse"></div>
+								<div class="skel skel-spec skeleton-pulse"></div>
 								<div class="skel skel-h8 skeleton-pulse"></div>
 							</div>
 						</div>
@@ -971,6 +971,7 @@
 	.skel-h7  { height: 1.75rem; }
 	.skel-h8  { height: 2rem; }
 	.skel-h12 { height: 3rem; }
+	.skel-spec { aspect-ratio: 5 / 1; width: 100%; }
 
 	/* Empty / error */
 	.error-text {
