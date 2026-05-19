@@ -142,14 +142,20 @@ class TestThreadSafety:
         errors: list[Exception] = []
 
         def writer() -> None:
-            for i in range(200):
-                b.write(np.full(50, i % 128, dtype=np.int16))
+            try:
+                for i in range(200):
+                    b.write(np.full(50, i % 128, dtype=np.int16))
+            except Exception as e:
+                errors.append(e)
 
         def reader() -> None:
-            for _ in range(400):
-                tw = b.total_written
-                if tw >= 50:
-                    b.read_segment(max(0, tw - 50), 50)
+            try:
+                for _ in range(400):
+                    tw = b.total_written
+                    if tw >= 50:
+                        b.read_segment(max(0, tw - 50), 50)
+            except Exception as e:
+                errors.append(e)
 
         t_write = threading.Thread(target=writer)
         t_read1 = threading.Thread(target=reader)

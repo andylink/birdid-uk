@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 import dashboard.config   # imported so we can patch LOCAL_TZ
+import dashboard.utils    # imported so we can patch _local_today
 from dashboard.utils import (
     _day_utc_bounds,
     period_clause,
@@ -183,19 +184,26 @@ class TestPeriodClause:
         clause, params = period_clause("7d", col="created_at")
         assert "created_at >= :start" in clause
 
-    def test_7d_start_is_6_days_ago(self):
-        """'7d' covers today plus the 6 preceding days (7 days total)."""
+    def test_7d_start_is_6_days_ago(self, monkeypatch):
+        """'7d' covers today plus the 6 preceding days (7 days total).
+
+        _local_today is frozen to a fixed date so this test cannot fail at
+        midnight UTC when the clock rolls over between the two datetime.now()
+        calls that would otherwise appear in the test.
+        """
+        fixed_today = date(2026, 5, 19)
+        monkeypatch.setattr(dashboard.utils, "_local_today", lambda: fixed_today)
         clause, params = period_clause("7d")
         start_dt = datetime.fromisoformat(params["start"])
-        today_utc = datetime.now(UTC).replace(tzinfo=None).date()
-        delta_days = (today_utc - start_dt.date()).days
+        delta_days = (fixed_today - start_dt.date()).days
         assert delta_days == 6
 
-    def test_30d_start_is_29_days_ago(self):
+    def test_30d_start_is_29_days_ago(self, monkeypatch):
+        fixed_today = date(2026, 5, 19)
+        monkeypatch.setattr(dashboard.utils, "_local_today", lambda: fixed_today)
         clause, params = period_clause("30d")
         start_dt = datetime.fromisoformat(params["start"])
-        today_utc = datetime.now(UTC).replace(tzinfo=None).date()
-        delta_days = (today_utc - start_dt.date()).days
+        delta_days = (fixed_today - start_dt.date()).days
         assert delta_days == 29
 
     def test_today_start_is_midnight_utc(self):

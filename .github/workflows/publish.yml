@@ -4,6 +4,10 @@ name: Publish release
 # Builds the SvelteKit frontend, creates a clean snapshot of all source,
 # and pushes it to the public distribution repo (andylink/birdid-uk).
 #
+# IMPORTANT: Tags must be annotated, not lightweight:
+#   git tag -a v1.0.0 -m "Release v1.0.0"
+# Lightweight tags (git tag v1.0.0) will fail the `gh release create --verify-tag` step.
+#
 # Required secret:
 #   PUBLISH_TOKEN — a GitHub Personal Access Token (classic) with
 #                   "Contents: Read and Write" scope on andylink/birdid-uk.
@@ -16,8 +20,12 @@ on:
       - 'v*'
 
 jobs:
+  test:
+    uses: ./.github/workflows/tests.yml
+
   publish:
     name: Build and publish
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
