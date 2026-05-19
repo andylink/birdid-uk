@@ -17,6 +17,7 @@ from pathlib import Path
 _log = logging.getLogger(__name__)
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sse_starlette.sse import EventSourceResponse
@@ -179,4 +180,18 @@ async def get_config():
 # ── Static frontend (production build) ────────────────────────────────────────
 _DIST = Path(__file__).parent / "frontend" / "dist"
 if _DIST.exists():
-    app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="frontend")
+    # Serve the compiled SvelteKit asset bundle (content-hashed JS/CSS)
+    if (_DIST / "_app").exists():
+        app.mount("/_app", StaticFiles(directory=str(_DIST / "_app")), name="static_assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        """SPA fallback — serve the file if it exists, otherwise serve index.html.
+
+        This allows SvelteKit's client-side router to handle all page navigations
+        even when the user refreshes the browser or pastes a deep-link URL.
+        """
+        file_path = _DIST / full_path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse(str(_DIST / "index.html"))
