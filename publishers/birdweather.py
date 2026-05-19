@@ -35,6 +35,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from config import cfg
 
@@ -145,10 +146,17 @@ def post_detection(
 # ---------------------------------------------------------------------------
 
 def _iso8601(ts: datetime) -> str:
-    """Return a UTC ISO 8601 string, e.g. 2026-05-14T09:31:00+00:00."""
+    """Return a local-time ISO 8601 string with the station's UTC offset.
+
+    BirdWeather displays the time component of the submitted timestamp as-is,
+    so we use the configured local timezone (e.g. Europe/London) rather than
+    UTC.  This means UK submissions show BST (+01:00) in summer and GMT
+    (+00:00) in winter, matching other UK stations on the platform.
+    """
     if ts.tzinfo is None:
-        ts = ts.astimezone(timezone.utc)
-    return ts.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+        ts = ts.replace(tzinfo=timezone.utc)
+    local_tz = ZoneInfo(cfg.general.timezone)
+    return ts.astimezone(local_tz).isoformat(timespec="seconds")
 
 
 def _upload_soundscape(token: str, ts: datetime, clip_path: Path) -> int | None:
