@@ -217,6 +217,13 @@
 						<span class={confidenceBadgeClass(latest.confidence)}>
 							{formatConfidence(latest.confidence)}
 						</span>
+						{#if latest.verification_status === 'human'}
+							<span class="micro-badge badge-human" title="Verified by a human">Human ✓</span>
+						{:else if latest.verification_status === 'cv'}
+							<span class="micro-badge badge-cv" title="Both models agreed on this species">CV ✓</span>
+						{:else if latest.verification_status === 'auto'}
+							<span class="micro-badge badge-auto" title="Auto-approved: confidence above threshold">Auto ✓</span>
+						{/if}
 						{#if latest.uk_bocc}
 							<span
 								class="bocc-badge"
@@ -527,6 +534,15 @@
 		background: var(--color-skeleton);
 		color: var(--color-text-muted);
 	}
+	.micro-badge {
+		font-size: 0.5625rem;
+		font-weight: 700;
+		padding: 0.0625rem 0.375rem;
+		border-radius: 0.25rem;
+	}
+	.badge-human { background: rgba(59,  130, 246, 0.15); color: #3b82f6; }
+	.badge-cv    { background: rgba(16,  185, 129, 0.15); color: #10b981; }
+	.badge-auto  { background: rgba(245, 158,  11, 0.15); color: #f59e0b; }
 
 	.hero-waiting {
 		display: flex;
