@@ -494,14 +494,14 @@ if [[ "$INSTALL_SYSTEMD" == "true" ]]; then
     sudo cp "$TMP_SYSTEMD/"* "$UNIT_DIR/"
 
     # Generate cuda.env so the systemd service can find CUDA runtime libraries
-    # that were installed as pip packages (e.g. nvidia-cuda-runtime-cu12/cu13).
-    # Those libraries live inside the venv's site-packages at a non-standard
-    # path that the system dynamic linker doesn't know about.
-    CUDA_LIB_PATH="$(find "$VENV/lib" -maxdepth 6 -name "libcudart.so*" 2>/dev/null \
-        | head -1 | xargs -I{} dirname {} 2>/dev/null || true)"
+    # installed as pip packages (nvidia-cuda-runtime-cu12, nvidia-cublas-cu12, etc.).
+    # These live inside the venv at non-standard paths the system linker won't find.
+    # Collect every nvidia/*/lib dir that contains at least one .so file.
+    CUDA_LIB_PATH="$(find "$VENV/lib" -maxdepth 7 -name "*.so*" -not -name "*_static*" \
+        2>/dev/null | sed 's|/[^/]*$||' | sort -u | tr '\n' ':' | sed 's/:$//')"
     if [[ -n "$CUDA_LIB_PATH" ]]; then
         echo "LD_LIBRARY_PATH=$CUDA_LIB_PATH" > "$REPO_ROOT/cuda.env"
-        info "CUDA libraries found at $CUDA_LIB_PATH — written to cuda.env"
+        info "CUDA libraries written to cuda.env ($(echo "$CUDA_LIB_PATH" | tr ':' '\n' | wc -l) paths)"
     else
         echo "# No CUDA pip libraries detected — GPU inference will use system CUDA or CPU." \
             > "$REPO_ROOT/cuda.env"
