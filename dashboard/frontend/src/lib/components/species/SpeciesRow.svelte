@@ -15,11 +15,8 @@
 	);
 </script>
 
-<a
-	href="/species/{encodeURIComponent(species.species)}?from=species"
-	class="row"
-	aria-label="View recordings for {species.species}"
->
+<!-- .row is a <div> so the attribution <button> inside .thumb is not nested in an <a> -->
+<div class="row">
 	<!-- Thumbnail; group-badge overlaid at bottom-right shows taxonomic group initials -->
 	<div class="thumb">
 		{#if imgError}
@@ -39,7 +36,7 @@
 		{#if species.avicommons_attribution_url && species.avicommons_image_by}
 			<button
 				class="thumb-attribution"
-				onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(species.avicommons_attribution_url!, '_blank', 'noopener,noreferrer'); }}
+				onclick={() => { window.open(species.avicommons_attribution_url!, '_blank', 'noopener,noreferrer'); }}
 				title="© {species.avicommons_image_by}{species.avicommons_image_license ? ` / ${species.avicommons_image_license}` : ''}"
 				aria-label="Image credit: © {species.avicommons_image_by}"
 			>©</button>
@@ -89,26 +86,39 @@
 	<div class="col-peak tabular hide-sm">{formatConfidence(species.peak_confidence)}</div>
 	<div class="col-date hide-md">{formatFullDate(species.first_detected)}</div>
 	<div class="col-date hide-md">{formatFullDate(species.last_detected)}</div>
-</a>
+
+	<!-- Stretched link: ::after covers the whole row so clicking anywhere navigates -->
+	<a
+		href="/species/{encodeURIComponent(species.species)}?from=species"
+		class="row-link"
+		aria-label="View recordings for {species.species}"
+	></a>
+</div>
 
 <style>
 	.row {
+		position: relative;
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
 		padding: 0.625rem 0.75rem;
 		border-bottom: 1px solid var(--color-border);
-		text-decoration: none;
-		color: inherit;
 		transition: background-color 0.1s;
 	}
 	.row:hover {
 		background: var(--color-surface-2);
 	}
-	.row:focus {
+
+	/* Stretched link: covers the whole row so clicking anywhere navigates */
+	.row-link {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+	}
+	.row-link:focus {
 		outline: none;
 	}
-	.row:focus-visible {
+	.row-link:focus-visible {
 		outline: 2px solid var(--color-accent);
 		outline-offset: -2px;
 	}

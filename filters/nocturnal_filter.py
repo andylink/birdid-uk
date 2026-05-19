@@ -105,9 +105,9 @@ class NocturnalFilter:
                     "Nocturnal filter: loaded %d species from %s",
                     len(self._windows), json_path,
                 )
-            except FileNotFoundError:
+            except (FileNotFoundError, json.JSONDecodeError, OSError):
                 logger.warning(
-                    "Nocturnal filter JSON not found: %s — filter disabled", json_path
+                    "Nocturnal filter JSON not found or unreadable: %s — filter disabled", json_path
                 )
                 self.enabled = False
 

@@ -19,8 +19,13 @@ _log = logging.getLogger(__name__)
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import text
 from sse_starlette.sse import EventSourceResponse
+
+from dashboard.limiter import limiter
 
 from dashboard.routes.analytics import router as analytics_router
 from dashboard.routes.detections import router as detections_router
@@ -146,6 +151,11 @@ async def _lifespan(_app: FastAPI):
 
 app = FastAPI(title="Bird Detector Dashboard", docs_url="/api/docs", lifespan=_lifespan)
 
+# ── Rate limiting ──────────────────────────────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 # ── API routers ────────────────────────────────────────────────────────────────
 app.include_router(detections_router)
 app.include_router(analytics_router)
@@ -160,7 +170,13 @@ app.include_router(admin_router)
 # ── SSE stream ────────────────────────────────────────────────────────────────
 @app.get("/stream/detections")
 async def stream_detections():
-    """Push new detections to the browser as Server-Sent Events."""
+    """Push new detections to the browser as Server-Sent Events.
+
+    Intentionally unauthenticated — detection data contains no personal
+    information and this service is expected to run on a private LAN.
+    If you expose the dashboard publicly, protect this endpoint at the
+    reverse-proxy level (e.g. nginx auth_basic).
+    """
     return EventSourceResponse(detection_generator())
 
 

@@ -16,49 +16,51 @@
 </script>
 
 <article class="card">
+	<!-- img-wrap is a sibling of the link, not a child — <button> inside <a> is invalid HTML -->
+	<div class="img-wrap">
+		{#if imgError}
+			<div class="img-fallback">
+				<svg viewBox="0 0 24 24" class="fallback-icon" aria-hidden="true">
+					<path d="M23 7c0 0-3 .5-4.5 1.5C17.1 5.1 14 3 10.5 3 5.8 3 2 6.8 2 11.5S5.8 20 10.5 20c2.5 0 4.8-1.1 6.4-2.8C18.5 18.5 23 17 23 17V7z"/>
+				</svg>
+			</div>
+		{:else}
+			<img
+				src={speciesImageUrl(species.bto_name ?? species.species)}
+				alt={species.species}
+				class="species-img"
+				onerror={() => (imgError = true)}
+				loading="lazy"
+			/>
+		{#if species.avicommons_attribution_url && species.avicommons_image_by}
+			<button
+				class="img-attribution"
+				onclick={() => { window.open(species.avicommons_attribution_url!, '_blank', 'noopener,noreferrer'); }}
+				title="View image credit"
+				aria-label="Image credit: © {species.avicommons_image_by}"
+			>
+				© {species.avicommons_image_by}{species.avicommons_image_license ? ` / ${species.avicommons_image_license}` : ''}
+			</button>
+		{/if}
+		{/if}
+
+		<!-- BoCC badge overlaid on image; dark text (#0f172a) works on Red, Amber, and Green -->
+		{#if species.uk_bocc}
+			<span
+				class="bocc-badge"
+				style="background-color: {BOCC_COLOR[species.uk_bocc]}; color: #0f172a"
+			>
+				{species.uk_bocc}
+			</span>
+		{/if}
+	</div>
+
+	<!-- card-link::after stretches to cover the whole card (position: relative on .card) -->
 	<a
 		href="/species/{encodeURIComponent(species.species)}?from=species"
 		class="card-link"
 		aria-label="View recordings for {species.species}"
 	>
-		<div class="img-wrap">
-			{#if imgError}
-				<div class="img-fallback">
-					<svg viewBox="0 0 24 24" class="fallback-icon" aria-hidden="true">
-						<path d="M23 7c0 0-3 .5-4.5 1.5C17.1 5.1 14 3 10.5 3 5.8 3 2 6.8 2 11.5S5.8 20 10.5 20c2.5 0 4.8-1.1 6.4-2.8C18.5 18.5 23 17 23 17V7z"/>
-					</svg>
-				</div>
-			{:else}
-				<img
-					src={speciesImageUrl(species.bto_name ?? species.species)}
-					alt={species.species}
-					class="species-img"
-					onerror={() => (imgError = true)}
-					loading="lazy"
-				/>
-			{#if species.avicommons_attribution_url && species.avicommons_image_by}
-				<button
-					class="img-attribution"
-					onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(species.avicommons_attribution_url!, '_blank', 'noopener,noreferrer'); }}
-					title="View image credit"
-					aria-label="Image credit: © {species.avicommons_image_by}"
-				>
-					© {species.avicommons_image_by}{species.avicommons_image_license ? ` / ${species.avicommons_image_license}` : ''}
-				</button>
-			{/if}
-			{/if}
-
-			<!-- BoCC badge overlaid on image; dark text (#0f172a) works on Red, Amber, and Green -->
-			{#if species.uk_bocc}
-				<span
-					class="bocc-badge"
-					style="background-color: {BOCC_COLOR[species.uk_bocc]}; color: #0f172a"
-				>
-					{species.uk_bocc}
-				</span>
-			{/if}
-		</div>
-
 		<div class="stats">
 			<div class="name-row">
 				<div class="name-col">
@@ -115,6 +117,7 @@
 
 <style>
 	.card {
+		position: relative;
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: 0.5rem;
@@ -134,8 +137,19 @@
 		text-decoration: none;
 		color: inherit;
 	}
+	/* Stretched link: ::after covers the whole card so clicking anywhere navigates */
+	.card-link::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+	}
 	.card-link:focus {
 		outline: none;
+	}
+	.card-link:focus-visible::after {
+		outline: 2px solid var(--color-accent);
+		outline-offset: -2px;
 	}
 
 	.img-wrap {
@@ -182,6 +196,7 @@
 		text-overflow: ellipsis;
 		opacity: 0;
 		transition: opacity 0.15s;
+		z-index: 2;
 	}
 	.img-wrap:hover .img-attribution {
 		opacity: 1;

@@ -22,6 +22,7 @@ import csv
 import io
 import json
 import shutil
+from datetime import date
 from pathlib import Path
 from typing import Optional
 
@@ -32,8 +33,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from dashboard.auth import require_admin
-from dashboard.config import DETECTIONS_DIR
+from dashboard.config import DETECTIONS_DIR, LOCAL_TZ
 from dashboard.database import get_db, get_engine
+from dashboard.utils import _day_utc_bounds
 
 router = APIRouter()
 
@@ -79,11 +81,13 @@ async def export_detections(
         clauses.append("species = :species")
         params["species"] = species
     if date_from:
+        start, _ = _day_utc_bounds(date.fromisoformat(date_from), LOCAL_TZ)
         clauses.append("timestamp >= :date_from")
-        params["date_from"] = date_from
+        params["date_from"] = start
     if date_to:
+        _, end = _day_utc_bounds(date.fromisoformat(date_to), LOCAL_TZ)
         clauses.append("timestamp < :date_to")
-        params["date_to"] = date_to
+        params["date_to"] = end
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     rows = (await db.execute(

@@ -2,13 +2,14 @@
 Auth endpoints — login, logout, and session check.
 
 POST /api/v1/auth/login   — verify password; set an HTTP-only session cookie on success.
+                            Rate-limited to 5 attempts per minute per IP (H3).
 POST /api/v1/auth/logout  — clear the session cookie.
 GET  /api/v1/auth/me      — return { "authenticated": bool }; never returns 401.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel
 
 from dashboard.auth import (
@@ -18,6 +19,7 @@ from dashboard.auth import (
     verify_password,
 )
 from dashboard.config import SESSION_TTL
+from dashboard.limiter import limiter
 
 router = APIRouter()
 
@@ -27,8 +29,13 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/api/v1/auth/login")
-async def login(body: LoginRequest, response: Response):
-    """Check the password and set an HTTP-only session cookie on success."""
+@limiter.limit("5/minute")
+async def login(request: Request, body: LoginRequest, response: Response):
+    """Check the password and set an HTTP-only session cookie on success.
+
+    Rate-limited to 5 attempts per minute per source IP.  Excess requests
+    receive HTTP 429 Too Many Requests.
+    """
     if not verify_password(body.password):
         # Return 401 with a generic message; do not reveal why auth failed.
         response.status_code = 401

@@ -48,6 +48,7 @@ detection can be dropped or flagged depending on config.
 from __future__ import annotations
 
 import logging
+import math
 import queue
 import threading
 import time
@@ -486,7 +487,7 @@ def _classify_loop(
       7. Submit a deferred-save task for each confirmed species.
     """
     buffer: list[np.ndarray] = []
-    window_blocks  = int(model.window_seconds) // cfg.audio.hop_seconds
+    window_blocks  = math.ceil(model.window_seconds / cfg.audio.hop_seconds)
     window_samples = int(model.window_seconds)  * cfg.audio.sample_rate
     _window_count  = 0
     # Only include source name in log prefix in multi-source mode.
@@ -726,6 +727,16 @@ def main() -> None:
                 f"({cfg.audio.pre_capture_seconds} s); "
                 f"got post_capture_seconds = {_post_capture}"
             )
+
+    # Validate that hop_seconds divides evenly into the model window.
+    # An uneven hop produces an undersized inference buffer on the final block.
+    _remainder = model.window_seconds % cfg.audio.hop_seconds
+    if _remainder > 0.01:
+        raise ValueError(
+            f"audio.hop_seconds ({cfg.audio.hop_seconds}) must divide evenly into "
+            f"model window_seconds ({model.window_seconds}). "
+            f"Try hop_seconds = 1 or hop_seconds = {int(model.window_seconds)}."
+        )
 
     # Build the BOU allowed set and BirdNET→BTO name map.
     # The BOU filter is always active — this detector is UK-specific.

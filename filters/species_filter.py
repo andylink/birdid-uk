@@ -112,7 +112,7 @@ def build_birdnet_to_bto_map(
     n_overridden = 0
 
     for sp in bou_species:
-        if _status_excluded(sp.get("british_list_status", ""), exclude_lower):
+        if _status_excluded(sp.get("british_list_status") or "", exclude_lower):
             bto_lower  = sp.get("name", "").strip().lower()
             intl_lower = (sp.get("international_english_name") or "").strip().lower()
             if bto_lower not in force_include_lower and intl_lower not in force_include_lower:
@@ -216,7 +216,7 @@ def build_bou_allowed_set(
         bou_name = sp.get("name", "?")
 
         # Skip species whose status is excluded (unless overridden in config)
-        if _status_excluded(sp.get("british_list_status", ""), exclude_lower):
+        if _status_excluded(sp.get("british_list_status") or "", exclude_lower):
             bto_lower  = bou_name.strip().lower()
             intl_lower = (sp.get("international_english_name") or "").strip().lower()
             if bto_lower not in force_include_lower and intl_lower not in force_include_lower:

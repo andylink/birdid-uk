@@ -19,6 +19,7 @@ matplotlib>=3.8.0
 numpy>=1.26.0
 passlib[bcrypt]>=1.7.4   # password hashing for admin auth
 itsdangerous>=2.1.2      # signed session cookie values for admin auth
+slowapi>=0.1.9           # rate limiting for the admin login endpoint
 
 # ── PostgreSQL backend (also installed for SQLite deployments; small overhead) ─
 psycopg2-binary   # sync driver used by the detector

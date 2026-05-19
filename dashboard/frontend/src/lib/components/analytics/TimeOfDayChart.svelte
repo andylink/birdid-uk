@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { getByHour, type Period } from '$lib/api';
+	import { localToday } from '$lib/time';
 	import ChartCard from '$lib/components/ui/ChartCard.svelte';
 
 	let { period }: { period: Period } = $props();
@@ -31,18 +32,12 @@
 		chart.update('none');
 	}
 
-	// Build the date string for the local calendar day (avoids UTC/local midnight shift).
-	function todayLocal(): string {
-		const d = new Date();
-		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-	}
-
 	async function fetchAndRender(p: Period) {
 		loading = true;
 		error = null;
 		try {
 			const hourly = p === 'today'
-				? await getByHour(todayLocal())
+				? await getByHour(localToday())
 				: await getByHour(undefined, p);
 
 			if (chart) {
