@@ -16,6 +16,7 @@
 	const COLOR_MAIN = '#818cf8'; // indigo
 	const COLOR_CARD = '#a5b4fc'; // lighter indigo for N/E/S/W
 
+	// Read CSS custom properties so chart colours respect the active light/dark theme.
 	function chartColors() {
 		const s = getComputedStyle(document.documentElement);
 		return {
@@ -23,6 +24,7 @@
 		};
 	}
 
+	// Called whenever a 'themechange' event fires; updates legend label colour.
 	function applyColorsToChart() {
 		if (!chart) return;
 		const { tick } = chartColors();
@@ -63,9 +65,10 @@
 				return;
 			}
 
-			if (!canvas) return;
+		if (!canvas) return;
 
-			const { Chart, PolarAreaController, ArcElement, RadialLinearScale, Tooltip, Legend } =
+		// Chart.js is imported dynamically to keep it out of the initial bundle.
+		const { Chart, PolarAreaController, ArcElement, RadialLinearScale, Tooltip, Legend } =
 				await import('chart.js');
 			Chart.register(PolarAreaController, ArcElement, RadialLinearScale, Tooltip, Legend);
 

@@ -10,6 +10,7 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
+	// Read CSS custom properties so chart colours respect the active light/dark theme.
 	function chartColors() {
 		const s = getComputedStyle(document.documentElement);
 		return {
@@ -18,6 +19,7 @@
 		};
 	}
 
+	// Called whenever a 'themechange' event fires; patches scale colours without a full redraw.
 	function applyColorsToChart() {
 		if (!chart) return;
 		const { grid, tick } = chartColors();
@@ -29,6 +31,7 @@
 		chart.update('none');
 	}
 
+	// Build the date string for the local calendar day (avoids UTC/local midnight shift).
 	function todayLocal(): string {
 		const d = new Date();
 		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -48,9 +51,10 @@
 				return;
 			}
 
-			if (!canvas) return;
+		if (!canvas) return;
 
-			const { Chart, LineController, LineElement, LinearScale, CategoryScale,
+		// Chart.js is imported dynamically to keep it out of the initial bundle.
+		const { Chart, LineController, LineElement, LinearScale, CategoryScale,
 				PointElement, Tooltip, Filler } = await import('chart.js');
 			Chart.register(LineController, LineElement, LinearScale, CategoryScale,
 				PointElement, Tooltip, Filler);
@@ -87,10 +91,11 @@
 					scales: {
 						x: {
 							grid: { color: grid },
-							ticks: {
-								color: tick,
-								maxTicksLimit: 8,
-								callback: (_val, idx) => idx % 3 === 0 ? hourly.labels[idx] : '',
+					ticks: {
+							color: tick,
+							// Show every third hour label to avoid overlap on narrow cards.
+							maxTicksLimit: 8,
+							callback: (_val, idx) => idx % 3 === 0 ? hourly.labels[idx] : '',
 							}
 						},
 						y: {

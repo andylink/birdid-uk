@@ -1,12 +1,8 @@
 """
-audio/utils.py — audio I/O and clip utilities.
+Audio I/O helpers used by the detector and inference pipeline.
 
-Handles:
-  - Writing PCM audio arrays to WAV files (inference temp files)
-  - Writing PCM audio arrays to FLAC files (persistent detection clips)
-  - Sanitising strings for use in filenames
-  - Saving normalised detection clips
-  - Applying a high-pass filter before inference (optional)
+Covers: writing WAV/FLAC files, sanitising filenames, saving detection clips,
+and optionally filtering audio before inference.
 """
 
 from __future__ import annotations
@@ -26,10 +22,10 @@ from config import cfg
 # ── Low-level helpers ─────────────────────────────────────────────────────────
 
 def save_wav(audio: np.ndarray, path: Path) -> None:
-    """Write a mono int16 PCM array to *path* as a WAV file.
+    """Write a mono int16 array to a WAV file.
 
-    Used exclusively for BirdNET inference temp files, which require WAV.
-    Persistent detection clips are saved as FLAC via save_flac().
+    WAV is used for BirdNET inference temp files. Persistent detection clips
+    use FLAC (see save_flac).
     """
     with wave.open(str(path), "wb") as wf:
         wf.setnchannels(1)
@@ -39,12 +35,12 @@ def save_wav(audio: np.ndarray, path: Path) -> None:
 
 
 def save_flac(audio: np.ndarray, path: Path) -> None:
-    """Write a mono int16 PCM array to *path* as a FLAC file."""
+    """Write a mono int16 array to a FLAC file."""
     sf.write(str(path), audio.astype(np.int16), cfg.audio.sample_rate, subtype="PCM_16")
 
 
 def safe_name(s: str) -> str:
-    """Strip characters that are unsafe in filenames."""
+    """Replace characters that are unsafe in filenames with underscores."""
     return re.sub(r"[^A-Za-z0-9_\-]", "_", s)
 
 
@@ -56,12 +52,10 @@ def apply_highpass(
     cutoff_hz: float,
     order: int,
 ) -> np.ndarray:
-    """
-    Apply a Butterworth high-pass filter to *audio* and return a new int16
-    array.  The input array is never modified.
+    """Apply a Butterworth high-pass filter and return a new int16 array.
 
-    Uses second-order sections (SOS) for numerical stability, which matters
-    especially at higher filter orders.
+    The input array is not modified. SOS (second-order sections) form is used
+    for numerical stability, which matters most at higher filter orders.
     """
     sos      = butter(order, cutoff_hz, btype="highpass", fs=sample_rate, output="sos")
     filtered = sosfilt(sos, audio.astype(np.float32))
@@ -76,23 +70,20 @@ def save_clip(
     species:     str,
     source_name: str | None = None,
 ) -> Path:
-    """
-    Save a normalised FLAC clip to the detections directory.
+    """Save a detection clip as a normalised FLAC file.
 
     The audio is normalised to the full int16 range so clips are audible
-    regardless of the microphone gain.  The raw audio passed to inference
-    is never modified.
+    regardless of microphone gain. The original array passed to inference is
+    not affected.
 
     Args:
         audio:       1-D int16 PCM array to save.
-        ts:          Timestamp of the detection (used in the filename).
-        species:     Primary model common name (used in the filename).
-        source_name: Optional source identifier inserted between the timestamp
-                     and species components of the filename.  Supplied in
-                     multi-source mode so clips from different microphones can
-                     be distinguished at a glance, e.g.
+        ts:          Detection timestamp, used in the filename.
+        species:     Species common name, used in the filename.
+        source_name: Optional microphone label inserted into the filename so
+                     clips from different sources can be told apart, e.g.
                      ``20260518_143000_garden_north_European_Robin.flac``.
-                     ``None`` (default) keeps the legacy naming:
+                     Omit for the legacy format:
                      ``20260518_143000_European_Robin.flac``.
 
     Returns the path of the saved file.

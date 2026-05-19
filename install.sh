@@ -176,6 +176,19 @@ info "This may take several minutes on a Raspberry Pi (birdnet-analyzer builds f
 pip install -r "$REPO_ROOT/requirements.txt" --quiet
 info "Dependencies installed."
 
+# ── Frontend build ────────────────────────────────────────────────────────────
+
+section "Building frontend..."
+FRONTEND_DIR="$REPO_ROOT/dashboard/frontend"
+if command -v npm &>/dev/null; then
+    npm --prefix "$FRONTEND_DIR" install --silent
+    npm --prefix "$FRONTEND_DIR" run build --silent
+    info "Frontend built."
+else
+    warn "npm not found — skipping frontend build."
+    warn "Install Node.js then run:  npm --prefix $FRONTEND_DIR install && npm --prefix $FRONTEND_DIR run build"
+fi
+
 # ── Data directories ──────────────────────────────────────────────────────────
 
 section "Creating data directories..."
@@ -199,6 +212,23 @@ if [[ "$INSTALL_SYSTEMD" == "true" ]]; then
     section "Installing systemd services..."
 
     UNIT_DIR="/etc/systemd/system"
+
+    # Remove any stale unit files left over from older installs that used
+    # different service names (e.g. birddetector-capture → birdid-uk-capture).
+    STALE_UNITS=(
+        "birddetector-capture.service"
+        "birddetector-dashboard.service"
+        "birddetector.target"
+    )
+    for stale in "${STALE_UNITS[@]}"; do
+        stale_path="$UNIT_DIR/$stale"
+        if [[ -f "$stale_path" ]]; then
+            warn "Removing stale unit: $stale_path"
+            sudo systemctl disable --now "$stale" 2>/dev/null || true
+            sudo rm -f "$stale_path"
+        fi
+    done
+
     SERVICE_FILES=(
         "$REPO_ROOT/systemd/birdid-uk.target"
         "$REPO_ROOT/systemd/birdid-uk-capture.service"
@@ -216,6 +246,22 @@ if [[ "$INSTALL_SYSTEMD" == "true" ]]; then
     done
 
     sudo cp "$TMP_SYSTEMD/"* "$UNIT_DIR/"
+
+    # Generate cuda.env so the systemd service can find CUDA runtime libraries
+    # that were installed as pip packages (e.g. nvidia-cuda-runtime-cu12/cu13).
+    # Those libraries live inside the venv's site-packages at a non-standard
+    # path that the system dynamic linker doesn't know about.
+    CUDA_LIB_PATH="$(find "$VENV/lib" -maxdepth 6 -name "libcudart.so*" 2>/dev/null \
+        | head -1 | xargs -I{} dirname {} 2>/dev/null || true)"
+    if [[ -n "$CUDA_LIB_PATH" ]]; then
+        echo "LD_LIBRARY_PATH=$CUDA_LIB_PATH" > "$REPO_ROOT/cuda.env"
+        info "CUDA libraries found at $CUDA_LIB_PATH — written to cuda.env"
+    else
+        echo "# No CUDA pip libraries detected — GPU inference will use system CUDA or CPU." \
+            > "$REPO_ROOT/cuda.env"
+        info "No CUDA pip libraries found — cuda.env written with no-op comment (CPU fallback)."
+    fi
+
     sudo systemctl daemon-reload
     sudo systemctl enable birdid-uk.target
     info "Systemd services installed and enabled."

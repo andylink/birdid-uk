@@ -1,50 +1,41 @@
 """
-weather.py — weather metadata provider for bird detections.
+Weather metadata for bird detections.
 
-Fetches current weather conditions at the configured lat/lon at detection
-time and attaches the snapshot to each saved detection.  Data is cached for
-``cfg.weather.cache_seconds`` (default 300 s) so a burst of rapid detections
-only triggers a single upstream API call.
+Fetches current conditions at the configured lat/lon and attaches a snapshot
+to each detection. Results are cached for ``cfg.weather.cache_seconds``
+(default 300 s) so a burst of detections only triggers one API call.
 
-Providers
----------
+Supported providers
+-------------------
 ``"open_meteo"``
-    Open-Meteo (https://open-meteo.com).  Completely free; no registration
-    or API key required.  Provides current conditions for any lat/lon.
+    Free, no API key needed. https://open-meteo.com
 
 ``"yr_no"``
-    Yr.no / Norwegian Meteorological Institute (https://api.met.no).
-    Free, no key required.  ``User-Agent`` is set to ``bird-detector/1.0``
-    as required by their terms of service.
+    Norwegian Met Institute, free, no API key. https://api.met.no
 
 ``"openweathermap"``
-    OpenWeatherMap (https://openweathermap.org).  Free tier available.
-    Requires ``api_key`` in ``[weather]`` config.toml.
+    Free tier available; requires ``api_key`` in ``[weather]`` config.toml.
 
 ``"pws"``
-    Personal Weather Station plugin.  ``cfg.weather.pws_plugin`` names the
-    provider module: ``weather/pws_<plugin>.py``.
+    Personal weather station. ``cfg.weather.pws_plugin`` names the plugin
+    module: ``weather/pws_<plugin>.py``.
 
-PWS plugins
------------
-Each plugin must expose a single function::
+PWS plugin interface
+--------------------
+Each plugin must expose::
 
     def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
         ...
 
-The function should catch all exceptions internally and return ``None`` on
-failure so the detect loop is never interrupted.
+Catch all exceptions inside ``fetch`` and return ``None`` on failure — the
+detection loop must never be interrupted by a weather error.
 
-Built-in plugin
-    ``weather/pws_meteobridge.py`` — Meteobridge bridge device (Davis Vantage
-    Vue / Vantage Pro and many other stations).
+Built-in plugins:
+    ``weather/pws_meteobridge.py`` — Meteobridge bridge device
+    ``weather/pws_tempest.py``     — Tempest WeatherFlow station
 
-Writing a new plugin
-    1. Create ``weather/pws_<name>.py`` in the ``weather/`` package.
-    2. Implement ``fetch(lat, lon, ts) -> WeatherData | None``.
-    3. Set ``provider = "pws"`` and ``pws_plugin = "<name>"`` in
-       ``[weather]`` config.toml.
-    That's it — no changes to this file required.
+To add a new plugin: create ``weather/pws_<name>.py``, implement ``fetch``,
+then set ``provider = "pws"`` and ``pws_plugin = "<name>"`` in config.toml.
 """
 
 from __future__ import annotations
@@ -64,26 +55,22 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class WeatherData:
-    """Snapshot of weather conditions at detection time.
+    """Weather conditions at detection time.
 
-    All numeric fields may be ``None`` if the provider could not supply
-    that particular reading (e.g. a sensor is offline, or the API does
-    not include that variable).
+    All numeric fields are ``None`` if the provider couldn't supply that
+    reading (sensor offline, API doesn't include it, etc.).
 
     Attributes:
-        temperature:    Dry-bulb air temperature in °C.
-        humidity:       Relative humidity in percent (0–100).
+        temperature:    Air temperature in °C.
+        humidity:       Relative humidity, 0–100 %.
         wind_speed:     Mean wind speed in m/s.
-        wind_direction: Wind direction in degrees clockwise from north (0–360).
-        pressure:       Sea-level atmospheric pressure in hPa.
-        condition:      Human-readable sky/weather description, e.g.
-                        ``"Partly cloudy"``, ``"Light rain"``.  ``None`` for
-                        PWS providers that do not report a sky condition.
-        precipitation:  Precipitation amount in mm.  Interpretation varies
-                        by provider: current rate (mm/h), last-hour total, or
-                        last-reading total.
-        provider:       Identifier of the data source, e.g. ``"open_meteo"``,
-                        ``"yr_no"``, ``"meteobridge"``.
+        wind_direction: Wind direction in degrees clockwise from north.
+        pressure:       Sea-level pressure in hPa.
+        condition:      Human-readable sky description, e.g. "Partly cloudy".
+                        Always ``None`` for PWS providers.
+        precipitation:  Precipitation in mm. Exact meaning varies by provider
+                        (current rate, last-hour total, etc.).
+        provider:       Which data source produced this reading, e.g. "open_meteo".
     """
     temperature:    float | None = None
     humidity:       float | None = None
@@ -99,8 +86,8 @@ class WeatherData:
 
 _provider: ModuleType | None = None  # loaded once by init_weather()
 
-# One-slot cache: (fetch timestamp UTC, WeatherData | None)
-_cache_ts:   datetime | None   = None
+# Simple one-slot cache: timestamp + last result
+_cache_ts:   datetime | None    = None
 _cache_data: WeatherData | None = None
 
 
@@ -109,12 +96,11 @@ _cache_data: WeatherData | None = None
 def init_weather() -> None:
     """Load the configured weather provider module.
 
-    No-op when ``[weather] enabled = false``.  Logs a clear error and leaves
-    ``_provider`` as ``None`` if the module cannot be imported; all subsequent
-    ``get_weather()`` calls will silently return ``None`` in that case.
+    Does nothing if ``[weather] enabled = false``. Logs an error and leaves
+    ``_provider`` as ``None`` if the module can't be imported; all subsequent
+    ``get_weather()`` calls will return ``None`` silently.
 
-    Called once from ``detector.main()`` after ``init_db()`` and
-    ``init_mqtt()``.
+    Called once from ``detector.main()`` at startup.
     """
     global _provider
 
@@ -142,18 +128,15 @@ def init_weather() -> None:
 
 
 def get_weather(ts: datetime) -> WeatherData | None:
-    """Return the current weather reading, using a short-lived cache.
+    """Return current weather, served from cache if fresh enough.
 
-    Returns ``None`` if weather is disabled, the provider failed to load,
-    or the fetch raises an exception.  On failure, stale cached data is
-    returned if available (logged at DEBUG).  This function never raises.
+    Returns ``None`` if weather is disabled, the provider failed to load, or
+    the fetch raises an exception. On fetch failure, stale cached data is
+    returned rather than nothing (logged at DEBUG). Never raises.
 
     Args:
-        ts: Detection timestamp (used only for debug logging; the provider
-            always fetches the most current reading available).
-
-    Returns:
-        A :class:`WeatherData` instance, or ``None``.
+        ts: Detection timestamp. Passed to the provider but most providers
+            ignore it and always return the latest available reading.
     """
     global _cache_ts, _cache_data
 

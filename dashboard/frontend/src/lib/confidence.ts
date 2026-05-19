@@ -1,4 +1,4 @@
-/** Confidence thresholds — must stay in sync with dashboard/config.py */
+// Thresholds must stay in sync with dashboard/config.py
 export const CONF_HIGH = 0.9;
 export const CONF_MED = 0.7;
 
@@ -10,10 +10,7 @@ export function confidenceLevel(score: number): ConfidenceLevel {
 	return 'low';
 }
 
-/**
- * Returns a CSS class name defined globally in app.css.
- * Maps high → conf-badge-high, medium → conf-badge-medium, low → conf-badge-low.
- */
+/** Returns a CSS class for styling a confidence badge (defined in app.css). */
 export function confidenceBadgeClass(score: number): string {
 	const level = confidenceLevel(score);
 	return {

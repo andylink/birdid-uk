@@ -1,25 +1,22 @@
 """
-capture_buffer.py — continuous ring buffer for long-clip capture.
+capture_buffer.py — ring buffer for continuous audio capture.
 
-Mirrors BirdNET-Go's CaptureBuffer design: the recording thread writes every
-PCM chunk here continuously (independent of the 3-second analysis window).
-When a detection fires, the classify loop notes the absolute sample offset
-(``begin_sample``) and submits a deferred-save task that, after sleeping for
-the required post-capture duration, reads the full clip segment in one shot.
+The recording thread writes every PCM chunk here continuously, independent of
+the 3-second analysis window. When a detection fires, the classifier notes the
+current sample offset (begin_sample) and hands off a deferred-save task. That
+task sleeps for the required post-capture duration, then reads the full clip
+from this buffer in one shot.
 
-Thread-safety contract
-----------------------
-- Exactly ONE thread calls :meth:`write` (the recording thread).
-- Any number of threads may call :meth:`read_segment` concurrently (deferred
-  save workers).
-- All public methods acquire a single :class:`threading.Lock`.
+Thread-safety:
+- Exactly one thread calls write() (the recording thread).
+- Any number of threads may call read_segment() concurrently (save workers).
+- All public methods hold a single threading.Lock.
 
-Ring-buffer layout
-------------------
-- ``_buf``: pre-allocated ``int16`` array of ``max_seconds * sample_rate`` samples.
-- ``_write_pos``: index of the *next* write (wraps modulo ``capacity``).
-- ``_total_written``: monotonically increasing sample counter; used by callers
-  to convert a wall-clock detection instant into an absolute sample index.
+Buffer layout:
+- _buf: pre-allocated int16 array of max_seconds * sample_rate samples.
+- _write_pos: index of the next write slot (wraps at capacity).
+- _total_written: total samples written since construction; callers use this
+  to convert a detection timestamp into an absolute sample index.
 """
 
 from __future__ import annotations
@@ -33,11 +30,9 @@ class CaptureBuffer:
     """Pre-allocated ring buffer for continuous audio capture.
 
     Args:
-        max_seconds: Ring buffer capacity in seconds.  Should comfortably
-            exceed the longest clip you intend to save (e.g. 30 s for 15 s
-            clips leaves plenty of headroom).
-        sample_rate: Recording sample rate in Hz (must match the microphone
-            recording sample rate).
+        max_seconds: Buffer size in seconds. Should be comfortably larger than
+            the longest clip you need to save (e.g. 30 s for 15 s clips).
+        sample_rate: Recording sample rate in Hz — must match the microphone.
     """
 
     def __init__(self, max_seconds: int, sample_rate: int) -> None:
@@ -51,23 +46,22 @@ class CaptureBuffer:
     # ── Write ─────────────────────────────────────────────────────────────────
 
     def write(self, chunk: np.ndarray) -> None:
-        """Append *chunk* (1-D int16) to the ring buffer.
+        """Append a chunk of audio samples to the ring buffer.
 
-        Wraps around transparently.  Older samples are silently overwritten
-        once the buffer is full, which is the intended behaviour (we only care
-        about the most recent ``max_seconds`` of audio).
+        Wraps around transparently. Once the buffer is full, the oldest samples
+        are overwritten — we only need the most recent max_seconds of audio.
 
         Args:
-            chunk: 1-D ``int16`` numpy array from the recording thread.
+            chunk: 1-D int16 numpy array from the recording thread.
         """
         n = len(chunk)
         with self._lock:
             end = self._write_pos + n
             if end <= self._capacity:
-                # Fast path: no wrap-around needed.
+                # Fast path: chunk fits without wrapping.
                 self._buf[self._write_pos:end] = chunk
             else:
-                # Chunk straddles the end of the buffer — split into two copies.
+                # Chunk straddles the end of the buffer — split into two writes.
                 first  = self._capacity - self._write_pos
                 self._buf[self._write_pos:] = chunk[:first]
                 self._buf[:n - first]       = chunk[first:]
@@ -82,44 +76,41 @@ class CaptureBuffer:
         begin_sample: int,
         length_samples: int,
     ) -> np.ndarray | None:
-        """Return ``length_samples`` samples starting at absolute index *begin_sample*.
+        """Return a contiguous slice of recorded audio starting at begin_sample.
 
-        Returns ``None`` when the request cannot be satisfied:
-        - **Too old**: the requested range has already been overwritten (i.e.
-          the oldest sample still in the ring is *after* ``begin_sample``).
-        - **Too new**: the requested end is beyond what has been written yet
-          (caller should sleep longer before calling).
+        Returns None when the request can't be satisfied:
+        - Too old: the requested range has already been overwritten.
+        - Too new: the requested end hasn't been written yet (caller should
+          sleep longer before retrying).
 
         Args:
-            begin_sample:   Absolute sample index (matches units of
-                            :attr:`total_written`).
+            begin_sample:   Absolute sample index (same units as total_written).
             length_samples: Number of samples to return.
 
         Returns:
-            A *new* 1-D ``int16`` numpy array of length *length_samples*, or
-            ``None`` if the segment is unavailable.
+            A new 1-D int16 numpy array of length length_samples, or None.
         """
         with self._lock:
             end_sample = begin_sample + length_samples
 
-            # Guard: requested end must not exceed what has been written.
+            # Requested end must not be ahead of what's been written yet.
             if end_sample > self._total_written:
                 return None
 
-            # Guard: requested begin must still be within the ring.
+            # Requested start must still be within the ring (not overwritten).
             oldest = self._total_written - self._capacity
             if begin_sample < oldest:
                 return None
 
-            # Map absolute indices to ring positions.
+            # Map absolute indices to positions in the ring array.
             start_pos = begin_sample % self._capacity
             end_pos   = end_sample   % self._capacity
 
             if start_pos < end_pos:
-                # Contiguous slice — no wrap.
+                # Contiguous slice — no wrap needed.
                 return self._buf[start_pos:end_pos].copy()
             else:
-                # Segment wraps around the end of the buffer.
+                # Segment wraps around the end of the buffer — stitch two slices.
                 return np.concatenate([
                     self._buf[start_pos:],
                     self._buf[:end_pos],
@@ -129,7 +120,7 @@ class CaptureBuffer:
 
     @property
     def total_written(self) -> int:
-        """Total number of samples written since construction (thread-safe)."""
+        """Total samples written since construction (thread-safe)."""
         with self._lock:
             return self._total_written
 

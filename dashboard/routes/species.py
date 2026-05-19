@@ -1,5 +1,9 @@
 """
-dashboard/routes/species.py — per-species statistics and AviCommons image cache.
+Per-species statistics endpoints and AviCommons image cache.
+
+Images are downloaded on first request, stored in data/species_images/, and
+served directly from disk on subsequent requests. A .none sentinel file is
+written when no image is available so failed lookups aren't retried too often.
 """
 
 from __future__ import annotations
@@ -27,14 +31,15 @@ router = APIRouter()
 IMAGE_DIR: Path = DETECTIONS_DIR.parent / "species_images"
 IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-IMAGE_TTL_DAYS = 30     # re-fetch positive cache after this many days
+IMAGE_TTL_DAYS = 30     # re-fetch cached images after this many days
 NEGATIVE_TTL_DAYS = 1   # retry failed lookups after this many days
 
 _UA = "bird-detector/1.0 (local garden monitor; contact via github)"
 
-# Limit concurrent outbound requests to avoid hammering the CDN.
+# Cap concurrent outbound image fetches to avoid hammering the CDN.
 _IMG_SEM = asyncio.Semaphore(4)
 
+# Allowed sort keys mapped to the SQL ORDER BY expression they produce.
 SORT_COLS = {
     "detections_desc":        "detections DESC",
     "detections_asc":         "detections ASC",
@@ -58,6 +63,7 @@ SORT_COLS = {
 
 
 def _slug(species: str) -> str:
+    """Convert a species name to a safe filename component."""
     return re.sub(r"[^a-z0-9]+", "_", species.lower()).strip("_")
 
 
@@ -66,15 +72,17 @@ def _img_path(species: str) -> Path:
 
 
 def _neg_path(species: str) -> Path:
+    """Sentinel file written when no image exists for a species."""
     return IMAGE_DIR / f"{_slug(species)}.none"
 
 
 def _age_days(path: Path) -> float:
+    """Return how many days ago a file was last modified."""
     return (datetime.now() - datetime.fromtimestamp(path.stat().st_mtime)).days
 
 
 async def _fetch_image_bytes(url: str) -> bytes | None:
-    """Fetch image bytes from a URL. Returns JPEG bytes or None on failure."""
+    """Download image bytes from a URL. Returns None on any non-200 response."""
     async with _IMG_SEM:
         async with httpx.AsyncClient(headers={"User-Agent": _UA}, timeout=15) as client:
             r = await client.get(url)
@@ -84,9 +92,10 @@ async def _fetch_image_bytes(url: str) -> bytes | None:
 
 
 def _normalise_bools(d: dict) -> dict:
-    """Coerce boolean DB fields to integers for frontend compatibility.
+    """Coerce flagging/validation boolean fields to integers.
 
-    SQLite returns 0/1 integers; PostgreSQL/asyncpg returns Python bools.
+    SQLite returns 0/1; PostgreSQL returns Python bools. The frontend uses
+    strict equality (=== 1), so we normalise to integers for both backends.
     """
     for key in ("flagged", "cross_validated", "cv_agree"):
         if key in d and isinstance(d[key], bool):
@@ -103,22 +112,22 @@ async def species_image(
 ):
     """Serve a cached species photo sourced from AviCommons.
 
-    Images are stored in data/species_images/ and refreshed every 30 days.
-    A .none sentinel file is written when no AviCommons URL is available or
-    the fetch fails (retried daily).
+    Checks disk cache first. If the image is missing or stale, fetches from
+    AviCommons using the URL stored in species_info. A .none sentinel prevents
+    repeated failed lookups within NEGATIVE_TTL_DAYS.
     """
     img_path = _img_path(name)
     neg_path = _neg_path(name)
 
-    # Positive cache hit
+    # Serve from cache if fresh
     if img_path.exists() and _age_days(img_path) < IMAGE_TTL_DAYS:
         return FileResponse(str(img_path), media_type="image/jpeg")
 
-    # Negative cache — don't retry failed lookups too often
+    # Skip retry if we recently failed to find an image
     if neg_path.exists() and _age_days(neg_path) < NEGATIVE_TTL_DAYS:
         raise HTTPException(status_code=404, detail="No image available")
 
-    # Look up AviCommons image URL from species_info
+    # Look up the AviCommons URL from species_info
     rows = (
         await db.execute(
             text("SELECT avicommons_image_url FROM species_info WHERE name = :name LIMIT 1"),
@@ -131,7 +140,6 @@ async def species_image(
         neg_path.touch()
         raise HTTPException(status_code=404, detail="No image available for this species")
 
-    # Fetch from AviCommons CDN
     try:
         data = await _fetch_image_bytes(avi_url)
     except Exception:
@@ -162,14 +170,13 @@ async def list_species(
 ):
     """Per-species detection statistics for the given period, sorted as requested.
 
-    Optional conservation filters (bocc, status, group) are applied via a
-    LEFT JOIN on species_info; they narrow the result set server-side so that
-    pagination counts remain accurate.
+    Conservation filters (bocc, status, group) are applied server-side via a
+    JOIN on species_info so pagination counts stay accurate.
     """
     order = SORT_COLS.get(sort, "detections DESC")
     where, params = period_clause(period, date_from=date_from, date_to=date_to)
 
-    # Build any additional WHERE conditions from conservation filters.
+    # Append any optional conservation filters to the WHERE clause.
     conservation_clauses: list[str] = []
     if bocc:
         conservation_clauses.append("si.uk_bocc = :bocc")
@@ -211,7 +218,7 @@ async def list_species(
         )
     ).mappings().all()
 
-    # Count must also join species_info when conservation filters are active.
+    # Use the same WHERE (including conservation filters) for the total count.
     total_row = (
         await db.execute(
             text(f"""
@@ -251,7 +258,7 @@ async def species_detail(
     name: str,
     db: AsyncConnection = Depends(get_db),
 ):
-    """Aggregate stats + species_info metadata for a single species."""
+    """Aggregate detection stats and species_info metadata for a single species."""
     rows = (
         await db.execute(
             text("""
@@ -303,10 +310,10 @@ async def species_detection_list(
     offset: int = Query(0, ge=0),
     db: AsyncConnection = Depends(get_db),
 ):
-    """Paginated detection recordings for a single species, newest first.
+    """Paginated list of individual recordings for a single species, newest first.
 
-    Joins species_info so the response includes uk_bocc / species_status for
-    use in the frontend notable-species highlighting logic.
+    Includes uk_bocc and species_status so the frontend can apply
+    notable-species highlighting without a separate lookup.
     """
     rows = (
         await db.execute(

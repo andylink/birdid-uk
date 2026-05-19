@@ -1,10 +1,9 @@
 """
-weather_pws_tempest.py — Tempest WeatherFlow personal weather station plugin.
+Tempest WeatherFlow personal weather station plugin.
 
-Tempest (https://weatherflow.com/tempest-weather-system/) is a consumer PWS
-that reports via the WeatherFlow cloud API.  This plugin fetches the
-``better_forecast`` endpoint, which returns a ``current_conditions`` object
-with named fields and a human-readable sky condition string.
+Fetches current conditions from the WeatherFlow cloud API for a Tempest
+station (https://weatherflow.com/tempest-weather-system/). Unlike other
+providers, location is identified by station ID rather than lat/lon.
 
 Configuration (config.toml)
 ---------------------------
@@ -22,44 +21,23 @@ Configuration (config.toml)
 Obtaining credentials
 ---------------------
 1. Create an account at https://tempestwx.com and claim your station.
-2. Navigate to *Settings → Data Authorizations* and generate a personal
-   access token (PAT).  Copy the token value into ``config.toml``.
-3. Your station ID is shown in the URL when you view your station online,
-   e.g. ``https://tempestwx.com/station/12345/``.
+2. Go to *Settings → Data Authorizations* and generate a personal access token.
+3. Your station ID appears in the URL when viewing your station, e.g.
+   ``https://tempestwx.com/station/12345/``.
 
-API details
------------
-Endpoint::
-
-    GET https://swd.weatherflow.com/swd/rest/better_forecast
-        ?station_id={id}
-        &token={token}
-        &units_temp=c
-        &units_wind=mps
-        &units_pressure=mb
-        &units_precip=mm
-        &units_distance=km
-
-The response contains a ``current_conditions`` object with the following
-fields (all may be ``None`` if the sensor has no current reading):
-
+Response fields used from ``current_conditions``
+------------------------------------------------
 * ``air_temperature``       — °C
-* ``sea_level_pressure``    — hPa (mb)
+* ``sea_level_pressure``    — hPa
 * ``relative_humidity``     — %
-* ``wind_avg``              — m/s (average)
+* ``wind_avg``              — m/s
 * ``wind_direction``        — degrees (0–360)
-* ``wind_gust``             — m/s (3-second gust; not stored separately)
 * ``precip_accum_last_1hr`` — mm in the last hour
-* ``conditions``            — human-readable sky condition string,
-                              e.g. "Clear", "Partly Cloudy", "Light Rain"
-* ``time``                  — Unix timestamp of the observation
+* ``conditions``            — human-readable sky condition, e.g. "Clear"
 
-Writing a new PWS plugin
-------------------------
-Copy this file to ``weather/pws_<yourstation>.py``, implement the single
-``fetch(lat, lon, ts) -> WeatherData | None`` function, and set
-``pws_plugin = "<yourstation>"`` in ``[weather]`` config.toml.  No changes
-to ``weather/__init__.py`` or ``detector.py`` are needed.
+To write a new PWS plugin, copy this file to ``weather/pws_<name>.py``,
+implement ``fetch(lat, lon, ts) -> WeatherData | None``, and set
+``pws_plugin = "<name>"`` in config.toml.
 """
 
 from __future__ import annotations
@@ -82,20 +60,11 @@ _BASE_URL = "https://swd.weatherflow.com/swd/rest/better_forecast"
 def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
     """Fetch current conditions from the Tempest WeatherFlow cloud API.
 
-    Calls the ``better_forecast`` endpoint and reads ``current_conditions``
-    from the JSON response.  Latitude and longitude are not used because the
-    station is identified by its numeric ID; location is fixed to wherever
-    the physical Tempest unit is installed.
-
-    Args:
-        lat: Latitude (not used; Tempest reads from the registered station).
-        lon: Longitude (not used; Tempest reads from the registered station).
-        ts:  Detection timestamp (not used; returns the live sensor reading).
-
-    Returns:
-        A populated :class:`~weather.WeatherData` instance, or ``None`` if
-        the API is unreachable, the token is invalid, or the response cannot
-        be parsed.
+    Reads ``current_conditions`` from the ``better_forecast`` endpoint.
+    ``lat``, ``lon``, and ``ts`` are not used — the station is identified
+    by its numeric ID and always returns the latest reading.
+    Returns ``None`` if the token is missing, the API is unreachable, or
+    the response can't be parsed.
     """
     tempest = cfg.weather.pws_tempest
 
@@ -169,7 +138,7 @@ def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
 
 
 def _float(value: object) -> float | None:
-    """Coerce *value* to float, returning ``None`` for missing or non-numeric data."""
+    """Convert a value to float, or return ``None`` if missing or non-numeric."""
     if value is None:
         return None
     try:
@@ -179,7 +148,7 @@ def _float(value: object) -> float | None:
 
 
 def _str(value: object) -> str | None:
-    """Return *value* as a stripped string, or ``None`` if empty / not a string."""
+    """Return the value as a stripped string, or ``None`` if empty or not a string."""
     if not isinstance(value, str):
         return None
     s = value.strip()

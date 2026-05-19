@@ -13,6 +13,7 @@
 	<div class="stat-title">{title}</div>
 
 	{#if loading}
+		<!-- Skeleton placeholders match the size of the real value and subtitle -->
 		<div class="skeleton-value skeleton-pulse"></div>
 		<div class="skeleton-sub skeleton-pulse"></div>
 	{:else}
@@ -56,7 +57,6 @@
 		color: var(--color-text-muted);
 	}
 
-	/* Skeleton placeholders */
 	.skeleton-value {
 		height: 2rem;
 		margin-top: 0.25rem;

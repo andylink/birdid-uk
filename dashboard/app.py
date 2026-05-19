@@ -1,5 +1,5 @@
 """
-dashboard/app.py — FastAPI application factory for the bird-detector dashboard.
+FastAPI application factory for the bird-detector dashboard.
 
 Run with:
     uvicorn dashboard.app:app --host 0.0.0.0 --port 8080 --reload
@@ -28,9 +28,9 @@ from dashboard.database import get_engine, startup_db, shutdown_db
 
 _JSON_PATH = Path(__file__).parent.parent / "filters" / "uk_species_filter.json"
 
-# Full 13-column schema — matches root database.py's _species_info table.
+# Full 13-column schema — must match the root database.py _species_info table.
 # The two extra columns (ebird_code, avicommons_image_url) were previously
-# missing from the dashboard DDL but are already queried by routes/species.py.
+# missing from the dashboard DDL but are queried by routes/species.py.
 _CREATE_SPECIES_INFO = """
 CREATE TABLE IF NOT EXISTS species_info (
     name                        TEXT PRIMARY KEY,
@@ -51,11 +51,10 @@ CREATE TABLE IF NOT EXISTS species_info (
 
 
 async def _ensure_species_info() -> None:
-    """Create and seed species_info if needed (SQLite only).
+    """Create and populate the species_info table from the JSON filter file (SQLite only).
 
-    When PostgreSQL is configured, the detector's database.py owns the schema
-    and has already seeded species_info before the dashboard starts, so this
-    function is a no-op on that path.
+    On PostgreSQL, the detector's own database.py owns this table and seeds it
+    before the dashboard starts, so this function does nothing on that path.
     """
     if DB_TYPE == "postgresql":
         return
@@ -68,7 +67,7 @@ async def _ensure_species_info() -> None:
 
         row = (await conn.execute(text("SELECT COUNT(*) FROM species_info"))).one()
         if row[0]:
-            return
+            return  # already seeded
 
         entries = json.loads(_JSON_PATH.read_text(encoding="utf-8"))
         rows = [
@@ -130,7 +129,7 @@ app.include_router(weather_router)
 # ── SSE stream ────────────────────────────────────────────────────────────────
 @app.get("/stream/detections")
 async def stream_detections():
-    """Server-sent events: push each new detection as a named 'detection' event."""
+    """Push new detections to the browser as Server-Sent Events."""
     return EventSourceResponse(detection_generator())
 
 
@@ -143,7 +142,7 @@ async def healthz():
 # ── Client config ─────────────────────────────────────────────────────────────
 @app.get("/api/v1/config")
 async def get_config():
-    """Return public runtime config consumed by the frontend (e.g. timezone)."""
+    """Return public runtime settings consumed by the frontend (timezone, station name)."""
     return {"timezone": TIMEZONE, "station_name": STATION_NAME}
 
 

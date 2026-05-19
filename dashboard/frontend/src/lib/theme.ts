@@ -1,8 +1,9 @@
 /**
- * theme.ts — light/dark mode helpers.
+ * Light/dark theme helpers.
  *
- * The inline script in app.html applies the 'dark' class before first paint.
- * This module provides runtime toggle + localStorage persistence.
+ * The inline script in app.html applies the 'dark' class before first paint
+ * to avoid a flash of the wrong theme. This module handles runtime toggling
+ * and persisting the user's preference to localStorage.
  *
  * Chart components listen for the 'themechange' CustomEvent on document
  * to update their hardcoded colours when the theme switches.
@@ -18,8 +19,8 @@ export function currentTheme(): Theme {
 }
 
 /**
- * Apply a theme: toggle the 'dark' class, persist to localStorage,
- * and dispatch a 'themechange' event so Chart.js components can update.
+ * Switch to the given theme: updates the <html> class, saves to localStorage,
+ * and fires a 'themechange' event for any listeners (e.g. Chart.js components).
  */
 export function applyTheme(theme: Theme): void {
 	document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -27,7 +28,7 @@ export function applyTheme(theme: Theme): void {
 	document.dispatchEvent(new CustomEvent('themechange', { detail: { theme } }));
 }
 
-/** Toggle between light and dark, return the new theme. */
+/** Toggle between light and dark; returns the new theme. */
 export function toggleTheme(): Theme {
 	const next: Theme = currentTheme() === 'dark' ? 'light' : 'dark';
 	applyTheme(next);

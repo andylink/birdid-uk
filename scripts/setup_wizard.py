@@ -2,10 +2,11 @@
 """
 BirdID-UK setup wizard.
 
-Interactively configures the essential settings in config.toml, including
-microphone selection and a live level test.
+Walks through the essential first-time configuration: station details,
+GPS coordinates, microphone selection, and an optional live level test.
+Writes the results to config.toml.
 
-Run after install.sh (venv must be active so sounddevice is available):
+Run after install.sh with the project venv active:
 
     source venv/bin/activate
     python scripts/setup_wizard.py
@@ -43,7 +44,7 @@ def _tty_input(prompt: str) -> str:
     """Read a line from /dev/tty so the wizard works even when stdin is piped."""
     if sys.stdin.isatty():
         return input(prompt)
-    # Piped stdin — fall back to /dev/tty
+    # Fall back to /dev/tty when stdin is redirected
     try:
         with open("/dev/tty") as tty:
             sys.stdout.write(prompt)
@@ -73,7 +74,7 @@ def ask(prompt: str, default: str = "", validator=None) -> str:
 
 
 def ask_yn(prompt: str, default: str = "y") -> bool:
-    """Ask a yes/no question."""
+    """Ask a yes/no question; return True for yes."""
     opts = "Y/n" if default.lower() == "y" else "y/N"
     while True:
         try:
@@ -144,9 +145,9 @@ def validate_lon(s: str):
 # ── Device listing ────────────────────────────────────────────────────────────
 
 def list_input_devices():
-    """Return [(device_index, name, max_input_channels, default_samplerate), ...]
-    for all devices that have at least one input channel.
-    Returns None if sounddevice is not available."""
+    """Return a list of available audio input devices as tuples of
+    (device_index, name, max_input_channels, default_samplerate).
+    Returns None if sounddevice is not importable."""
     try:
         import sounddevice as sd
     except ImportError:
@@ -162,7 +163,7 @@ def list_input_devices():
 
 
 def select_device(devices: list) -> tuple:
-    """Print a table of input devices and let the user pick one.
+    """Print a numbered table of input devices and ask the user to pick one.
     Returns (device_index, device_name)."""
     print(f"  {'#':<5}  {'Device name':<46} {'Ch':>3}  {'Default rate'}")
     print(f"  {'─'*5}  {'─'*46} {'─'*3}  {'─'*12}")
@@ -187,7 +188,7 @@ def select_device(devices: list) -> tuple:
 # ── Microphone test ───────────────────────────────────────────────────────────
 
 def rms_dbfs(audio) -> float:
-    """RMS level in dBFS for a float32 numpy array."""
+    """Return the RMS level in dBFS for a float32 numpy array."""
     import numpy as np
     rms = float(np.sqrt(np.mean(audio.astype(np.float64) ** 2)))
     if rms < 1e-10:
@@ -196,22 +197,22 @@ def rms_dbfs(audio) -> float:
 
 
 def level_bar(db: float, width: int = 40) -> str:
-    """ASCII bar chart for a dBFS value (scale: −60 → 0)."""
+    """Render a dBFS level as a coloured ASCII bar (scale: −60 → 0 dBFS)."""
     clamped = max(-60.0, min(0.0, db))
     filled = round((clamped + 60.0) / 60.0 * width)
     bar = "█" * filled + "░" * (width - filled)
     if db > -3:
-        colour = RED
+        colour = RED       # clipping risk
     elif db > -20:
-        colour = GREEN
+        colour = GREEN     # healthy range
     else:
-        colour = YELLOW
+        colour = YELLOW    # too quiet
     return f"{colour}{bar}{RESET}  {db:+.1f} dBFS"
 
 
 def test_microphone(device_index: int, device_name: str) -> bool:
-    """Record RECORD_SECONDS of audio, show the level, offer playback.
-    Returns True if the level looks healthy."""
+    """Record a short clip, display the level, and offer playback.
+    Returns True if the level looks usable."""
     try:
         import sounddevice as sd
         import numpy as np
@@ -256,7 +257,6 @@ def test_microphone(device_index: int, device_name: str) -> bool:
     else:
         info("Audio level looks good.")
 
-    # Playback ─────────────────────────────────────────────────────────────────
     print()
     if ask_yn("Play back the recording to check audio quality?", default="y"):
         try:
@@ -273,9 +273,9 @@ def test_microphone(device_index: int, device_name: str) -> bool:
 # ── Config patching ───────────────────────────────────────────────────────────
 
 def patch_config(path: Path, patches: dict):
-    """Replace whole lines in a TOML file using regex.
+    """Update specific lines in a TOML file using regex replacement.
 
-    patches = {regex_pattern: replacement_line}
+    patches maps a regex pattern to its replacement line.
     Each pattern is applied once (first match) in MULTILINE mode.
     """
     text = path.read_text()
@@ -296,7 +296,7 @@ def main():
     print("  Configures the essential settings in config.toml.")
     print("  Press Enter to accept the value shown in [brackets].")
 
-    # Ensure config.toml exists ────────────────────────────────────────────────
+    # Create config.toml from the example if it doesn't exist yet
     if not CONFIG_PATH.exists():
         if CONFIG_EXAMPLE.exists():
             shutil.copy(CONFIG_EXAMPLE, CONFIG_PATH)
@@ -366,12 +366,12 @@ def main():
     lat_f = float(lat)
     lon_f = float(lon)
 
-    # Escape station_name for TOML (replace " with \")
+    # Escape backslashes and quotes so the value is safe inside a TOML string
     safe_station = station_name.replace("\\", "\\\\").replace('"', '\\"')
     safe_timezone = timezone.replace("\\", "\\\\").replace('"', '\\"')
 
     patches = {
-        # Match the whole line (handles inline comments and trailing spaces)
+        # Each pattern matches the whole line, including any trailing comments
         r'^timezone\s*=.*$':      f'timezone     = "{safe_timezone}"',
         r'^station_name\s*=.*$':  f'station_name = "{safe_station}"',
         r'^lat\s*=.*$':           f'lat = {lat_f}',

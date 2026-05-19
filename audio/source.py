@@ -1,24 +1,22 @@
 """
-audio/source.py — AudioSource protocol and factory.
+Defines the AudioSource protocol and the get_source() factory.
 
-All audio capture backends implement the same two-method protocol so the
-recording thread in detector.py is source-agnostic.
+All audio backends expose the same two methods (read_chunk / close), so the
+recording thread in detector.py doesn't need to know which backend it's using.
 
-Selecting a backend
--------------------
-**Legacy single-source** — set ``[audio] source`` in config.toml::
+Backend selection
+-----------------
+Single-source: set ``[audio] source`` in config.toml:
 
-    source = "sounddevice"   # default — local USB/built-in microphone via PortAudio
-    source = "rtsp"          # IP camera / network microphone via FFmpeg subprocess
+    source = "sounddevice"   # local microphone via PortAudio (default)
+    source = "rtsp"          # network camera/microphone via FFmpeg
 
-**Multi-source** — use ``[[audio.sources]]`` blocks instead (one per microphone).
-In this mode, ``get_source()`` is called with an explicit
-:class:`~config.AudioSourceConfig`; the legacy ``cfg.audio.source`` is ignored.
+Multi-source: use ``[[audio.sources]]`` blocks (one per microphone).
+Pass the relevant AudioSourceConfig to get_source() directly; cfg.audio.source
+is ignored in this mode.
 
-The factory ``get_source()`` reads ``cfg.audio.source`` (legacy) or the supplied
-*source_config* (multi-source) and returns the appropriate backend instance.
-Each call returns a *new* instance; the caller is responsible for calling
-``close()`` when done.
+Each call to get_source() returns a new instance. The caller must call close()
+when done.
 """
 
 from __future__ import annotations
@@ -34,21 +32,17 @@ if TYPE_CHECKING:
 
 
 class AudioSource(Protocol):
-    """Minimal interface every audio capture backend must satisfy.
+    """Interface that every audio capture backend must implement.
 
-    ``read_chunk()`` is the hot-path method: it blocks until exactly
-    ``cfg.audio.hop_seconds * cfg.audio.sample_rate`` int16 samples are
-    available, then returns them as a 1-D numpy array.  Implementations must
-    handle their own error recovery internally (e.g. reconnecting a dropped
-    RTSP stream) so the recording thread never needs to know which backend is
-    in use.
+    read_chunk() blocks until one hop of audio is ready and returns it as a
+    1-D int16 numpy array. Backends handle their own error recovery (e.g.
+    reconnecting a dropped RTSP stream) so the recording thread stays simple.
 
-    ``close()`` releases all resources (file descriptors, subprocess handles,
-    PortAudio streams).  After calling ``close()``, the source must not be used.
+    close() releases all resources. The source must not be used afterwards.
     """
 
     def read_chunk(self) -> np.ndarray:
-        """Block until one hop of audio is ready; return 1-D int16 ndarray."""
+        """Block until one hop of audio is ready; return a 1-D int16 array."""
         ...
 
     def close(self) -> None:
@@ -57,15 +51,14 @@ class AudioSource(Protocol):
 
 
 def get_source(source_config: AudioSourceConfig | None = None) -> AudioSource:
-    """Return a new AudioSource instance.
+    """Create and return the appropriate audio backend.
 
     Args:
-        source_config: When provided (multi-source mode), creates a backend
-            for this specific source config.  When ``None`` (legacy mode),
-            reads ``cfg.audio.source`` to determine the backend type.
+        source_config: If given, creates a backend for that specific source
+            (multi-source mode). If None, reads cfg.audio.source (legacy mode).
 
     Raises:
-        ValueError: if the backend name is not recognised.
+        ValueError: if the backend name isn't recognised.
     """
     if source_config is not None:
         src_type = source_config.type.strip().lower()

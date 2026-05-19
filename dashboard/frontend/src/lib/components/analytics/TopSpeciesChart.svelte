@@ -14,6 +14,7 @@
 
 	let entries: TopSpeciesEntry[] = [];
 
+	// Read CSS custom properties so chart colours respect the active light/dark theme.
 	function chartColors() {
 		const s = getComputedStyle(document.documentElement);
 		return {
@@ -22,6 +23,7 @@
 		};
 	}
 
+	// Called whenever a 'themechange' event fires; patches scale colours without a full redraw.
 	function applyColorsToChart() {
 		if (!chart) return;
 		const { grid, tick } = chartColors();
@@ -65,9 +67,10 @@
 				return;
 			}
 
-			if (!canvas) return;
+		if (!canvas) return;
 
-			const { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } =
+		// Chart.js is imported dynamically to keep it out of the initial bundle.
+		const { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip } =
 				await import('chart.js');
 			Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip);
 

@@ -1,10 +1,9 @@
 """
-dashboard/routes/analytics.py — daily species heatmap and by-hour activity.
+Analytics endpoints — summary stats, activity-by-hour, species trends,
+and conservation breakdowns.
 
-All SQL date/time extraction uses dialect-aware helper functions from
-dashboard.utils so queries work correctly against both SQLite and PostgreSQL.
-
-Parameters use SQLAlchemy text() named-param style (:name) throughout.
+All date/time SQL uses dialect-aware helpers from dashboard.utils so queries
+work correctly on both SQLite and PostgreSQL.
 """
 
 from __future__ import annotations
@@ -29,19 +28,16 @@ from dashboard.utils import (
 router = APIRouter()
 
 
-# ── Existing endpoints ────────────────────────────────────────────────────────
-
 @router.get("/api/v1/analytics/species/daily")
 async def species_daily(
     date: str = Query(..., description="YYYY-MM-DD local date"),
     limit: int = Query(200, ge=1, le=1000),
     db: AsyncConnection = Depends(get_db),
 ):
-    """Per-species daily summary with a 24-element hourly_counts array.
+    """Per-species summary for a single day, with a 24-element hourly_counts array.
 
-    ``date`` is interpreted as a local calendar date; the query uses the
-    configured timezone to extract local hours and to build the UTC timestamp
-    range for the day boundary filter.
+    `date` is treated as a local calendar date. Hours are extracted in the
+    configured timezone so the heatmap aligns with local time.
     """
     tz = _local_tz()
     start_utc, end_utc = _day_utc_bounds(date_cls.fromisoformat(date), tz)
@@ -71,7 +67,7 @@ async def species_daily(
         )
     ).mappings().all()
 
-    # Hourly breakdown for all species on this date in one query.
+    # Fetch hourly counts for all species in a single query, then merge in Python.
     hourly_rows = (
         await db.execute(
             text(f"""
@@ -118,10 +114,9 @@ async def by_hour(
     period: Optional[str] = None,
     db: AsyncConnection = Depends(get_db),
 ):
-    """Total detections grouped by local hour of day.
+    """Total detections grouped by local hour of day (0–23).
 
     Priority: date (single local day) > period (named range) > all time.
-    Hours are extracted in the configured local timezone.
     """
     if date:
         tz = _local_tz()
@@ -155,15 +150,13 @@ async def by_hour(
     }
 
 
-# ── Analytics endpoints ───────────────────────────────────────────────────────
-
 @router.get("/api/v1/analytics/summary")
 async def analytics_summary(
     period: str = Query("today"),
     db: AsyncConnection = Depends(get_db),
 ):
-    """Headline stats: total detections, unique species, avg confidence, top species,
-    plus conservation stats derived from the species_info join."""
+    """Headline stats for the given period: total detections, unique species,
+    average confidence, most common species, and conservation counts."""
     where, params = _period_clause(period)
 
     totals = (
@@ -193,7 +186,7 @@ async def analytics_summary(
         )
     ).mappings().all()
 
-    # Conservation stats — join with species_info via bto_name
+    # Count distinct species in each UK BoCC category and by scarcity status.
     conservation = (
         await db.execute(
             text(f"""
@@ -225,10 +218,10 @@ async def analytics_summary(
         "avg_confidence":      round(totals["avg_conf"] or 0.0, 4),
         "most_common_species": top[0]["species"] if top else None,
         "most_common_count":   top[0]["cnt"]     if top else 0,
-        # Conservation fields
         "red_list_species":    red,
         "scarce_rare_species": conservation["scarce_rare"] or 0,
         "groups_represented":  conservation["groups_represented"] or 0,
+        # Weighted score gives more weight to higher-priority conservation species
         "conservation_score":  red * 3 + amber * 2 + green,
     }
 
@@ -239,7 +232,10 @@ async def top_species(
     limit: int = Query(10, ge=1, le=50),
     db: AsyncConnection = Depends(get_db),
 ):
-    """Top N species by detection count for the given period, including group_name for colouring."""
+    """Top N species by detection count for the given period.
+
+    Includes group_name so the frontend can colour-code bars by bird group.
+    """
     where, params = _period_clause(period)
 
     rows = (
@@ -265,13 +261,12 @@ async def new_species_timeline(
     period: str = Query("30d"),
     db: AsyncConnection = Depends(get_db),
 ):
-    """Number of species recorded for the very first time on each local day in the period.
+    """Number of species heard for the first time on each local day in the period.
 
-    A species is "new" on the date of its earliest detection ever — this shows
-    the rate at which new species are being added to the site list.
-    Days are expressed in the configured local timezone.
+    A species counts as "new" on the date of its earliest-ever detection, so
+    this shows how quickly new species are being added to the site list.
     """
-    # Filter `first_seen` (the species' first-ever detection) to the period.
+    # Filter on first_seen (each species' earliest detection) rather than all detections
     where, params = _period_clause(period, col="first_seen")
 
     rows = (
@@ -299,10 +294,10 @@ async def bocc_breakdown(
     period: str = Query("today"),
     db: AsyncConnection = Depends(get_db),
 ):
-    """Unique species count and total detection count broken down by UK BoCC status.
+    """Unique species count and total detections broken down by UK BoCC conservation status.
 
-    Returns entries ordered Red → Amber → Green → Unknown so the caller can
-    render them in a consistent conservation-priority order.
+    Results are ordered Red → Amber → Green → Unknown so the frontend can
+    render them in consistent conservation-priority order.
     """
     where, params = _period_clause(period)
 
@@ -382,9 +377,9 @@ async def bocc_trend(
 ):
     """Daily detection counts broken down by UK BoCC status.
 
-    Returns one row per (local calendar day, bocc status) combination, ordered
-    by day then conservation priority (Red first).  The frontend pivots this
-    into a stacked bar chart.
+    Returns one row per (local calendar day, BoCC status) combination, ordered
+    by day then Red → Amber → Green → Unknown. The frontend pivots this into a
+    stacked bar chart.
     """
     where, params = _period_clause(period)
 

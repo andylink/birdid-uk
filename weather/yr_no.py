@@ -1,20 +1,12 @@
 """
-weather_yr_no.py — Yr.no / met.no weather provider.
+Yr.no / met.no weather provider.
 
-The Norwegian Meteorological Institute's Locationforecast 2.0 API
-(https://api.met.no) provides gridded forecasts worldwide, free of charge
-with no API key.  Their terms of service require a descriptive ``User-Agent``
-header identifying the application; this module sets it to
-``bird-detector/1.0 https://github.com/anomalyco/bird-detector``.
+Fetches current conditions from the Norwegian Meteorological Institute's
+Locationforecast 2.0 API (https://api.met.no). Free, no API key needed.
+Their terms of service require a descriptive User-Agent header; this module
+sets it to ``bird-detector/1.0 https://github.com/anomalyco/bird-detector``.
 
 API reference: https://api.met.no/weatherapi/locationforecast/2.0/documentation
-
-This module exposes a single function, ``fetch``, matching the interface
-expected by ``weather.py``::
-
-    def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None
-
-All exceptions are caught internally.
 """
 
 from __future__ import annotations
@@ -33,9 +25,9 @@ logger = logging.getLogger(__name__)
 _BASE_URL   = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
 _USER_AGENT = "bird-detector/1.0 https://github.com/anomalyco/bird-detector"
 
-# Symbol-code prefix → human-readable condition.
+# Maps yr.no symbol code prefixes to plain-English condition strings.
+# Checked in order; first match wins, so more specific entries come first.
 # Full symbol list: https://api.met.no/weatherapi/weathericon/2.0/documentation
-# Entries are checked in order; first prefix match wins.
 _SYMBOL_MAP: list[tuple[str, str]] = [
     ("clearsky",             "Clear sky"),
     ("fair",                 "Fair"),
@@ -67,19 +59,9 @@ _SYMBOL_MAP: list[tuple[str, str]] = [
 def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
     """Fetch current conditions from yr.no Locationforecast 2.0.
 
-    The API returns the nearest forecast time-step to the current moment.
-    Precipitation is taken from the ``next_1_hours`` summary when available,
-    falling back to ``next_6_hours``.
-
-    Args:
-        lat: Latitude in WGS-84 decimal degrees.
-        lon: Longitude in WGS-84 decimal degrees.
-        ts:  Detection timestamp (not used directly; yr.no returns current
-             forecast data regardless).
-
-    Returns:
-        A populated :class:`~weather.WeatherData` instance, or ``None``
-        if the request fails for any reason.
+    Uses the first (most recent) time-step from the forecast series.
+    Precipitation comes from ``next_1_hours`` if present, else ``next_6_hours``.
+    ``ts`` is not used directly. Returns ``None`` if the request fails.
     """
     params = urllib.parse.urlencode({
         "lat": round(lat, 4),
@@ -137,7 +119,7 @@ def _symbol_to_condition(symbol_code: str) -> str | None:
     for prefix, label in _SYMBOL_MAP:
         if base == prefix:
             return label
-    # Graceful fallback: title-case the raw code with underscores removed
+    # Unknown code: title-case it as a fallback
     return symbol_code.replace("_", " ").title()
 
 

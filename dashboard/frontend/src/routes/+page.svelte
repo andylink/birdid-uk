@@ -6,6 +6,7 @@
 
 <div class="page-shell">
 	<div class="top-row">
+		<!-- Heatmap fills the remaining width; feed is a fixed-width sidebar -->
 		<div class="heatmap-panel">
 			<SpeciesHeatmap />
 		</div>
@@ -19,6 +20,7 @@
 </div>
 
 <style>
+	/* Full-height layout: top row takes available space, activity bar is fixed height */
 	.page-shell {
 		display: flex;
 		flex-direction: column;

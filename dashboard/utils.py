@@ -1,5 +1,8 @@
 """
-dashboard/utils.py — shared helpers used across dashboard routes.
+Shared helpers used across dashboard routes.
+
+Covers timestamp normalisation, UTC day-boundary calculation, and
+dialect-aware SQL expression builders for SQLite and PostgreSQL.
 """
 
 from __future__ import annotations
@@ -19,11 +22,11 @@ def _local_today() -> date:
 
 
 def _day_utc_bounds(d: date, tz: ZoneInfo) -> tuple[str, str]:
-    """Return (start_utc, end_utc) as naive ISO strings for a local calendar day.
+    """Return the UTC start and end of a local calendar day as naive ISO strings.
 
-    The bounds are the UTC equivalents of midnight-to-midnight in the given
-    local timezone, so that filtering ``timestamp >= start AND timestamp < end``
-    selects exactly the detections that occurred during that local calendar day.
+    Converts local midnight-to-midnight to UTC so that queries like
+    `timestamp >= start AND timestamp < end` correctly select all detections
+    for that local date, accounting for DST shifts.
     """
     start_local = datetime(d.year, d.month, d.day, tzinfo=tz)
     end_local = start_local + timedelta(days=1)
@@ -33,11 +36,11 @@ def _day_utc_bounds(d: date, tz: ZoneInfo) -> tuple[str, str]:
 
 
 def utc_offset_str() -> str:
-    """SQLite datetime() modifier string for the configured timezone's current UTC offset.
+    """Return the current UTC offset as a SQLite datetime() modifier string.
 
-    Examples: ``'+1 hours'`` during BST, ``'+0 hours'`` during GMT.
-    For non-integer-hour offsets (e.g. India +5:30) the minutes are included.
-    Only used on the SQLite path; PostgreSQL uses IANA-aware AT TIME ZONE instead.
+    Examples: '+1 hours' during BST, '+0 hours' during GMT.
+    Half-hour offsets (e.g. India +5:30) include minutes.
+    Only used on the SQLite path; PostgreSQL uses AT TIME ZONE instead.
     """
     tz = _local_tz()
     offset_secs = int(datetime.now(tz).utcoffset().total_seconds())
@@ -49,21 +52,19 @@ def utc_offset_str() -> str:
     return f"'{sign}{hours} hours'"
 
 
-# ── Dialect-aware timestamp SQL expression helpers ────────────────────────────
-# Each function returns a SQL fragment that produces the requested value in the
-# configured local timezone.
+# ── Dialect-aware SQL expression helpers ──────────────────────────────────────
+# These return SQL fragments that convert a UTC timestamp column to local time.
 #
-# SQLite path: uses datetime() + the current UTC offset string (DST-correct at
-#              query time via Python; the offset is baked into the SQL string).
-# PostgreSQL path: uses AT TIME ZONE with the IANA zone name, which the
-#              PostgreSQL server resolves correctly for all DST transitions
-#              without any Python-side offset calculation.
+# SQLite: uses datetime() + a Python-computed UTC offset string (correct for
+#         the current DST state at query time).
+# PostgreSQL: uses AT TIME ZONE with the IANA zone name, which the server
+#             handles correctly for all DST transitions.
 
 def local_datetime_expr(col: str) -> str:
-    """SQL expression that returns the local datetime for a UTC timestamp column.
+    """SQL expression that converts a UTC timestamp column to local datetime.
 
-    SQLite:     ``datetime(col, '+1 hours')``
-    PostgreSQL: ``(col AT TIME ZONE 'Europe/London')``
+    SQLite:     datetime(col, '+1 hours')
+    PostgreSQL: (col AT TIME ZONE 'Europe/London')
     """
     from dashboard.config import DB_TYPE, TIMEZONE
     if DB_TYPE == "postgresql":
@@ -72,10 +73,10 @@ def local_datetime_expr(col: str) -> str:
 
 
 def local_hour_expr(col: str) -> str:
-    """SQL expression that returns the local hour (0–23 integer).
+    """SQL expression that extracts the local hour (0–23) from a UTC timestamp.
 
-    SQLite:     ``CAST(strftime('%H', datetime(col, '+1 hours')) AS INTEGER)``
-    PostgreSQL: ``EXTRACT(HOUR FROM (col AT TIME ZONE 'Europe/London'))::INTEGER``
+    SQLite:     CAST(strftime('%H', datetime(col, '+1 hours')) AS INTEGER)
+    PostgreSQL: EXTRACT(HOUR FROM (col AT TIME ZONE 'Europe/London'))::INTEGER
     """
     from dashboard.config import DB_TYPE, TIMEZONE
     if DB_TYPE == "postgresql":
@@ -84,10 +85,10 @@ def local_hour_expr(col: str) -> str:
 
 
 def local_date_expr(col: str) -> str:
-    """SQL expression that returns the local calendar date.
+    """SQL expression that extracts the local calendar date from a UTC timestamp.
 
-    SQLite:     ``DATE(datetime(col, '+1 hours'))``
-    PostgreSQL: ``(col AT TIME ZONE 'Europe/London')::DATE``
+    SQLite:     DATE(datetime(col, '+1 hours'))
+    PostgreSQL: (col AT TIME ZONE 'Europe/London')::DATE
     """
     from dashboard.config import DB_TYPE, TIMEZONE
     if DB_TYPE == "postgresql":
@@ -96,10 +97,10 @@ def local_date_expr(col: str) -> str:
 
 
 def local_time_expr(col: str) -> str:
-    """SQL expression that returns the local time-of-day.
+    """SQL expression that extracts the local time-of-day from a UTC timestamp.
 
-    SQLite:     ``TIME(datetime(col, '+1 hours'))``
-    PostgreSQL: ``(col AT TIME ZONE 'Europe/London')::TIME``
+    SQLite:     TIME(datetime(col, '+1 hours'))
+    PostgreSQL: (col AT TIME ZONE 'Europe/London')::TIME
     """
     from dashboard.config import DB_TYPE, TIMEZONE
     if DB_TYPE == "postgresql":
@@ -108,27 +109,20 @@ def local_time_expr(col: str) -> str:
 
 
 def to_utc_iso(ts: str | datetime | None) -> str | None:
-    """Normalise a timestamp value to ISO 8601 with a ``+00:00`` UTC suffix.
+    """Normalise a timestamp to ISO 8601 with an explicit +00:00 UTC suffix.
 
-    Handles two forms depending on the database backend:
-
-    * **SQLite / aiosqlite**: timestamps are returned as bare strings in the
-      form ``'YYYY-MM-DD HH:MM:SS'`` (space separator, no timezone marker).
-      JavaScript's ``new Date()`` requires the ``T`` separator and an explicit
-      UTC offset to parse correctly across all browsers.
-
-    * **PostgreSQL / asyncpg**: timestamps are returned as Python
-      ``datetime`` objects (timezone-aware, UTC).  These are converted to an
-      ISO 8601 string with explicit ``+00:00``.
+    SQLite/aiosqlite returns timestamps as plain strings ('YYYY-MM-DD HH:MM:SS').
+    PostgreSQL/asyncpg returns timezone-aware datetime objects.
+    Both are converted to a consistent format that JavaScript's Date() can parse
+    correctly across all browsers.
     """
     if ts is None:
         return None
     if not ts:
         return ts
     if isinstance(ts, datetime):
-        # asyncpg returns tz-aware datetimes; normalise to UTC ISO string.
         return ts.astimezone(timezone.utc).isoformat()
-    # SQLite string: no T separator, no timezone marker.
+    # SQLite string — add T separator and UTC marker
     if "+" not in ts and "Z" not in ts:
         return ts.replace(" ", "T") + "+00:00"
     return ts
@@ -140,18 +134,15 @@ def period_clause(
     date_from: str | None = None,
     date_to: str | None = None,
 ) -> tuple[str, dict]:
-    """Return a (WHERE-fragment, params-dict) pair for a named time period.
+    """Return a (WHERE fragment, params dict) pair for a named time period.
 
-    All comparisons are against UTC-stored timestamps.  The configured local
-    timezone is used to determine day boundaries so that e.g. ``'today'`` means
-    today in ``Europe/London``, not UTC.
-
-    Uses ``:start`` / ``:end`` named parameters compatible with SQLAlchemy
-    ``text()`` queries on both SQLite and PostgreSQL.
+    Day boundaries are calculated in the configured local timezone so that
+    e.g. 'today' means today in Europe/London, not UTC midnight.
+    Compatible with SQLAlchemy text() queries on both SQLite and PostgreSQL.
 
     period   — one of: today, 7d, 30d, 90d, 365d, all, custom
-    col      — the timestamp column to filter on (default: "timestamp")
-    date_from / date_to — YYYY-MM-DD *local* dates used when period == "custom"
+    col      — the timestamp column to filter (default: "timestamp")
+    date_from / date_to — YYYY-MM-DD local dates, used when period == "custom"
     """
     tz = _local_tz()
     today = _local_today()

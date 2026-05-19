@@ -1,8 +1,9 @@
 """
-dashboard/routes/media.py — audio clip serving and spectrogram generation.
+Audio and spectrogram serving.
 
-Spectrograms are rendered with librosa + matplotlib (slate-900 background)
-and cached in an LRU cache (256 entries) keyed on the absolute file path.
+Spectrograms are rendered as mel-spectrogram PNGs using librosa and matplotlib,
+with a dark background to match the dashboard theme. Results are LRU-cached
+(up to 256 entries) so repeated requests don't re-render from scratch.
 """
 
 from __future__ import annotations
@@ -20,7 +21,11 @@ router = APIRouter()
 
 @lru_cache(maxsize=256)
 def _render_spectrogram(filepath: str) -> bytes:
-    """Render a mel-spectrogram PNG for *filepath* and return raw PNG bytes."""
+    """Render a mel-spectrogram for the given audio file and return PNG bytes.
+
+    Imports are deferred so librosa/matplotlib aren't loaded unless a
+    spectrogram is actually requested.
+    """
     import librosa
     import librosa.display
     import matplotlib
@@ -33,7 +38,7 @@ def _render_spectrogram(filepath: str) -> bytes:
     S_db = librosa.power_to_db(S, ref=np.max)
 
     fig, ax = plt.subplots(figsize=(6, 1.2))
-    fig.patch.set_facecolor("#0f172a")  # slate-900
+    fig.patch.set_facecolor("#0f172a")  # slate-900, matches dashboard theme
     ax.set_facecolor("#0f172a")
 
     librosa.display.specshow(
@@ -68,7 +73,7 @@ async def serve_audio(filename: str):
 
 @router.get("/spectrogram/{filename}")
 async def serve_spectrogram(filename: str):
-    """Return a PNG mel-spectrogram for a WAV clip (LRU-cached)."""
+    """Return a PNG mel-spectrogram for an audio clip (cached after first render)."""
     path = DETECTIONS_DIR / filename
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Audio file not found")

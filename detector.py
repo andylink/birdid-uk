@@ -1,51 +1,48 @@
 """
-detector.py — microphone recording thread, classify loop, and main entry.
+detector.py — recording threads, classification loop, and main entry point.
 
-Per-species configuration (min_confidence, cooldown_seconds) is looked up for
-every detection via ``get_species_config`` so each species can have its own
-thresholds.
+Each audio source is recorded continuously into a ring buffer. A paired
+classify loop pulls audio from a queue, runs inference in a sliding window,
+and saves clips to disk when a species is confirmed.
 
 Dual-buffer design
 ------------------
 Each recording thread feeds two consumers in parallel:
 
-  * ``ctx.audio_queue`` — used by the paired :func:`_classify_loop` to maintain
-    a sliding analysis window that is passed to the classifier.
-  * ``ctx.capture_buffer`` — a large ring buffer (default 30 s) that records
-    audio continuously.  When a detection fires, a *deferred save task* is
-    submitted to ``_executor``; it sleeps for ``post_capture_seconds`` (so the
-    full post-detection audio is captured), then reads the complete clip segment
-    from the ring buffer and persists it to disk.
+  * ``ctx.audio_queue`` — consumed by the paired :func:`_classify_loop` to
+    build a sliding window for inference.
+  * ``ctx.capture_buffer`` — a ring buffer (default 30 s) that records audio
+    continuously. When a detection is confirmed, a deferred save task sleeps
+    for the post-capture period, then reads the full clip from the ring buffer
+    and writes it to disk.
 
-The benefit: saved clips are longer than the analysis window (default 15 s),
-exactly mirroring BirdNET-Go's CaptureBuffer behaviour.
+This means saved clips are longer than the inference window, mirroring
+BirdNET-Go's CaptureBuffer behaviour.
 
 Multi-source mode
 -----------------
 When ``[[audio.sources]]`` blocks are present in config.toml, each source gets
-its own :class:`_SourceContext` holding independent queues, ring buffer, pending
-accumulation state, and cooldown tracking.  A recording thread and a classify
-loop thread are started for every source.  All classify loops share one model
-instance via ``_inference_lock`` so inference is serialised (avoids race
-conditions on the model's internal state) while recording continues in parallel.
+its own :class:`_SourceContext` with independent queues, ring buffer, pending
+detection state, and cooldown tracking. A recording thread and a classify loop
+are started per source. All classify loops share one model via
+``_inference_lock`` so inference is serialised (one model at a time) while
+recording runs in parallel.
 
 Inference model
 ---------------
 The active model is selected by ``cfg.inference.model`` in ``config.toml``.
-:func:`_classify_loop` queries ``model.window_seconds`` at startup so the
-rolling buffer automatically resizes to suit the model (3 s for BirdNET, 5 s
-for Perch v2).  Audio is always recorded at ``cfg.audio.sample_rate``; any
-resampling needed by the model happens inside the model's ``run_inference``
-method.
+:func:`_classify_loop` reads ``model.window_seconds`` at startup so the rolling
+buffer adapts to the model (3 s for BirdNET, 5 s for Perch v2). Audio is
+recorded at ``cfg.audio.sample_rate``; any resampling happens inside the
+model's ``run_inference`` method.
 
 Cross-validation
 ----------------
 When ``cfg.cross_validation.enabled`` is ``True``, a
-:class:`~cross_validate.CrossValidator` is initialised in :func:`main` and
-stored as the module-level ``_cross_validator`` variable.  Each deferred-save
-task invokes the validator before writing to disk so that the audio clip and
-database row are only created if the secondary model agrees (or the primary
-confidence clears the skip threshold).
+:class:`~cross_validate.CrossValidator` is created in :func:`main` and stored
+as ``_cross_validator``. Each deferred-save task runs the secondary model on
+the same clip before writing to disk — if the two models disagree, the
+detection can be dropped or flagged depending on config.
 """
 
 from __future__ import annotations
@@ -85,9 +82,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # ── Shared state ──────────────────────────────────────────────────────────────
-# stop_event, _executor, _cross_validator, _privacy_filter are global.
-# All audio queue / capture buffer / pending / cooldown state is per-source,
-# held in _SourceContext objects created in main().
+# stop_event, _executor, _cross_validator, and _privacy_filter are global.
+# All per-source state (queues, ring buffers, pending detections, cooldowns)
+# lives in _SourceContext objects created in main().
 
 stop_event:      threading.Event     = threading.Event()
 
@@ -96,10 +93,9 @@ _executor:        ThreadPoolExecutor
 _cross_validator: CrossValidator | None = None   # None when CV is disabled
 _privacy_filter:  PrivacyFilter  | None = None   # None when privacy filter is disabled
 
-# ── Cross-source deduplication state ─────────────────────────────────────────
-# Tracks the most recent confirmed detection per species across all sources so
-# that a second source confirming the same bird within the deduplication window
-# can be identified as a duplicate.
+# ── Cross-source deduplication ────────────────────────────────────────────────
+# Tracks the most recent confirmed detection per species across all sources.
+# Used to spot when a second microphone hears the same bird within a short window.
 #
 # Protected by _dedup_lock because deferred-save workers run concurrently.
 # Keyed by species (BirdNET common name); value is (source_name, timestamp).
@@ -111,40 +107,38 @@ _dedup_recent: dict[str, tuple[str, datetime]] = {}
 class _Pending:
     """Accumulates repeated inference hits for one species within a time window.
 
-    A new entry is created on the first hit that clears the confidence
-    threshold.  Subsequent hits within ``confirmation_window_seconds``
-    increment ``hit_count`` and update the best-confidence snapshot.
-    When ``hit_count`` reaches ``min_detections`` the detection is confirmed
-    and a deferred save is submitted; the entry is then removed.
-    If the window expires before enough hits accumulate the entry is discarded
-    silently (false positive suppressed).
+    A new entry is created on the first hit above the confidence threshold.
+    Subsequent hits within ``confirmation_window_seconds`` increment ``hit_count``
+    and update the best-confidence snapshot. When ``hit_count`` reaches
+    ``min_detections`` the detection is confirmed and a deferred save is
+    submitted; the entry is then removed. If the window expires before enough
+    hits accumulate, the entry is silently discarded (false positive suppressed).
     """
     first_seen_mono:   float         # time.monotonic() at the first hit
     best_confidence:   float
     best_ts:           datetime
-    best_begin_sample: int           # ring-buffer cursor at the best hit
-    best_fallback:     np.ndarray    # raw PCM copy (one analysis window) from the best hit
+    best_begin_sample: int           # ring-buffer position at the best hit
+    best_fallback:     np.ndarray    # raw PCM from the best hit (one analysis window)
     hit_count:         int
 
 
 @dataclass
 class _SourceContext:
-    """Per-source pipeline state: one instance per audio source.
+    """Holds all pipeline state for a single audio source.
 
-    In legacy single-source mode there is exactly one context with
-    ``source_config = None``.  In multi-source mode there is one context per
+    In single-source mode there is exactly one context with
+    ``source_config = None``. In multi-source mode there is one per
     ``[[audio.sources]]`` block.
 
-    Each context owns its audio queue, ring buffer, pending-detection
-    accumulator, and cooldown tracker.  These are never shared across sources
-    so no locking is required to access them — each is only touched by its
-    paired recording thread and classify-loop thread.
+    Each context owns its queue, ring buffer, pending-detection state, and
+    cooldown tracker — none of these are shared across sources, so no locking
+    is needed within a source's own threads.
     """
-    name:           str                 # display name for logging and clip filenames
+    name:           str                 # display name for logs and clip filenames
     audio_queue:    queue.Queue         # type: ignore[type-arg]
     capture_buffer: CaptureBuffer
     source_config:  AudioSourceConfig | None = None   # None = legacy single-source
-    # Per-source state; each is only accessed from its paired classify thread.
+    # Accessed only by the paired classify thread — no locking needed.
     pending:        dict[str, _Pending]    = field(default_factory=dict)
     last_detected:  dict[str, datetime]    = field(default_factory=dict)
 
@@ -152,30 +146,22 @@ class _SourceContext:
 # ── Deferred save ─────────────────────────────────────────────────────────────
 
 def _check_dedup(species: str, source_name: str, ts: datetime) -> bool:
-    """Return ``True`` if *species* from *source_name* at *ts* is a duplicate.
+    """Return True if this detection is a duplicate from another source.
 
-    A detection is a duplicate when all three conditions hold:
+    A duplicate means the same species was already confirmed by a different
+    source within the configured deduplication window. If so, we skip or flag
+    rather than saving a second identical detection.
 
-    1. ``[deduplication] enabled = true``
-    2. The same species was recently confirmed from a **different** source.
-    3. The gap between the two detections is ≤ ``window_seconds``.
-
-    Thread-safe — protected by :data:`_dedup_lock`.
-
-    Side effect: when the detection is *not* a duplicate the entry in
-    :data:`_dedup_recent` is updated so future calls from other sources can
-    detect duplicates of this detection.
+    Side effect: when not a duplicate, records this detection so future calls
+    from other sources can detect it as a duplicate.
 
     Args:
         species:     BirdNET common name of the confirmed species.
-        source_name: Name of the source that confirmed it (from
-                     ``[[audio.sources]] name``).  Must be non-None (callers
-                     skip this check in single-source mode).
+        source_name: Name of the source that confirmed it.
         ts:          UTC timestamp of the best-confidence hit.
 
     Returns:
-        ``True`` if this detection should be treated as a duplicate;
-        ``False`` otherwise.
+        True if this detection should be treated as a duplicate; False otherwise.
     """
     if not cfg.deduplication.enabled:
         return False
@@ -186,12 +172,10 @@ def _check_dedup(species: str, source_name: str, ts: datetime) -> bool:
         if species in _dedup_recent:
             prev_source, prev_ts = _dedup_recent[species]
             if prev_source != source_name and abs(ts - prev_ts) <= window:
-                # Same species, different source, within the window.
-                # Don't overwrite _dedup_recent — keep the original entry so
-                # a third source in the same window is also caught.
+                # Different source heard the same species within the window.
+                # Keep the original entry so a third source is also caught.
                 return True
-        # Not a duplicate (or same source, or outside window); register as
-        # the current baseline so later sources can detect a duplicate of this.
+        # Not a duplicate — register this detection as the new baseline.
         _dedup_recent[species] = (source_name, ts)
         return False
 
@@ -206,44 +190,38 @@ def _deferred_save(
     capture_buffer: CaptureBuffer,
     source_name:    str | None,
 ) -> None:
-    """Sleep for the post-capture period, cross-validate, then persist.
+    """Sleep for the post-capture period, optionally cross-validate, then save the clip.
 
-    Runs on a worker thread from ``_executor``.  If cross-validation is
-    enabled and the two models disagree, the detection may be dropped or
-    flagged according to config before any I/O is attempted.
-
-    ``begin_sample`` points to the start of the best-confidence inference
-    window in the ring buffer.  In ``"window"`` clip mode the saved clip is
-    ``window_pad_seconds`` before that point and exactly ``model.window_seconds``
-    long.  In ``"full"`` clip mode it extends ``pre_capture_seconds`` before
-    the window and ``post_capture_seconds`` after.
-
-    If the ring buffer read fails (e.g. the segment was overwritten because
-    the executor backlog was unusually deep), the function falls back to
-    saving the analysis window that was captured at detection time.
+    Runs on a worker thread from ``_executor``. The general flow is:
+      1. Wait for post-capture audio to be recorded (full-clip mode only).
+      2. Read the clip segment from the ring buffer; fall back to the
+         analysis window if the buffer no longer holds that segment.
+      3. Run cross-validation — drop or flag if models disagree.
+      4. Run privacy filter — drop if human speech is detected.
+      5. Check cross-source deduplication — skip or flag if another source
+         already saved this species recently.
+      6. Save the clip, write to DB, and publish.
 
     Args:
         ts:             Wall-clock timestamp of the best-confidence hit.
-        species:        Primary model common name of the confirmed species.
+        species:        Primary model species name.
         conf:           Confidence of the best hit (primary model).
-        begin_sample:   Absolute sample index where the analysis window started.
-        fallback_audio: Raw PCM array from the best hit (one analysis window).
-        bto_name:       BTO British name for the database row (may be None).
+        begin_sample:   Sample index where the analysis window started in the ring buffer.
+        fallback_audio: Raw PCM from the best hit, used if the ring buffer misses.
+        bto_name:       BTO British name for the DB row (may be None).
         model_name:     Inference backend that produced this detection.
-        capture_buffer: The ring buffer for this source (per-source in multi-source).
-        source_name:    Source identifier for clip filenames and DB rows; ``None``
-                        in legacy single-source mode.
+        capture_buffer: Ring buffer for this source.
+        source_name:    Source identifier; None in legacy single-source mode.
     """
     window_samples = int(get_model().window_seconds) * cfg.audio.sample_rate
 
     if cfg.audio.clip_mode == "window":
-        # Save only the model analysis window plus a short leading pad.
-        # No post-capture sleep is needed — the detection window is already
-        # fully in the capture buffer by the time this task runs.
+        # Save only the model window plus a short leading pad — no sleep needed
+        # because the detection window is already in the buffer.
         pre_samples  = int(cfg.audio.window_pad_seconds * cfg.audio.sample_rate)
         clip_samples = window_samples + pre_samples
     else:
-        # Legacy "full" mode: pre_capture + model window + post_capture.
+        # Full-clip mode: wait for post-capture audio to be recorded.
         post_capture = (
             cfg.audio.clip_seconds
             - int(get_model().window_seconds)
@@ -254,9 +232,9 @@ def _deferred_save(
         pre_samples  = cfg.audio.pre_capture_seconds * cfg.audio.sample_rate
         clip_samples = cfg.audio.clip_seconds        * cfg.audio.sample_rate
 
-    # The recording thread writes in 1-second chunks, so after sleeping exactly
-    # post_capture_seconds the final samples may not have been committed yet.
-    # Retry up to 10 times (≤1 s total) before falling back to the analysis clip.
+    # The recording thread writes in 1-second chunks, so the last few samples
+    # may not be committed yet. Retry briefly before falling back to the
+    # analysis-window clip.
     segment: np.ndarray | None = None
     for _attempt in range(10):
         segment = capture_buffer.read_segment(begin_sample - pre_samples, clip_samples)
@@ -286,8 +264,8 @@ def _deferred_save(
         if len(segment) >= cv_start + cv_win_samp:
             cv_audio = segment[cv_start : cv_start + cv_win_samp]
         else:
-            # Segment shorter than required — use the whole segment and let
-            # the secondary model handle variable-length input gracefully.
+            # Segment is shorter than expected — pass the full segment and let
+            # the secondary model handle it.
             logger.debug(
                 "CV: audio segment shorter than secondary window "
                 "(%d < %d samples); using full segment",
@@ -295,8 +273,8 @@ def _deferred_save(
             )
             cv_audio = segment
 
-        # Apply the same high-pass filter that was used for primary inference
-        # so both models see the same pre-processed audio.
+        # Apply the same high-pass filter used for primary inference so both
+        # models see consistent audio.
         if cfg.filter.enabled:
             try:
                 cv_audio = apply_highpass(
@@ -328,7 +306,7 @@ def _deferred_save(
                 cv_result.secondary_bto_name or cv_result.secondary_species or "none",
                 cv_result.secondary_confidence or 0.0,
             )
-            return   # discard — no clip saved, no DB row
+            return   # models disagree — discard, no clip saved, no DB row
 
         if cv_result.action == "flag":
             logger.info(
@@ -339,7 +317,7 @@ def _deferred_save(
                 cv_result.secondary_confidence or 0.0,
             )
         else:
-            # "save" — log agreement for monitoring
+            # Both models agree — log for monitoring.
             if cv_result.performed and cv_result.agree:
                 logger.info(
                     "%-32s CV AGREE  primary_bto=%-20s  secondary=%s "
@@ -353,14 +331,11 @@ def _deferred_save(
         effective_conf = cv_result.final_confidence
 
     # ── Privacy filter ────────────────────────────────────────────────────────
-    # Re-run the primary model on the analysis window to check for human sounds.
-    # Inserted after CV so that CV drops are already handled and we only pay the
-    # scan cost for clips that would otherwise be saved.
+    # Scan the clip for human sounds after CV, so we only pay the cost for
+    # clips that would otherwise be saved.
     if _privacy_filter is not None:
-        # Extract one model-window worth of audio starting at pre_samples (the
-        # same slice CV uses for the secondary model).  Fall back to the full
-        # segment when it is shorter than expected (e.g. a buffer miss that
-        # returned the fallback clip).
+        # Use one model window starting at pre_samples — same slice CV uses.
+        # Fall back to the full segment if the clip is shorter than expected.
         privacy_audio = segment[pre_samples : pre_samples + window_samples]
         if len(privacy_audio) < window_samples:
             privacy_audio = segment
@@ -372,9 +347,7 @@ def _deferred_save(
             return   # discard — no clip saved, no DB row, no publish
 
     # ── Cross-source deduplication ────────────────────────────────────────────
-    # Only active in multi-source mode (source_name is not None) and when
-    # cfg.deduplication.enabled is true.  In single-source mode source_name is
-    # None so the check is skipped entirely.
+    # Only active in multi-source mode (source_name is not None).
     _deduplicated: bool | None = None
     if source_name is not None and _check_dedup(species, source_name, ts):
         if cfg.deduplication.on_duplicate == "skip":
@@ -394,7 +367,7 @@ def _deferred_save(
     # ── Persist ───────────────────────────────────────────────────────────────
     clip_path = save_clip(segment, ts, species, source_name=source_name)
 
-    # Build cross-validation keyword args for record_detection only when CV ran.
+    # Build CV keyword args only when CV actually ran.
     cv_kwargs: dict = {}
     if cv_result is not None:
         cv_kwargs = dict(
@@ -407,13 +380,11 @@ def _deferred_save(
             cv_agree            = cv_result.agree,
             flagged             = (cv_result.action == "flag") or None,
         )
-        # Store None instead of False for flagged when it's not actually flagged,
-        # keeping the column sparse for normal (non-flagged) rows.
+        # Store None rather than False for un-flagged rows to keep the column sparse.
         if cv_kwargs["flagged"] is False:
             cv_kwargs["flagged"] = None
 
-    # Fetch weather snapshot (uses cached data if within cfg.weather.cache_seconds;
-    # returns None silently when weather is disabled or the provider is unavailable).
+    # Attach weather snapshot if available (cached; returns None when disabled).
     _wx = weather.get_weather(ts)
     weather_kwargs: dict = {}
     if _wx is not None:
@@ -445,13 +416,11 @@ def _deferred_save(
 # ── Threads ───────────────────────────────────────────────────────────────────
 
 def _record_thread(ctx: _SourceContext) -> None:
-    """Continuously record hop-length chunks onto the audio queue and into
-    the capture buffer.
+    """Read audio chunks continuously and feed both the inference queue and ring buffer.
 
-    The active audio source (sounddevice or RTSP) is created here and lives
-    for the lifetime of the thread.  Each source handles its own internal
-    error recovery (e.g. RTSP reconnection); the outer try/except catches any
-    unexpected exception and retries after a 1-second pause.
+    The audio source (sounddevice or RTSP) is created here and lives for the
+    lifetime of the thread. The source handles its own reconnection logic;
+    this loop catches any unexpected error and retries after a short pause.
     """
     source = get_source(ctx.source_config)
     _src_prefix = f"[{ctx.name}]" if ctx.source_config is not None else ""
@@ -481,38 +450,28 @@ def _classify_loop(
     inference_lock: threading.Lock,
 ) -> None:
     """
-    Consume audio chunks, maintain a rolling window, run inference, and
-    apply per-species confidence thresholds, confirmation filter, and cooldowns.
+    Main detection pipeline: consume audio, run inference, confirm species, save clips.
 
-    For each window:
-      1. Apply high-pass filter to a copy of the audio if enabled in config
-         (the original array is kept untouched for clip saving).
-      2. Run inference under ``inference_lock`` — returns detections above a raw
-         floor (BirdNET: 0.01 via analyze(); Perch: 0.01 applied in
-         run_inference()).
-      3. Drop any species on the global exclude list.
-      4. Filter each detection by its per-species ``min_confidence``.
-         This runs before BOU/seasonal so low-confidence hits never appear
-         in the filter-suppressed log lines.
-      4b. BOU allowlist filter: drop species not in the UK BOU species list.
-      4c. Seasonal filter: drop species outside their expected season.
-      4d. Nocturnal filter: drop nocturnal/crepuscular species detected outside
-          their active time window (configurable per-species).
-      5. Confirmation filter: each species accumulates hits in ``ctx.pending``
-         until it reaches ``min_detections`` within ``confirmation_window_seconds``.
-         Only confirmed species proceed; the highest-confidence hit's audio
-         and timestamp are used for the saved clip.
-      6. Cooldown check (at confirmation time): skip if the species was saved
-         too recently.  Cooldown clock starts when the save is submitted.
+    For each sliding window of audio:
+      1. Optionally apply high-pass filter before inference (raw audio is kept
+         for clip saving).
+      2. Run inference under ``inference_lock`` — one model at a time across sources.
+      3. Drop species on the global exclude list.
+      4. Apply per-species minimum confidence threshold.
+      4b. Drop species not in the UK BOU list.
+      4c. Drop species outside their expected season.
+      4d. Drop nocturnal/crepuscular species outside their active hours.
+      5. Confirmation filter: accumulate hits in ``ctx.pending`` until
+         ``min_detections`` is reached within ``confirmation_window_seconds``.
+         The highest-confidence hit's audio and timestamp are used for the clip.
+      6. Cooldown check: skip if this species was saved too recently.
       7. Submit a deferred-save task for each confirmed species.
     """
     buffer: list[np.ndarray] = []
     window_blocks  = int(model.window_seconds) // cfg.audio.hop_seconds
     window_samples = int(model.window_seconds)  * cfg.audio.sample_rate
     _window_count  = 0
-    # Include source name in log prefix only when running in multi-source mode;
-    # in legacy single-source mode ctx.source_config is None, so we omit the
-    # prefix to keep the terminal output identical to the pre-multi-source format.
+    # Only include source name in log prefix in multi-source mode.
     _src_prefix = f"[{ctx.name}]" if ctx.source_config is not None else ""
 
     while not stop_event.is_set():
@@ -532,7 +491,7 @@ def _classify_loop(
         _window_count += 1
 
         # ── Step 1: optional high-pass filter (inference only) ────────────────
-        # Apply to a separate array so save_clip always writes the raw audio.
+        # Filter a copy so save_clip always writes unmodified audio.
         if cfg.filter.enabled:
             inference_audio = apply_highpass(
                 audio,
@@ -555,7 +514,7 @@ def _classify_loop(
 
         ts = datetime.now(timezone.utc)
 
-        # ── Heartbeat: log every 60 windows (~60 s) so the loop is visible ────
+        # Log a heartbeat every ~60 windows so the loop is visible in logs.
         if _window_count % 60 == 0:
             if candidates:
                 top_s, top_c = candidates[0]
@@ -583,11 +542,9 @@ def _classify_loop(
         if not candidates:
             continue
 
-        # ── Step 4: per-species confidence filter ─────────────────────────────
-        # Applied before BOU/seasonal so that low-confidence hits never reach
-        # the filter logging paths.  This is particularly important for Perch,
-        # which returns all 14 k+ softmax classes; applying the floor early
-        # keeps the BOU/seasonal stages to a manageable candidate set.
+        # ── Step 4: per-species confidence threshold ──────────────────────────
+        # Filter early so low-confidence hits never reach the BOU/seasonal steps.
+        # This matters especially for Perch, which returns 14k+ softmax classes.
         candidates = [
             (species, conf)
             for species, conf in candidates
@@ -597,7 +554,7 @@ def _classify_loop(
         if not candidates:
             continue
 
-        # ── Step 4b: BOU allowlist filter ─────────────────────────────────────
+        # ── Step 4b: BOU allowlist — UK species only ──────────────────────────
         filtered = [
             (species, conf)
             for species, conf in candidates
@@ -664,7 +621,7 @@ def _classify_loop(
 
             p = ctx.pending.get(species)
 
-            # Discard stale pending state if the confirmation window expired.
+            # Discard stale pending state if the confirmation window has expired.
             if p is not None and now_mono - p.first_seen_mono > sc.confirmation_window_seconds:
                 logger.debug(
                     "%-32s confirmation window expired (%d/%d hits)",
@@ -674,7 +631,7 @@ def _classify_loop(
                 p = None
 
             if p is None:
-                # First hit — open a new pending window.
+                # First hit — start tracking this species.
                 ctx.pending[species] = _Pending(
                     first_seen_mono   = now_mono,
                     best_confidence   = conf,
@@ -685,7 +642,7 @@ def _classify_loop(
                 )
                 p = ctx.pending[species]
             else:
-                # Subsequent hit within the window — accumulate.
+                # Another hit within the window — keep the best-confidence snapshot.
                 p.hit_count += 1
                 if conf > p.best_confidence:
                     p.best_confidence   = conf
@@ -697,7 +654,7 @@ def _classify_loop(
                 logger.debug("%-32s pending %d/%d", species, p.hit_count, sc.min_detections)
                 continue
 
-            # Confirmed — check cooldown at confirmation time.
+            # Confirmed — check cooldown before saving.
             cooldown_td = timedelta(seconds=sc.cooldown_seconds)
             last_saved  = ctx.last_detected.get(
                 species, datetime.min.replace(tzinfo=timezone.utc)
@@ -707,15 +664,15 @@ def _classify_loop(
                 del ctx.pending[species]
                 continue
 
-            # Accept: record cooldown start and submit the deferred save.
+            # Confirmed and not in cooldown — submit save task.
             logger.info(
                 "%-32s CONFIRMED (%d hits, best=%.2f)",
                 species, p.hit_count, p.best_confidence,
             )
             ctx.last_detected[species] = ts
             bto_name = birdnet_to_bto.get(species)
-            # In legacy single-source mode source_config is None → source_name=None
-            # so clip filenames and DB rows are unchanged from the pre-multi-source format.
+            # In legacy single-source mode pass source_name=None so clip filenames
+            # and DB rows stay in the pre-multi-source format.
             _save_source_name = ctx.name if ctx.source_config is not None else None
             _executor.submit(
                 _deferred_save,
@@ -759,7 +716,6 @@ def main() -> None:
     birdnet_to_bto = build_birdnet_to_bto_map(label_map, exclude_status=cfg.species_filter.exclude_status, force_include=_bou_force)
     logger.info("BOU filter active — non-BOU species will be suppressed")
 
-    # Build the seasonal presence filter.
     seasonal = SeasonalFilter(
         enabled   = cfg.seasonal_filter.enabled,
         json_path = cfg.seasonal_filter.filter_json,
@@ -769,7 +725,6 @@ def main() -> None:
     else:
         logger.info("Seasonal filter disabled")
 
-    # Build the nocturnal/crepuscular time-of-day filter.
     nocturnal = NocturnalFilter(
         enabled           = cfg.nocturnal_filter.enabled,
         json_path         = cfg.nocturnal_filter.filter_json,
@@ -790,8 +745,8 @@ def main() -> None:
         secondary_model = get_secondary_model()
         secondary_label_map = secondary_model.load_label_map()
 
-        # Build a BTO map for the secondary model so CV name-matching bridges
-        # the label-namespace difference between BirdNET (IOC) and Perch (eBird).
+        # Build a BTO map for the secondary model so species names can be matched
+        # across label namespaces (BirdNET uses IOC names, Perch uses eBird).
         secondary_bto_map = build_birdnet_to_bto_map(secondary_label_map, exclude_status=cfg.species_filter.exclude_status, force_include=_bou_force)
 
         _cross_validator = CrossValidator(
@@ -808,10 +763,9 @@ def main() -> None:
             cfg.cross_validation.cv_min_confidence,
         )
 
-        # Eagerly load the secondary model's TF graph now so the first live CV
-        # call doesn't stall a deferred-save worker thread.  run_inference()
-        # triggers _ensure_model() on first call; calling it here with a silent
-        # dummy array moves that startup cost to before the classify loop begins.
+        # Pre-warm the secondary model so the first live CV call doesn't stall
+        # a save worker. run_inference() loads the TF graph on first call;
+        # doing it here moves that cost to startup.
         logger.info("Pre-warming secondary model (%s) — loading TF graph…", secondary_name)
         _warmup_samples = int(secondary_model.window_seconds * cfg.audio.sample_rate)
         secondary_model.run_inference(np.zeros(_warmup_samples, dtype=np.float32))
@@ -868,7 +822,7 @@ def main() -> None:
             ", ".join(f"'{c.name}' ({c.source_config.type})" for c in contexts),  # type: ignore[union-attr]
         )
     else:
-        # Legacy single-source mode: one context, source_config=None.
+        # Legacy single-source mode.
         contexts = [
             _SourceContext(
                 name           = "default",
@@ -889,9 +843,8 @@ def main() -> None:
         max_workers        = max(4, n_sources * 2),
         thread_name_prefix = "clip_saver",
     )
-    # All classify loops share one lock so inference is serialised across sources.
-    # This avoids race conditions on the model's internal state while allowing
-    # recording threads to continue filling their queues unimpeded.
+    # Shared lock ensures inference runs one-at-a-time across all sources,
+    # preventing race conditions on the model's internal state.
     inference_lock = threading.Lock()
 
     if cfg.audio.clip_mode == "window":

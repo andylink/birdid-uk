@@ -12,6 +12,7 @@
 	let summary = $state<AnalyticsSummary | null>(null);
 	let summaryLoading = $state(true);
 
+	// Reload summary whenever the period changes; ignore stale responses.
 	$effect(() => {
 		const p = period;
 		summaryLoading = true;
@@ -21,6 +22,7 @@
 			.catch(() => { summaryLoading = false; });
 	});
 
+	// Format a 0–1 ratio as a percentage string, or return undefined if missing.
 	function pct(v: number | undefined) {
 		return v != null ? `${(v * 100).toFixed(1)}%` : undefined;
 	}
@@ -45,7 +47,7 @@
 			</div>
 		</div>
 
-		<!-- General stat cards -->
+		<!-- Top-level summary stats -->
 		<div class="grid-4">
 			<StatCard
 				title="Total Detections"
@@ -70,7 +72,7 @@
 			/>
 		</div>
 
-		<!-- Conservation stat cards -->
+		<!-- UK Birds of Conservation Concern (BoCC) stats -->
 		<div>
 			<h2 class="section-title">Conservation</h2>
 			<div class="grid-4">
@@ -101,22 +103,19 @@
 			</div>
 		</div>
 
-		<!-- Charts row: top species + time of day -->
 		<div class="grid-2">
 			<TopSpeciesChart {period} />
 			<TimeOfDayChart {period} />
 		</div>
 
-		<!-- Conservation charts row -->
 		<div class="grid-2">
 			<BoccBreakdownChart {period} />
 			<GroupBreakdownChart {period} />
 		</div>
 
-		<!-- BoCC trend (full width) -->
+		<!-- Full-width trend chart -->
 		<BoccTrendChart {period} />
 
-		<!-- New species chart -->
 		<NewSpeciesChart {period} />
 
 	</div>
@@ -186,6 +185,7 @@
 		letter-spacing: 0.1em;
 	}
 
+	/* 2-up on small screens, 4-up on wide */
 	.grid-4 {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
@@ -197,6 +197,7 @@
 		}
 	}
 
+	/* 1-up on small screens, 2-up on wide */
 	.grid-2 {
 		display: grid;
 		grid-template-columns: 1fr;

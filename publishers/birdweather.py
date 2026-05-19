@@ -1,33 +1,29 @@
 """
-birdweather.py — fire-and-forget uploader for app.birdweather.com
+birdweather.py — Uploads bird detections to app.birdweather.com.
 
-After each confirmed detection, call ``post_detection()`` once.  The function
-returns immediately; all HTTP work runs on a daemon thread and any error is
-silently logged so the classify loop is never interrupted.
+Call post_detection() after each confirmed detection. It returns immediately;
+the HTTP work runs on a daemon thread and errors are silently logged so the
+classify loop is never interrupted.
 
-The flow per detection is:
+Each detection is posted in two steps:
+1. If upload_audio = true and the FLAC clip exists, POST the audio to the
+   soundscapes endpoint and capture the returned soundscapeId.
+2. POST the detection metadata (including the soundscapeId if step 1 succeeded)
+   to the detections endpoint.
 
-1. If ``upload_audio = true`` and the FLAC clip exists, POST the raw audio to
-   ``/api/v1/stations/{token}/soundscapes?timestamp=<ISO8601>`` and capture the
-   returned ``soundscapeId``.
-2. POST the detection metadata (including the soundscape reference when step 1
-   succeeded) to ``/api/v1/stations/{token}/detections``.
+Scientific names are resolved from the BirdNET labels file (IOC common names)
+and supplemented by filters/uk_species_filter.json for BTO British-name aliases.
+If a species can't be resolved, it's posted without a scientificName field.
 
-Scientific names are resolved first from the BirdNET labels file (which maps
-every IOC common name BirdNET can return to its scientific name) and
-supplemented by ``filters/uk_species_filter.json`` for BTO British-name
-aliases.  Species unresolvable from both sources are posted without a
-``scientificName`` and a DEBUG log entry is emitted.
-
-Controlled entirely by the ``[birdweather]`` section of config.toml::
+Configure in config.toml:
 
     [birdweather]
     enabled      = true
     token        = "your-station-token"   # from app.birdweather.com → Station → Token
     upload_audio = true                   # upload FLAC clip as a soundscape (recommended)
 
-Set ``enabled = false`` (the default) to disable without removing the section.
-When disabled, ``post_detection()`` is a no-op and no network activity occurs.
+Set enabled = false (the default) to disable. When disabled, post_detection()
+does nothing and no network requests are made.
 """
 
 from __future__ import annotations
@@ -51,19 +47,17 @@ _API_BASE = "https://app.birdweather.com"
 # ---------------------------------------------------------------------------
 
 def _build_sci_name_map() -> dict[str, str]:
-    """Return {common_name_lower: scientific_name}.
+    """Build a {common_name_lower: scientific_name} lookup from two sources.
 
-    Built from two sources (applied in order; later entries win):
+    Source 1 — uk_species_filter.json: covers BTO British names and
+    international_english_name aliases.
 
-    1. ``filters/uk_species_filter.json`` — covers BTO British names and
-       ``international_english_name`` aliases.
-    2. The BirdNET labels file (``Scientific name_Common name`` format) — gives
-       exact mappings for every IOC common name BirdNET can return (e.g.
-       "Eurasian Blackbird") and takes priority over the JSON aliases.
+    Source 2 — BirdNET labels file: covers every IOC common name BirdNET can
+    return (e.g. "Eurasian Blackbird") and takes priority over source 1.
     """
     result: dict[str, str] = {}
 
-    # Source 1: uk_species_filter.json (BTO name + international alias)
+    # Source 1: uk_species_filter.json
     json_path = Path(__file__).parent.parent / "filters" / "uk_species_filter.json"
     try:
         with open(json_path, encoding="utf-8") as fh:
@@ -79,8 +73,7 @@ def _build_sci_name_map() -> dict[str, str]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("[birdweather] could not load species JSON for scientific name lookup: %s", exc)
 
-    # Source 2: BirdNET labels file — overrides JSON entries and covers every
-    # IOC name that BirdNET can actually return (the exact names passed here).
+    # Source 2: BirdNET labels file — entries here override source 1.
     try:
         import pathlib as _pathlib
         import birdnet_analyzer as _bna  # type: ignore[import-untyped]
@@ -101,7 +94,7 @@ def _build_sci_name_map() -> dict[str, str]:
     return result
 
 
-# Module-level map; built lazily on first use so import is cheap.
+# Built lazily on first use so importing this module is cheap.
 _sci_name_map: dict[str, str] | None = None
 _sci_name_lock = threading.Lock()
 
@@ -130,13 +123,12 @@ def post_detection(
 ) -> None:
     """Schedule a background POST to BirdWeather and return immediately.
 
-    Silently no-ops if ``cfg.birdweather.enabled`` is ``False`` or if any
-    error occurs during transmission.
+    Does nothing if cfg.birdweather.enabled is False or if transmission fails.
 
     Args:
-        ts:         Timestamp of the detection (naive or aware datetime).
+        ts:         Detection timestamp (naive or timezone-aware).
         species:    Detected species common name (IOC / BTO label).
-        confidence: Detection confidence in the range 0.0–1.0.
+        confidence: Confidence score in the range 0.0–1.0.
         clip_path:  Path to the saved FLAC clip, or None if not saved.
     """
     if not cfg.birdweather.enabled:
@@ -153,14 +145,14 @@ def post_detection(
 # ---------------------------------------------------------------------------
 
 def _iso8601(ts: datetime) -> str:
-    """Return an ISO 8601 string with UTC offset, e.g. ``2026-05-14T09:31:00+00:00``."""
+    """Return a UTC ISO 8601 string, e.g. 2026-05-14T09:31:00+00:00."""
     if ts.tzinfo is None:
         ts = ts.astimezone(timezone.utc)
     return ts.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
 
 
 def _upload_soundscape(token: str, ts: datetime, clip_path: Path) -> int | None:
-    """Upload *clip_path* as a soundscape; return the soundscapeId or None on failure."""
+    """POST the audio clip to BirdWeather; return the soundscapeId or None on failure."""
     timestamp_param = urllib.request.quote(_iso8601(ts))
     url = f"{_API_BASE}/api/v1/stations/{token}/soundscapes?timestamp={timestamp_param}"
     try:
@@ -201,12 +193,12 @@ def _send(
 
         scientific_name = _get_scientific_name(species)
 
-        # ── Step 1: optional soundscape upload ────────────────────────────────
+        # Step 1: upload audio clip if configured.
         soundscape_id: int | None = None
         if bw.upload_audio and clip_path and clip_path.exists():
             soundscape_id = _upload_soundscape(token, ts, clip_path)
 
-        # ── Step 2: post detection ─────────────────────────────────────────────
+        # Step 2: post detection metadata.
         payload: dict = {
             "timestamp":  _iso8601(ts),
             "commonName": species,
@@ -218,10 +210,8 @@ def _send(
             payload["scientificName"] = scientific_name
         if soundscape_id is not None:
             payload["soundscapeId"] = soundscape_id
-            # The clip covers exactly the model analysis window; BirdNET uses 3 s,
-            # Perch uses 5 s.  We don't have the window length here, so report
-            # the standard BirdNET window (3 s) as start=0/end=3 — BirdWeather
-            # uses these only for playback offset, not for re-analysis.
+            # BirdWeather uses start/end times for playback offset within the soundscape.
+            # We report the standard BirdNET 3-second window (start=0, end=3).
             payload["soundscapeStartTime"] = 0
             payload["soundscapeEndTime"]   = 3
 

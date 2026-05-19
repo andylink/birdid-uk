@@ -1,7 +1,8 @@
 """
-config.py — load config.toml and expose typed settings.
+Loads config.toml and exposes all settings as typed dataclass instances.
 
-Usage::
+Import ``cfg`` for direct access, or use ``get_species_config`` to retrieve
+per-species settings with defaults already applied.
 
     from config import cfg, get_species_config
 
@@ -15,21 +16,20 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Resolve config.toml relative to this file so the process can be launched
-# from any working directory.
+# Find config.toml relative to this file, so the app can be run from any directory.
 _CONFIG_PATH = Path(__file__).parent / "config.toml"
 
 
 @dataclass(frozen=True)
 class GeneralConfig:
     timezone:     str
-    station_name: str  # display name for the dashboard header; empty = default "BirdNet-UK"
+    station_name: str  # shown in the dashboard header; leave empty for the default "BirdNet-UK"
 
 
 @dataclass(frozen=True)
 class LocationConfig:
-    lat: float  # WGS-84 decimal degrees (north positive)
-    lon: float  # WGS-84 decimal degrees (east positive)
+    lat: float  # decimal degrees, north positive
+    lon: float  # decimal degrees, east positive
 
 
 @dataclass(frozen=True)
@@ -40,11 +40,10 @@ class PathsConfig:
 
 @dataclass(frozen=True)
 class AudioSourceConfig:
-    """Configuration for one source in a ``[[audio.sources]]`` multi-source block.
+    """One entry from an ``[[audio.sources]]`` block (multi-source mode).
 
-    Used when the config file contains an array of source tables instead of a
-    single ``source = "..."`` line.  Each block runs its own independent
-    recording thread and classify loop.
+    When the config defines multiple sources, each runs its own recording
+    thread and classifier loop independently.
 
     Example config.toml fragment::
 
@@ -60,13 +59,13 @@ class AudioSourceConfig:
         transport = "tcp"
         reconnect_delay_seconds = 5
 
-    Fields for ``type = "sounddevice"``:
-        *device* — PortAudio device index (None = system default).
+    For ``type = "sounddevice"``: set *device* to the PortAudio device index
+    (omit or use None for the system default).
 
-    Fields for ``type = "rtsp"``:
-        *url*, *transport*, *reconnect_delay_seconds*, *ffmpeg_path*.
+    For ``type = "rtsp"``: set *url*, *transport*, *reconnect_delay_seconds*,
+    and optionally *ffmpeg_path*.
     """
-    name:                    str           # display name used in logs and clip filenames
+    name:                    str           # used in logs and clip filenames
     type:                    str           # "sounddevice" | "rtsp"
     # sounddevice only
     device:                  int | None = None
@@ -79,23 +78,19 @@ class AudioSourceConfig:
 
 @dataclass(frozen=True)
 class AudioRtspConfig:
-    """Connection settings for an RTSP audio stream.
+    """Settings for receiving audio over RTSP (used when ``[audio] source = "rtsp"``).
 
-    Used when ``[audio] source = "rtsp"``.  FFmpeg is launched as a subprocess
-    that decodes the stream to raw PCM and pipes it to stdout.
+    FFmpeg is launched as a subprocess to decode the stream to raw PCM piped to stdout.
 
-    *transport* controls the underlying RTP transport:
+    Use ``transport = "tcp"`` for reliability on most networks; ``"udp"`` has lower
+    latency but may drop packets when the network is busy.
 
-    * ``"tcp"``  — reliable, recommended for most networks (default).
-    * ``"udp"``  — lower latency; may drop packets on congested networks.
-
-    *ffmpeg_path* can be an absolute path if ``ffmpeg`` is not on the system
-    PATH (e.g. ``/usr/local/bin/ffmpeg``).
+    Set *ffmpeg_path* to an absolute path if ffmpeg is not on the system PATH.
     """
-    url:                     str   # RTSP stream URL, e.g. rtsp://192.168.1.100:554/audio
-    transport:               str   # "tcp" | "udp"
-    reconnect_delay_seconds: int   # seconds to wait before reconnecting after a stream drop
-    ffmpeg_path:             str   # path to ffmpeg binary (default: "ffmpeg")
+    url:                     str   # e.g. rtsp://192.168.1.100:554/audio
+    transport:               str   # "tcp" (recommended) | "udp"
+    reconnect_delay_seconds: int   # how long to wait before reconnecting after a drop
+    ffmpeg_path:             str   # path to ffmpeg binary
 
 
 @dataclass(frozen=True)
@@ -103,38 +98,32 @@ class AudioConfig:
     sample_rate:             int
     hop_seconds:             int
     device:                  int | None
-    # Audio source: "sounddevice" (local USB/built-in mic) or "rtsp" (network stream).
-    source:                  str   # "sounddevice" | "rtsp"
+    source:                  str   # "sounddevice" (local mic) | "rtsp" (network stream)
     rtsp:                    AudioRtspConfig
-    # Dual-buffer clip settings (see config.toml [audio] for documentation).
     clip_seconds:            int   # total saved clip length — only used when clip_mode="full"
-    pre_capture_seconds:     int   # extra audio before the analysis window (clip_mode="full" only)
-    capture_buffer_seconds:  int   # ring buffer capacity (must exceed the longest clip + margin)
-    # Clip mode: "window" saves the model analysis window plus window_pad_seconds of
-    # leading audio.  "full" uses the legacy clip_seconds / pre_capture_seconds geometry.
+    pre_capture_seconds:     int   # audio to include before the detection window (clip_mode="full" only)
+    capture_buffer_seconds:  int   # ring buffer size; must be larger than the longest clip
+    # "window" saves the model's analysis window plus window_pad_seconds of leading audio.
+    # "full" uses the older clip_seconds / pre_capture_seconds approach.
     clip_mode:               str   # "window" | "full"
-    window_pad_seconds:      float # seconds of leading audio before the window (clip_mode="window")
-    # post_capture_seconds is NOT stored here — it depends on the active model's
-    # window length, which is not known at config-load time.  Computed in
-    # detector.main() once the model is selected.
-    # Multi-source mode: tuple of per-source configs (None = legacy single-source).
-    # When this is set, ``source`` is "" and ``rtsp`` / ``device`` are unused.
-    sources:                 tuple[AudioSourceConfig, ...] | None = None
+    window_pad_seconds:      float # seconds of audio before the window start (clip_mode="window")
+    # post_capture_seconds is not stored here — it depends on the model's window length,
+    # which isn't known until the model is loaded. It's computed in detector.main().
+    sources:                 tuple[AudioSourceConfig, ...] | None = None  # None = legacy single-source mode
 
 
 @dataclass(frozen=True)
 class SpeciesConfig:
-    """Merged defaults + any per-species overrides for a single species."""
+    """Detection settings for a single species, combining defaults with any per-species overrides."""
     min_confidence:              float
     cooldown_seconds:            int
-    # Confirmation filter: species must be detected min_detections times within
-    # confirmation_window_seconds before a clip is saved.  min_detections = 1
-    # disables confirmation and saves on the first hit.
+    # A detection is only saved after the species is seen min_detections times
+    # within confirmation_window_seconds. Set min_detections = 1 to save on first hit.
     min_detections:              int
     confirmation_window_seconds: float
-    # Cross-validation override: None falls back to [cross_validation] on_disagree.
-    # Set to "flag" for rare/nocturnal species to review disagreements rather
-    # than silently dropping them.
+    # Per-species override for cross-validation disagreement handling.
+    # None means fall back to the global [cross_validation] on_disagree setting.
+    # Use "flag" for rare or nocturnal species so disagreements can be reviewed.
     on_disagree:                 str | None = None
 
 
@@ -172,7 +161,7 @@ class DatabaseConfig:
     name:        str
     username:    str
     password:    str
-    timescaledb: bool  # enable TimescaleDB hypertable init (postgresql only)
+    timescaledb: bool  # if True, initialise TimescaleDB hypertables (postgresql only)
 
 
 @dataclass(frozen=True)
@@ -197,29 +186,25 @@ class BirdmapConfig:
 
 @dataclass(frozen=True)
 class BirdweatherConfig:
-    """Connection settings for app.birdweather.com.
+    """Credentials and options for posting detections to app.birdweather.com.
 
-    Register a station at https://app.birdweather.com to obtain a *token*.
-    When *upload_audio* is ``True``, each confirmed detection's FLAC clip is
-    first uploaded as a soundscape (raw POST body, ``Content-Type: audio/flac``)
-    so it appears in the BirdWeather timeline with audio playback.
+    Register a station at https://app.birdweather.com to get a *token*.
+    When *upload_audio* is True, the detection's FLAC clip is uploaded first
+    as a soundscape so it appears with audio playback in the BirdWeather timeline.
     """
     enabled:      bool
     token:        str   # station authentication token
-    upload_audio: bool  # upload FLAC clip as a soundscape before posting the detection
+    upload_audio: bool  # upload the FLAC clip before posting the detection
 
 
 @dataclass(frozen=True)
 class SeasonalFilterConfig:
-    """Controls the ISO-week-based seasonal presence filter.
+    """Drops detections for species that are not expected to be present in the current week.
 
-    When *enabled* is ``True``, the detect loop drops any detection whose
-    species has a seasonal restriction in *filter_json* and the current ISO
-    8601 week (1–52) falls outside the allowed-weeks set.
-    Species absent from the JSON are assumed year-round (no restriction).
+    Uses ISO week numbers (1–52) from *filter_json* to decide which species are
+    in season. Species not listed in the JSON are treated as year-round.
 
-    *filter_json* defaults to ``uk_seasonal_filter.json`` in the project
-    root.  Copy and edit it, then point this key at the copy to customise.
+    To customise, copy ``uk_seasonal_filter.json`` and point *filter_json* at your copy.
     """
     enabled:     bool
     filter_json: Path
@@ -227,23 +212,17 @@ class SeasonalFilterConfig:
 
 @dataclass(frozen=True)
 class NocturnalFilterConfig:
-    """Controls the time-of-day filter for nocturnal and crepuscular species.
-
-    When *enabled* is ``True``, the detect loop drops detections of listed
-    species that occur outside their defined active window (i.e. in the middle
-    of the day).
+    """Drops daytime detections of nocturnal or crepuscular species.
 
     Two window types are supported (see ``nocturnal_filter.py`` for details):
 
     * ``sunset_sunrise`` — window relative to today's sunrise/sunset, computed
-      from [location] lat/lon.  Supports per-event offsets in minutes.
-    * ``fixed`` — fixed local clock-time range (HH:MM strings), spanning
-      midnight if start > end.
+      from [location] lat/lon. Supports per-event offsets in minutes.
+    * ``fixed`` — fixed local clock-time range (HH:MM), spanning midnight if
+      start > end.
 
-    Per-species overrides can be set in ``[species."Name"]`` blocks using the
-    ``active_hours`` key (takes priority over the JSON data file).
-
-    *filter_json* defaults to ``uk_nocturnal_filter.json``.
+    Per-species active hours can be overridden in ``[species."Name"]`` blocks
+    using the ``active_hours`` key, which takes priority over the JSON file.
     """
     enabled:     bool
     filter_json: Path
@@ -251,37 +230,32 @@ class NocturnalFilterConfig:
 
 @dataclass(frozen=True)
 class SpeciesFilterConfig:
-    """Controls status-based exclusion from the BOU allowlist.
+    """Controls which BOU-listed species are included based on their status.
 
-    *exclude_status* is a list of status tokens to exclude.  Each species'
-    ``british_list_status`` field is split on commas and the resulting tokens
-    are compared case-insensitively against this list.  Any species whose status
-    contains a listed token is dropped from the allowlist before matching.
+    Species whose ``british_list_status`` contains any token from *exclude_status*
+    (case-insensitive) are removed from the allowlist before matching.
 
     Examples::
 
-        exclude_status = ["Accidental"]           # suppress extreme vagrants
-        exclude_status = ["Accidental", "Escaped"] # also suppress escaped species
+        exclude_status = ["Accidental"]            # drop extreme vagrants
+        exclude_status = ["Accidental", "Escaped"] # also drop escaped species
 
-    Leave empty (default) to accept all BTO-listed species.
+    Leave empty to accept all BOU-listed species.
     """
-    exclude_status: tuple[str, ...]   # stored as tuple for hashability
+    exclude_status: tuple[str, ...]   # tuple for hashability
 
 
 @dataclass(frozen=True)
 class InferenceConfig:
-    """Controls inference backend selection.
+    """Selects the bird classification model to use.
 
-    *model* selects the active classifier:
+    ``"birdnet"`` (default) uses the bundled BirdNET GLOBAL 6K V2.4 model.
+    No extra setup required. Species names are translated from BirdNET's IOC
+    labels to BTO British names by the species filter.
 
-    ``"birdnet"`` (default) uses the bundled BirdNET GLOBAL 6K V2.4 model
-    shipped with *birdnet-analyzer*.  No extra dependencies required.
-    BirdNET always runs with its standard global English / IOC labels; name
-    translation to BTO British names is handled by ``species_filter``.
-
-    ``"perch"`` uses Google Perch v2, a TensorFlow-based model downloaded
-    from Kaggle on first run (~400 MB).  Requires ``perch-hoplite[tf]`` and
-    Kaggle credentials; see requirements.txt for installation notes.
+    ``"perch"`` uses Google Perch v2 (TensorFlow), downloaded from Kaggle on
+    first run (~400 MB). Requires ``perch-hoplite[tf]`` and Kaggle credentials;
+    see requirements.txt for details.
     """
     model: str   # "birdnet" | "perch"
 
@@ -290,13 +264,13 @@ class InferenceConfig:
 class WeatherPwsMeteobridgeConfig:
     """Connection settings for a Meteobridge personal weather station.
 
-    Meteobridge exposes a simple HTTP template API that expands bracketed
-    variable names into sensor readings.  The *template* string uses semicolon
-    separators; values are parsed in fixed order (temp, humidity, wind_speed,
-    wind_direction, pressure, rain_rate).
+    Meteobridge exposes an HTTP template API where bracketed variable names are
+    expanded into sensor readings. The *template* string uses semicolons as
+    separators; values are parsed in this order: temp, humidity, wind_speed,
+    wind_direction, pressure, rain_rate.
 
-    If your Meteobridge reports wind speed in km/h rather than m/s, set
-    ``wind_speed_unit = "kmh"``; the plugin converts to m/s automatically.
+    If your Meteobridge reports wind speed in km/h, set ``wind_speed_unit = "kmh"``
+    and the plugin will convert to m/s automatically.
     """
     host:            str    # IP address or hostname of the Meteobridge device
     port:            int    # HTTP port (default 80)
@@ -308,37 +282,34 @@ class WeatherPwsMeteobridgeConfig:
 
 @dataclass(frozen=True)
 class WeatherPwsTempestConfig:
-    """Credentials for the Tempest WeatherFlow personal weather station.
+    """Credentials for a Tempest WeatherFlow personal weather station.
 
-    The Tempest cloud API requires a numeric *station_id* and a personal
-    access token (*token*) generated on https://tempestwx.com under
-    *Settings → Data Authorizations*.
+    Get your *station_id* and *token* from tempestwx.com under
+    Settings → Data Authorizations.
 
-    This plugin calls the ``better_forecast`` endpoint which returns named
-    JSON fields and a human-readable ``conditions`` string (e.g. "Clear",
-    "Partly Cloudy", "Light Rain").  Units are fixed to metric (°C, m/s,
-    hPa, mm).
+    Uses the ``better_forecast`` endpoint, which returns named JSON fields and
+    a human-readable conditions string (e.g. "Clear", "Light Rain"). Units are
+    metric (°C, m/s, hPa, mm).
     """
-    station_id: int   # numeric station ID shown in the tempestwx.com URL
+    station_id: int   # numeric ID from the tempestwx.com URL
     token:      str   # personal access token from tempestwx.com
 
 
 @dataclass(frozen=True)
 class WeatherConfig:
-    """Controls weather metadata capture for each detection.
+    """Controls fetching and storing weather data with each detection.
 
-    When *enabled* is ``True``, a weather snapshot is fetched at detection
-    time and stored alongside each record in the ``detections`` table.  Data
-    is cached for *cache_seconds* so rapid successive detections share a single
-    API call and never stall the save thread.
+    When enabled, a weather snapshot is taken at detection time and saved
+    alongside the record in the ``detections`` table. Results are cached for
+    *cache_seconds* to avoid redundant API calls during bursts of detections.
 
-    *provider* selects the upstream data source:
+    *provider* options:
 
-    * ``"open_meteo"``     — Open-Meteo (https://open-meteo.com); free, no key.
-    * ``"yr_no"``          — Yr.no / met.no (https://api.met.no); free, no key.
-    * ``"openweathermap"`` — OpenWeatherMap; free tier, *api_key* required.
-    * ``"pws"``            — Personal Weather Station; *pws_plugin* names the
-                             provider module (``weather_pws_<plugin>.py``).
+    * ``"open_meteo"``     — free, no API key needed.
+    * ``"yr_no"``          — free, no API key needed.
+    * ``"openweathermap"`` — free tier, requires *api_key*.
+    * ``"pws"``            — personal weather station; *pws_plugin* names the
+                             module to use (``weather_pws_<plugin>.py``).
 
     Built-in PWS plugins:
 
@@ -348,7 +319,7 @@ class WeatherConfig:
     enabled:         bool
     provider:        str   # "open_meteo" | "yr_no" | "openweathermap" | "pws"
     api_key:         str   # required for openweathermap; unused by other providers
-    cache_seconds:   int   # reuse the same reading within this window (seconds)
+    cache_seconds:   int   # reuse the same reading for this many seconds
     pws_plugin:      str   # plugin name when provider = "pws"
     pws_meteobridge: WeatherPwsMeteobridgeConfig
     pws_tempest:     WeatherPwsTempestConfig
@@ -356,50 +327,40 @@ class WeatherConfig:
 
 @dataclass(frozen=True)
 class PrivacyFilterConfig:
-    """Controls clip-level human-speech detection and suppression.
+    """Discards clips that contain audible human speech before saving.
 
-    When *enabled* is ``True``, each confirmed detection clip is scanned by
-    silero-vad (a lightweight neural VAD) before being saved.  If the fraction
-    of the clip classified as voiced speech meets or exceeds
-    *min_voiced_fraction* the clip is silently discarded (no DB row, no FLAC,
-    no publish).
+    Uses silero-vad (a lightweight neural voice detector) to scan each
+    confirmed detection clip. If the fraction of voiced speech in the clip
+    reaches *min_voiced_fraction*, the clip is dropped entirely — no file,
+    no database row, no publish.
 
-    silero-vad correctly ignores bird song; the same Robin clip that scored
-    100% voiced with WebRTC VAD scores 0.0% here, while a clip containing
-    audible human speech scores ~30%.
+    Bird song does not trigger this filter; a typical Robin clip scores ~0%
+    voiced, while a clip with audible human speech scores ~30%+.
 
-    * ``threshold`` — per-frame speech probability cutoff passed to
-      silero-vad's ``get_speech_timestamps``.  ``0.5`` is the recommended
-      default.
-
-    * ``min_voiced_fraction`` — fraction of the clip (0–1) that must be
-      classified as voiced before the clip is dropped.  ``0.10`` (10%) means
-      any clip where at least 10% of frames contain human speech is dropped.
-      Lower values are more aggressive; higher values require a longer or
-      louder voice segment to trigger a drop.
+    * *threshold* — per-frame speech probability cutoff for silero-vad (0.5
+      is the recommended default).
+    * *min_voiced_fraction* — how much of the clip (0–1) must be voiced to
+      trigger a drop. 0.10 means 10% voiced speech is enough to discard it.
+      Lower values are more sensitive; higher values require more speech.
     """
     enabled:            bool
-    threshold:          float  # silero-vad per-frame probability cutoff [0, 1]
-    min_voiced_fraction: float  # fraction of clip that must be voiced to drop
+    threshold:          float  # per-frame probability cutoff [0, 1]
+    min_voiced_fraction: float  # fraction of clip that triggers a drop
 
 
 @dataclass(frozen=True)
 class DeduplicationConfig:
-    """Settings for cross-source duplicate suppression.
+    """Suppresses duplicate detections when the same species is heard on multiple sources.
 
-    Only has any effect when ``[[audio.sources]]`` is configured and
-    ``enabled = true``.  In legacy single-source mode this section is ignored.
+    Only applies in multi-source mode (``[[audio.sources]]``). Ignored in
+    single-source mode.
 
-    Attributes:
-        enabled:        Master switch.  ``false`` by default.
-        window_seconds: A second detection of the same species from a different
-                        source within this many seconds of the first is treated
-                        as a duplicate.  Increase to widen the window; decrease
-                        to tighten it.
-        on_duplicate:   What to do with the duplicate detection.
-                        ``"flag"`` saves it with ``deduplicated = true`` so it
-                        can be reviewed (recommended).
-                        ``"skip"`` silently discards it — no clip, no DB row.
+    If the same species is detected from a different source within
+    *window_seconds* of the first detection, it is treated as a duplicate.
+
+    *on_duplicate* controls what happens:
+    - ``"flag"`` — saves the detection with ``deduplicated = true`` for review (recommended).
+    - ``"skip"`` — silently discards it (no clip, no database row).
     """
     enabled:        bool = False
     window_seconds: int  = 10
@@ -408,38 +369,33 @@ class DeduplicationConfig:
 
 @dataclass(frozen=True)
 class CrossValidationConfig:
-    """Controls dual-model cross-validation of confirmed detections.
+    """Re-checks detections using a second model to reduce false positives.
 
-    When *enabled* is ``True``, every detection confirmed by the primary model
-    is re-evaluated by the secondary model (whichever of BirdNET / Perch is
-    *not* the primary).  The two models' top species are compared via their
-    BTO-resolved names; a match is counted as agreement.
+    When enabled, every detection confirmed by the primary model is also run
+    through the other model (BirdNET or Perch, whichever is not primary). The
+    two models' top species are compared by BTO-resolved name.
 
-    *skip_threshold*: if the primary model's best confirmation confidence is
-    at or above this value, cross-validation is skipped and the detection is
-    saved unconditionally.  Use this to avoid the overhead of running the
-    secondary model when the primary is already highly confident.
+    *skip_threshold*: if the primary model's confidence is at or above this
+    value, skip the second model entirely and save the detection as-is. This
+    avoids the overhead of a second inference when the primary is highly confident.
 
-    *on_disagree*: global action when the two models identify different species:
+    *on_disagree*: what to do when the models identify different species:
+    - ``"drop"`` — discard the detection silently (maximises precision; default).
+    - ``"flag"`` — save it with ``flagged = True`` for manual review.
 
-    * ``"drop"``  — silently discard the detection (maximises precision; default)
-    * ``"flag"``  — save with ``flagged = True`` for manual review
+    Per-species overrides can be set in ``[species."<name>"]`` blocks.
 
-    Per-species overrides are supported by adding ``on_disagree = "flag"``
-    inside a ``[species."<name>"]`` block in config.toml.
-
-    When models agree, ``detections.confidence`` is set to the arithmetic mean
-    of both scores.  When CV is skipped (high-confidence shortcut), the primary
-    score is used unchanged.  The raw primary score is always stored in
-    ``detections.primary_confidence`` for auditability.
+    When models agree, ``detections.confidence`` is the average of both scores.
+    When CV is skipped, the primary score is used. The raw primary score is
+    always stored in ``detections.primary_confidence`` for reference.
     """
     enabled:           bool
-    skip_threshold:    float   # primary best_confidence >= this → skip CV
+    skip_threshold:    float   # skip second model if primary confidence >= this
     on_disagree:       str     # "drop" | "flag"
-    cv_min_confidence: float   # minimum secondary-model score to count as a candidate
-                               # BirdNET scores are in [0, 1]; Perch softmax probs over
-                               # ~10 k classes are much lower — keep this at ≈ 0.01 (the
-                               # raw inference floor) so Perch candidates aren't filtered out
+    # Minimum score for the secondary model to count as a valid candidate.
+    # BirdNET scores range [0, 1]; Perch softmax probabilities over ~10k classes
+    # are much smaller, so keep this low (~0.01) to avoid filtering out Perch results.
+    cv_min_confidence: float
 
 
 @dataclass(frozen=True)
@@ -464,21 +420,17 @@ class Config:
     general:          GeneralConfig
     location:         LocationConfig
     weather:          WeatherConfig
-    exclude:          frozenset[str]   # species names to permanently suppress (case-insensitive)
-    # raw per-species override dicts, keyed by species common name
+    exclude:          frozenset[str]   # species names to always suppress (case-insensitive)
+    # Per-species override dicts from [species."Name"] blocks, keyed by common name.
     _species_overrides: dict[str, dict] = field(default_factory=dict, repr=False)
 
     def bou_override_species(self) -> frozenset[str]:
-        """Return the names of species with ``species_status_override = true``.
+        """Return species names that have ``species_status_override = true`` set.
 
-        These names are passed to :func:`species_filter.build_bou_allowed_set` and
-        :func:`species_filter.build_birdnet_to_bto_map` as ``force_include`` so that
-        the species are admitted even when their BOU status would normally be
-        excluded by ``[species_filter] exclude_status``.
-
-        The returned names are the keys from ``[species."Name"]`` blocks in
-        ``config.toml`` and should match the BirdNET common name shown in the
-        terminal (or the BTO British name — both are tried during matching).
+        These species are force-included in the BOU allowlist and name map even
+        if their BOU status would normally exclude them (e.g. "Accidental").
+        Names should match the BirdNET common name or BTO British name — both
+        are tried during matching.
         """
         return frozenset(
             name
@@ -487,12 +439,10 @@ class Config:
         )
 
     def get_species_config(self, species: str) -> SpeciesConfig:
-        """
-        Return a SpeciesConfig for *species*, merging defaults with any
-        per-species overrides defined in config.toml.
+        """Return detection settings for *species*, with per-species overrides applied.
 
-        Lookup is case-insensitive so minor capitalisation differences are
-        handled gracefully.
+        Falls back to [defaults] for any value not overridden. Lookup is
+        case-insensitive.
         """
         overrides: dict = {}
         for key, val in self._species_overrides.items():
@@ -546,13 +496,12 @@ def _load() -> Config:
             f"[audio] window_pad_seconds must be between 0.0 and 10.0, got: {_pad}"
         )
 
-    # ── Source / multi-source selection ───────────────────────────────────────
-    # Two mutually-exclusive forms are supported:
+    # Two mutually-exclusive ways to define audio sources:
     #
-    #   Legacy (single source):
+    #   Legacy single-source:
     #       source = "sounddevice"   or   source = "rtsp"
     #
-    #   Multi-source:
+    #   Multi-source (each runs independently):
     #       [[audio.sources]]
     #       name = "garden-north"
     #       type = "sounddevice"
@@ -563,7 +512,7 @@ def _load() -> Config:
     #       type = "rtsp"
     #       ...
     #
-    _sources_raw = a.get("sources")   # list[dict] when [[audio.sources]] is used
+    _sources_raw = a.get("sources")   # list[dict] when [[audio.sources]] is present
     _has_legacy  = "source" in a
 
     if _sources_raw is not None and _has_legacy:
@@ -573,7 +522,7 @@ def _load() -> Config:
         )
 
     if _sources_raw is not None:
-        # ── Multi-source mode ─────────────────────────────────────────────────
+        # Multi-source mode
         if not _sources_raw:
             raise ValueError(
                 "[audio] [[audio.sources]] is empty — define at least one source block."
@@ -598,7 +547,7 @@ def _load() -> Config:
         _sources_tuple: tuple[AudioSourceConfig, ...] | None = tuple(_audio_sources)
         _source = ""   # not used in multi-source mode
     else:
-        # ── Legacy single-source mode ─────────────────────────────────────────
+        # Legacy single-source mode
         _source = str(a.get("source", "sounddevice")).strip().lower()
         if _source not in ("sounddevice", "rtsp"):
             raise ValueError(
@@ -803,7 +752,7 @@ def _load() -> Config:
     )
 
 
-# Module-level singleton — imported by other modules as ``from config import cfg``
+# Loaded once at import time; all other modules import this directly.
 cfg: Config = _load()
 
 

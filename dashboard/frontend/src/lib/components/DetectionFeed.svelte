@@ -11,7 +11,7 @@
 	let sse: ReturnType<typeof createSSE> | null = null;
 	let connected = $state(false);
 
-	// Track unique notable species (Red-list / Rare / Very rare) seen this session
+	// One entry per notable species seen since the page loaded (deduplicated by name)
 	let notableMap = $state<Map<string, Detection>>(new Map());
 
 	const notableList = $derived([...notableMap.values()]);
@@ -24,8 +24,10 @@
 		sse = createSSE('/stream/detections');
 		sse.on('detection', (raw) => {
 			const d = raw as Detection;
+			// Prepend new detection; trim list to maxItems
 			detections = [d, ...detections].slice(0, maxItems);
 			connected = true;
+			// Add to notable strip if not already shown
 			if (isNotable(d) && !notableMap.has(d.species)) {
 				const next = new Map(notableMap);
 				next.set(d.species, d);
@@ -40,6 +42,7 @@
 <section class="feed" aria-label="Live detection feed">
 	<header class="feed-header">
 		<span class="feed-title">Live Feed</span>
+		<!-- Dot pulses green when the SSE stream is connected -->
 		<span
 			class="feed-dot"
 			class:connected
@@ -52,7 +55,7 @@
 		{/if}
 	</header>
 
-	<!-- Notable species section -->
+	<!-- Notable species seen this session (Red List, Rare, Very rare) -->
 	{#if notableList.length > 0}
 		<div class="notable-strip">
 			<p class="notable-heading">Notable this session</p>
@@ -126,7 +129,7 @@
 		color: var(--color-text-muted);
 	}
 
-	/* Notable strip */
+	/* Red-tinted strip listing notable species seen this session */
 	.notable-strip {
 		border-bottom: 1px solid rgba(239, 68, 68, 0.3);
 		background: rgba(239, 68, 68, 0.04);
@@ -163,7 +166,6 @@
 		flex-shrink: 0;
 	}
 
-	/* Feed list */
 	.feed-list {
 		flex: 1;
 		overflow-y: auto;

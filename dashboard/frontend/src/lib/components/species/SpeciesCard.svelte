@@ -21,7 +21,6 @@
 		class="card-link"
 		aria-label="View recordings for {species.species}"
 	>
-		<!-- Species image -->
 		<div class="img-wrap">
 			{#if imgError}
 				<div class="img-fallback">
@@ -39,6 +38,7 @@
 				/>
 			{/if}
 
+			<!-- BoCC badge overlaid on image; dark text (#0f172a) works on Red, Amber, and Green -->
 			{#if species.uk_bocc}
 				<span
 					class="bocc-badge"
@@ -49,9 +49,7 @@
 			{/if}
 		</div>
 
-		<!-- Stats -->
 		<div class="stats">
-			<!-- Name + avg confidence badge -->
 			<div class="name-row">
 				<div class="name-col">
 					<h3 class="common-name">{species.species}</h3>
@@ -62,7 +60,6 @@
 				<span class="{avgBadge}">{formatConfidence(species.avg_confidence)}</span>
 			</div>
 
-			<!-- Conservation badge -->
 			{#if statusStyle}
 				<div class="badges">
 					<span
@@ -74,12 +71,11 @@
 				</div>
 			{/if}
 
-			<!-- Detection count -->
 			<div class="det-count">
 				{species.detections.toLocaleString()}<span class="det-label">detections</span>
 			</div>
 
-			<!-- Detail rows -->
+			<!-- detail-list pushed to card bottom via margin-top: auto -->
 			<dl class="detail-list">
 				<div class="detail-row">
 					<dt>Peak</dt>
@@ -96,6 +92,7 @@
 				{#if species.bto_5letter_code || species.bto_2letter_code}
 					<div class="detail-row">
 						<dt>BTO code</dt>
+						<!-- Show both 2- and 5-letter BTO codes where available -->
 						<dd class="tabular">
 							{[species.bto_2letter_code, species.bto_5letter_code].filter(Boolean).join(' / ')}
 						</dd>
@@ -131,7 +128,6 @@
 		outline: none;
 	}
 
-	/* Image */
 	.img-wrap {
 		aspect-ratio: 16 / 9;
 		background: var(--color-skeleton);
@@ -172,7 +168,6 @@
 		box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 	}
 
-	/* Stats body */
 	.stats {
 		padding: 0.75rem;
 		display: flex;

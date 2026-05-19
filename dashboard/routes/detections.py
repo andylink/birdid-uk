@@ -1,5 +1,5 @@
 """
-dashboard/routes/detections.py — detections list endpoint.
+Detection list endpoint — paginated, filterable list of recorded detections.
 """
 
 from __future__ import annotations
@@ -19,11 +19,10 @@ router = APIRouter()
 
 
 def _normalise_bools(d: dict) -> dict:
-    """Coerce boolean DB fields to integers for frontend compatibility.
+    """Coerce flagging/validation boolean fields to integers.
 
-    SQLite returns 0/1 integers; PostgreSQL/asyncpg returns Python bools.
-    The frontend uses strict-equality checks (=== 1 / === 0), so both backends
-    must return integers in the JSON response.
+    SQLite returns 0/1; PostgreSQL returns Python bools. The frontend uses
+    strict equality (=== 1), so we normalise to integers for both backends.
     """
     for key in ("flagged", "cross_validated", "cv_agree"):
         if key in d and isinstance(d[key], bool):
@@ -40,17 +39,14 @@ async def list_detections(
     flagged: Optional[bool] = None,
     db: AsyncConnection = Depends(get_db),
 ):
-    """Return a list of detections, newest first.
+    """Return a paginated list of detections, newest first.
 
-    The ``date`` parameter is a local calendar date (YYYY-MM-DD).  Filtering
-    uses UTC range bounds so that detections are bucketed by the configured
-    local timezone, not raw UTC date.
+    The `date` parameter is a local calendar date (YYYY-MM-DD); filtering uses
+    UTC range bounds derived from the configured timezone so detections are
+    bucketed by local date, not raw UTC.
 
-    Pass ``flagged=true`` to return only cross-validation-flagged detections
-    (those requiring manual review).
-
-    Returned timestamps are ISO 8601 with ``+00:00`` suffix so the frontend
-    can parse them unambiguously as UTC.
+    Pass `flagged=true` to show only detections flagged for manual review.
+    Timestamps are returned as ISO 8601 with +00:00 so the frontend parses them as UTC.
     """
     clauses: list[str] = []
     params: dict = {}
@@ -65,8 +61,7 @@ async def list_detections(
         params["ts_start"] = start
         params["ts_end"] = end
     if flagged is not None:
-        # Use IS TRUE / IS NOT TRUE — portable across PostgreSQL (BOOLEAN) and
-        # modern SQLite (3.23+, 2018) without integer-literal comparison.
+        # IS TRUE / IS NOT TRUE works on PostgreSQL BOOLEAN and SQLite 3.23+
         if flagged:
             clauses.append("flagged IS TRUE")
         else:

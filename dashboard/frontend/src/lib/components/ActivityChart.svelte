@@ -12,6 +12,7 @@
 	let mode    = $state<Mode>('today');
 	let timer: ReturnType<typeof setInterval> | null = null;
 
+	// Read CSS custom properties so the chart respects light/dark theme
 	function chartColors() {
 		const s = getComputedStyle(document.documentElement);
 		return {
@@ -20,6 +21,7 @@
 		};
 	}
 
+	// Called when the theme changes; updates axis colours without rebuilding the chart
 	function applyColorsToChart() {
 		if (!chart) return;
 		const { grid, tick } = chartColors();
@@ -47,6 +49,7 @@
 		resetTimer();
 	}
 
+	// Silently refresh data; no loading spinner needed for periodic updates
 	async function refresh() {
 		try {
 			const hourly = await loadData(mode);
@@ -56,6 +59,7 @@
 		}
 	}
 
+	// Refresh every 60s for today, every 5min for all-time
 	function resetTimer() {
 		if (timer !== null) clearInterval(timer);
 		timer = setInterval(refresh, mode === 'today' ? 60_000 : 300_000);
@@ -65,6 +69,7 @@
 		try {
 			const hourly = await loadData(mode);
 
+			// Dynamic import keeps Chart.js out of the initial bundle
 			const { Chart, LineController, LineElement, LinearScale, CategoryScale,
 				PointElement, Tooltip, Filler } = await import('chart.js');
 			Chart.register(LineController, LineElement, LinearScale, CategoryScale,
@@ -107,6 +112,7 @@
 							ticks: {
 								color: tick,
 								maxTicksLimit: 8,
+								// Show only every third label to avoid crowding
 								callback: (_val, idx) => idx % 3 === 0 ? hourly.labels[idx] : ''
 							}
 						},
@@ -157,6 +163,7 @@
 	</div>
 
 	<div class="activity-body">
+		<!-- Canvas is hidden while loading or on error to avoid a blank flash -->
 		<canvas
 			bind:this={canvas}
 			class="activity-canvas"

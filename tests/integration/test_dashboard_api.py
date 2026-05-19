@@ -1,15 +1,13 @@
 """
-tests/integration/test_dashboard_api.py — integration tests for FastAPI routes.
+Integration tests for FastAPI dashboard routes.
 
-Strategy
---------
-* A temp SQLite database is created per test (or per fixture scope) with the
-  full schema and a few seeded rows.
-* The FastAPI `get_db` dependency is overridden via `app.dependency_overrides`
-  so every route uses the temp DB.
-* `httpx.AsyncClient` sends requests directly to the ASGI app without starting
-  a network server.  The lifespan (_ensure_species_info) is NOT triggered by
-  httpx, so species_info is seeded manually in the fixture.
+A temp SQLite database is created per test with the full schema and a few
+seeded rows. The FastAPI `get_db` dependency is overridden via
+`app.dependency_overrides` so every route uses the temp DB.
+
+`httpx.AsyncClient` sends requests directly to the ASGI app without starting
+a network server. The lifespan handler (_ensure_species_info) is not triggered
+by httpx, so species_info is seeded manually in the fixture.
 """
 
 from __future__ import annotations
@@ -83,31 +81,24 @@ async def _setup_db(db_path: Path) -> None:
         await conn.execute(_DDL_SPECIES_INFO)
         await conn.execute(_DDL_DETECTION_RESULTS)
 
-        # Seed species_info
-        await conn.execute(
+        await conn.executemany(
             "INSERT INTO species_info (name, scientific_name, uk_bocc, group_name, species_status) "
             "VALUES (?, ?, ?, ?, ?)",
-            ("Robin", "Erithacus rubecula", "Green", "Chats", "Common"),
-        )
-        await conn.execute(
-            "INSERT INTO species_info (name, scientific_name, uk_bocc, group_name, species_status) "
-            "VALUES (?, ?, ?, ?, ?)",
-            ("Blackbird", "Turdus merula", "Green", "Thrushes", "Common"),
-        )
-        await conn.execute(
-            "INSERT INTO species_info (name, scientific_name, uk_bocc, group_name, species_status) "
-            "VALUES (?, ?, ?, ?, ?)",
-            ("Curlew", "Numenius arquata", "Red", "Waders", "Scarce"),
+            [
+                ("Robin",     "Erithacus rubecula", "Green", "Chats",   "Common"),
+                ("Blackbird", "Turdus merula",      "Green", "Thrushes","Common"),
+                ("Curlew",    "Numenius arquata",   "Red",   "Waders",  "Scarce"),
+            ],
         )
 
-        # Seed detections (3 rows, different species, fixed UTC timestamps)
+        # Three detections at different hours on the same day
         await conn.executemany(
             "INSERT INTO detections (timestamp, species, bto_name, confidence, clip_path, model) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             [
-                ("2026-05-13 08:00:00", "European Robin",   "Robin",    0.87, "20260513_080000_robin.flac",    "birdnet"),
+                ("2026-05-13 08:00:00", "European Robin",   "Robin",     0.87, "20260513_080000_robin.flac",     "birdnet"),
                 ("2026-05-13 09:00:00", "Common Blackbird", "Blackbird", 0.91, "20260513_090000_blackbird.flac", "birdnet"),
-                ("2026-05-13 10:00:00", "Eurasian Curlew",  "Curlew",   0.78, "20260513_100000_curlew.flac",   "birdnet"),
+                ("2026-05-13 10:00:00", "Eurasian Curlew",  "Curlew",    0.78, "20260513_100000_curlew.flac",    "birdnet"),
             ],
         )
         await conn.commit()
@@ -125,7 +116,7 @@ async def test_db(tmp_path) -> Path:
 
 @pytest.fixture
 def api_client(test_db):
-    """Override get_db with a SQLAlchemy AsyncConnection and return an httpx.AsyncClient."""
+    """Return an httpx.AsyncClient wired to the FastAPI app using the temp DB."""
     engine = create_async_engine(f"sqlite+aiosqlite:///{test_db}")
 
     async def _override_get_db() -> AsyncGenerator:
@@ -165,15 +156,14 @@ async def test_list_detections_returns_all(api_client):
     async with api_client as client:
         resp = await client.get("/api/v1/detections")
     assert resp.status_code == 200
-    data = resp.json()
-    assert len(data) == 3
+    assert len(resp.json()) == 3
 
 
 async def test_list_detections_newest_first(api_client):
+    """Detections should be sorted by id DESC (most recent first)."""
     async with api_client as client:
         resp = await client.get("/api/v1/detections")
     data = resp.json()
-    # Sorted by id DESC → Curlew (id=3) first
     assert data[0]["species"] == "Eurasian Curlew"
     assert data[-1]["species"] == "European Robin"
 
@@ -190,19 +180,17 @@ async def test_list_detections_species_filter(api_client):
 async def test_list_detections_limit(api_client):
     async with api_client as client:
         resp = await client.get("/api/v1/detections?limit=2")
-    data = resp.json()
-    assert len(data) == 2
+    assert len(resp.json()) == 2
 
 
 async def test_list_detections_offset(api_client):
     async with api_client as client:
         resp = await client.get("/api/v1/detections?limit=10&offset=2")
-    data = resp.json()
-    assert len(data) == 1   # only 3 total, skip first 2
+    assert len(resp.json()) == 1   # 3 total, 2 skipped
 
 
 async def test_list_detections_has_filename_not_clip_path(api_client):
-    """Response includes 'filename' key derived from clip_path; raw path is removed."""
+    """Response should expose 'filename' derived from clip_path, not the raw path."""
     async with api_client as client:
         resp = await client.get("/api/v1/detections")
     row = resp.json()[0]
@@ -211,7 +199,7 @@ async def test_list_detections_has_filename_not_clip_path(api_client):
 
 
 async def test_list_detections_timestamp_iso8601(api_client):
-    """Returned timestamps should have the +00:00 UTC suffix."""
+    """Returned timestamps should carry a UTC offset (+00:00)."""
     async with api_client as client:
         resp = await client.get("/api/v1/detections")
     for row in resp.json():
@@ -220,7 +208,7 @@ async def test_list_detections_timestamp_iso8601(api_client):
 
 
 async def test_list_detections_flagged_filter(api_client, test_db):
-    """?flagged=true returns only detections with flagged=1."""
+    """?flagged=true should return only detections with flagged=1."""
     async with aiosqlite.connect(str(test_db)) as conn:
         await conn.execute(
             "INSERT INTO detections (timestamp, species, confidence, clip_path, flagged) "
@@ -249,7 +237,7 @@ async def test_analytics_summary_all(api_client):
 
 
 async def test_analytics_summary_empty_db(api_client, test_db):
-    """Summary on an empty database returns zeros, not errors."""
+    """Summary on an empty database should return zeros rather than errors."""
     async with aiosqlite.connect(str(test_db)) as conn:
         await conn.execute("DELETE FROM detections")
         await conn.commit()
@@ -277,8 +265,7 @@ async def test_top_species(api_client):
 async def test_top_species_limit_respected(api_client):
     async with api_client as client:
         resp = await client.get("/api/v1/analytics/top-species?period=all&limit=1")
-    data = resp.json()
-    assert len(data) == 1
+    assert len(resp.json()) == 1
 
 
 # ── /api/v1/analytics/by-hour ─────────────────────────────────────────────────
@@ -329,7 +316,7 @@ async def test_new_species_timeline(api_client):
     assert resp.status_code == 200
     data = resp.json()
     total_new = sum(row["count"] for row in data)
-    assert total_new == 3   # all 3 species appear for first time on the same day
+    assert total_new == 3   # all 3 species appear for the first time on the same day
 
 
 # ── /api/v1/analytics/species/daily ──────────────────────────────────────────

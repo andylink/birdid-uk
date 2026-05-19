@@ -1,8 +1,8 @@
 """
-detect.py — entry point for the real-time garden bird classifier.
+Entry point for running the bird classifier directly (python detect.py).
 
-All logic lives in the supporting modules:
-  config.py    — configuration (loaded from config.toml)
+All the real logic lives in the supporting modules:
+  config.py    — configuration loaded from config.toml
   audio.py     — WAV I/O and clip saving
   inference.py — BirdNET analysis and label-map loading
   database.py  — SQLite persistence

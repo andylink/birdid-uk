@@ -1,30 +1,25 @@
 """
-cross_validate.py — dual-model cross-validation for confirmed bird detections.
+cross_validate.py — runs a second model to confirm bird detections.
 
-After the primary model confirms a detection (via the confirmation filter in
-``detector._classify_loop``), the deferred-save task can optionally re-run the
-*secondary* model on the same audio window and compare the two species calls.
+After the primary model confirms a detection, the deferred-save task can
+optionally re-run a secondary model on the same audio and compare the two
+species calls. This helps filter false positives.
 
-Agreement is evaluated at the BTO-name level so that label-namespace
-differences between BirdNET (IOC English, e.g. "European Robin") and Perch
-(eBird-based, maps to BTO "Robin") are bridged through the shared BTO map.
+Agreement is checked at the BTO name level, so label differences between
+BirdNET (IOC English, e.g. "European Robin") and Perch (eBird-based, maps to
+BTO "Robin") are resolved through the shared BTO name map.
 
-Outcome
--------
-:class:`CrossValidationResult` encodes the full outcome:
+CrossValidationResult holds the full outcome:
+  performed           — whether the secondary model actually ran
+  skipped_high_conf   — True when primary confidence exceeded skip_threshold
+                        (CV intentionally bypassed for high-confidence hits)
+  secondary_* fields  — secondary model output; all None when CV didn't run
+  agree               — True if both models named the same BTO species
+  action              — "save" | "drop" | "flag"
+  final_confidence    — confidence value written to the database
 
-* ``performed``  — whether the secondary model was actually invoked
-* ``skipped_high_conf`` — True when the primary confidence exceeded
-  ``cfg.cross_validation.skip_threshold``; the detection is saved without CV
-* ``secondary_*`` fields — secondary model output (species, BTO name,
-  confidence); all ``None`` when CV was not performed
-* ``agree``      — ``True`` if both models resolved to the same BTO name
-* ``action``     — ``"save"`` | ``"drop"`` | ``"flag"``
-* ``final_confidence`` — the primary model confidence value to write to the database;
-
-The :class:`CrossValidator` class is instantiated once in ``detector.main()``
-and stored as a module-level variable so it is shared across all deferred-save
-worker threads.
+CrossValidator is instantiated once in detector.main() and shared across
+all deferred-save worker threads.
 """
 
 from __future__ import annotations
@@ -47,48 +42,41 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class CrossValidationResult:
-    """Full outcome of a cross-validation check for one confirmed detection.
+    """Full outcome of a cross-validation check for one detection.
 
-    Fields are written directly to the ``detections`` table by
-    ``database.record_detection``; see that function's docstring for the
-    column mapping.
+    Fields map directly to columns in the detections table — see
+    database.record_detection for the column mapping.
     """
 
-    #: Was the secondary model actually invoked?  ``False`` when CV is
-    #: globally disabled, when the primary confidence exceeded
-    #: ``skip_threshold``, or when an error prevented the secondary run.
+    #: Whether the secondary model was actually invoked. False when CV is
+    #: globally disabled, primary confidence exceeded skip_threshold, or
+    #: an error occurred during the secondary run.
     performed: bool
 
-    #: ``True`` when the skip-threshold shortcut fired (primary conf was high
-    #: enough that CV was intentionally bypassed).
+    #: True when CV was skipped because primary confidence was high enough.
     skipped_high_conf: bool
 
-    #: Name of the secondary model used (e.g. ``"perch"``).  ``None`` when
-    #: ``performed`` is ``False``.
+    #: Name of the secondary model (e.g. "perch"). None when performed is False.
     secondary_model_name: str | None
 
-    #: Raw common-name label returned by the secondary model's top result.
-    #: ``None`` when the secondary produced no results above the confidence
-    #: floor, or when CV was not performed.
+    #: Top species label from the secondary model. None when CV didn't run or
+    #: no result exceeded the confidence floor.
     secondary_species: str | None
 
-    #: BTO-resolved name for ``secondary_species`` (via the secondary model's
-    #: BTO map).  ``None`` if the species couldn't be mapped or CV wasn't run.
+    #: BTO-resolved name for secondary_species. None if unmapped or CV didn't run.
     secondary_bto_name: str | None
 
-    #: Confidence score of the secondary model's top result.  ``None`` when
-    #: no secondary result was produced or CV wasn't run.
+    #: Secondary model's top confidence score. None when CV didn't run.
     secondary_confidence: float | None
 
-    #: ``True`` if both models resolved to the same BTO name.  ``False`` if
-    #: they disagreed or the secondary found nothing.  ``None`` if CV was not
-    #: performed (disabled / skipped).
+    #: True if both models agreed on the same BTO name. False if they disagreed
+    #: or the secondary found nothing. None if CV was not performed.
     agree: bool | None
 
-    #: Decision taken:
-    #: * ``"save"``  — proceed to save the detection normally
-    #: * ``"drop"``  — discard (no clip written, no DB row)
-    #: * ``"flag"``  — save but mark ``flagged = True`` for manual review
+    #: What to do with this detection:
+    #: "save" — write to DB and keep the clip
+    #: "drop" — discard entirely
+    #: "flag" — save but mark flagged=True for manual review
     action: str
 
     final_confidence: float
@@ -97,18 +85,17 @@ class CrossValidationResult:
 # ── Validator ─────────────────────────────────────────────────────────────────
 
 class CrossValidator:
-    """Validates a confirmed detection against the secondary model.
+    """Runs a secondary model against a confirmed detection and decides what to do.
 
     Args:
-        secondary_model:      The secondary :class:`~inference.Inferencer`.
-        secondary_bto_map:    Mapping from secondary model common names to BTO
-                              British names, built the same way as the primary
-                              model's BTO map in ``detector.main()``.
-        secondary_model_name: String name of the secondary model
-                              (``"birdnet"`` or ``"perch"``).
-        min_conf_threshold:   Minimum confidence for a secondary result to be
-                              considered.  Defaults to
-                              ``cfg.defaults.min_confidence``.
+        secondary_model:      The secondary Inferencer instance.
+        secondary_bto_map:    Map from secondary model common names to BTO
+                              British names (built the same way as the primary
+                              model's BTO map in detector.main()).
+        secondary_model_name: String identifier for the secondary model
+                              ("birdnet" or "perch").
+        min_conf_threshold:   Minimum confidence for a secondary result to count.
+                              Defaults to cfg.defaults.min_confidence.
     """
 
     def __init__(
@@ -142,31 +129,25 @@ class CrossValidator:
         primary_conf:     float,
         species_name:     str | None = None,
     ) -> CrossValidationResult:
-        """Run the secondary model and return a :class:`CrossValidationResult`.
+        """Run the secondary model and return the validation outcome.
 
         Args:
-            audio:            PCM audio at ``cfg.audio.sample_rate`` sized to
-                              the secondary model's ``window_seconds``.  If the
-                              array is shorter than the required window the
-                              secondary model will still be called but the
-                              result should be treated as lower quality; most
-                              backends handle variable-length input gracefully.
-            primary_species:  Raw common-name label from the primary model
-                              (used for fallback comparison if BTO mapping
-                              fails on both sides).
+            audio:            PCM audio at cfg.audio.sample_rate sized to the
+                              secondary model's window_seconds. Shorter arrays
+                              are passed through — most backends handle them.
+            primary_species:  Raw common name from the primary model. Used as
+                              a fallback if BTO mapping fails on both sides.
             primary_bto_name: BTO-resolved name for the primary detection.
-                              If ``None``, comparison falls back to raw common
-                              names.
-            primary_conf:     Primary model confidence for this detection.
-                              Compared against ``cfg.cross_validation.skip_threshold``.
-            species_name:     Common name to look up in the per-species
-                              config for an ``on_disagree`` override.  If
-                              ``None``, ``primary_species`` is used.
+                              If None, comparison falls back to raw names.
+            primary_conf:     Primary model confidence. Checked against
+                              cfg.cross_validation.skip_threshold.
+            species_name:     Name to look up for a per-species on_disagree
+                              override. Defaults to primary_species if None.
 
         Returns:
-            :class:`CrossValidationResult` — always returned; never raises.
+            CrossValidationResult — always returned, never raises.
         """
-        # ── High-confidence shortcut ──────────────────────────────────────────
+        # Skip CV when the primary model is already very confident.
         if primary_conf >= cfg.cross_validation.skip_threshold:
             return CrossValidationResult(
                 performed            = False,
@@ -201,16 +182,14 @@ class CrossValidator:
                 final_confidence     = primary_conf,
             )
 
-        # Apply the same minimum-confidence floor used in the primary loop so
-        # that noise and marginal hits don't count as a "species call".
+        # Discard results below the confidence floor so noise doesn't count as agreement.
         candidates = [
             (s, c) for s, c in candidates if c >= self._min_conf
         ]
 
         # ── Determine agreement ───────────────────────────────────────────────
         if not candidates:
-            # Secondary model produced nothing above the confidence floor.
-            # Treat as disagreement — the secondary cannot confirm the species.
+            # Secondary model found nothing above the threshold — treat as disagreement.
             sec_species    = None
             sec_bto_name   = None
             sec_confidence = None
@@ -223,15 +202,14 @@ class CrossValidator:
             sec_species, sec_confidence = candidates[0]
             sec_bto_name = self._bto_map.get(sec_species)
 
-            # Compare at BTO level when both names are available (most
-            # reliable, bridging IOC / eBird label namespaces).
+            # Prefer BTO-level comparison — it bridges IOC and eBird label namespaces.
             if primary_bto_name and sec_bto_name:
                 agree = primary_bto_name.lower() == sec_bto_name.lower()
             elif primary_bto_name is None and sec_bto_name is None:
-                # Neither mapped — fall back to raw common names
+                # Neither side mapped — fall back to raw common names.
                 agree = primary_species.lower() == sec_species.lower()
             else:
-                # One mapped, one not — can't reliably bridge namespaces
+                # One side mapped, the other not — can't reliably compare.
                 agree = False
 
             logger.debug(
@@ -246,7 +224,7 @@ class CrossValidator:
             action           = "save"
             final_confidence = primary_conf
         else:
-            # Look up per-species on_disagree override; fall back to global.
+            # Check for a per-species override before falling back to the global setting.
             lookup_name = species_name or primary_species
             sc          = get_species_config(lookup_name)
             on_disagree = sc.on_disagree or cfg.cross_validation.on_disagree

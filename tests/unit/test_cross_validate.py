@@ -1,9 +1,8 @@
 """
-tests/unit/test_cross_validate.py — unit tests for CrossValidator.validate().
+Unit tests for CrossValidator.validate().
 
-All tests use a minimal MockInferencer defined locally and patch
-cross_validate.cfg / cross_validate.get_species_config so the real
-config.toml values don't influence outcomes.
+Tests use a local mock inferencer and patch cross_validate.cfg /
+cross_validate.get_species_config so the real config.toml doesn't affect outcomes.
 """
 
 from __future__ import annotations
@@ -64,7 +63,7 @@ def _patch_cv_module(monkeypatch, test_cfg):
 
 class TestSkipThreshold:
     def test_at_threshold_skips_cv(self, test_cfg, sample_audio):
-        """primary_conf == skip_threshold → performed=False, action='save'."""
+        """A detection at or above skip_threshold should bypass CV entirely."""
         sec = _MockInferencer(results=[("Common Blackbird", 0.85)])
         v = CrossValidator(sec, {}, "birdnet", min_conf_threshold=0.5)
 
@@ -81,7 +80,6 @@ class TestSkipThreshold:
         assert result.secondary_species is None
 
     def test_above_threshold_skips_cv(self, sample_audio):
-        """primary_conf > skip_threshold → skipped."""
         sec = _MockInferencer(results=[("European Robin", 0.95)])
         v = CrossValidator(sec, {}, "birdnet", min_conf_threshold=0.5)
 
@@ -91,7 +89,7 @@ class TestSkipThreshold:
         assert result.performed is False
 
     def test_just_below_threshold_runs_cv(self, test_cfg, sample_audio):
-        """primary_conf just below skip_threshold → CV is actually performed."""
+        """A confidence just below skip_threshold should trigger CV."""
         bto = {"European Robin": "Robin"}
         sec = _MockInferencer(results=[("European Robin", 0.8)])
         v = CrossValidator(sec, bto, "birdnet", min_conf_threshold=0.5)
@@ -109,7 +107,7 @@ class TestSkipThreshold:
 
 class TestAgreement:
     def test_bto_names_match(self, sample_audio):
-        """Both sides map to same BTO name → agree=True, action='save'."""
+        """Both models resolving to the same BTO name counts as agreement → save."""
         bto = {"European Robin": "Robin"}
         sec = _MockInferencer(results=[("European Robin", 0.82)])
         v = CrossValidator(sec, bto, "perch", min_conf_threshold=0.5)
@@ -125,7 +123,7 @@ class TestAgreement:
         assert r.secondary_confidence == pytest.approx(0.82)
 
     def test_bto_names_differ_drop(self, sample_audio):
-        """Different BTO names + global on_disagree='drop' → action='drop'."""
+        """Models disagree and global on_disagree='drop' → action='drop'."""
         bto = {"Common Blackbird": "Blackbird"}
         sec = _MockInferencer(results=[("Common Blackbird", 0.8)])
         v = CrossValidator(sec, bto, "perch", min_conf_threshold=0.5)
@@ -136,7 +134,7 @@ class TestAgreement:
         assert r.action == "drop"
 
     def test_bto_names_differ_global_flag(self, monkeypatch, test_cfg, sample_audio):
-        """Global on_disagree='flag' → action='flag' when models disagree."""
+        """Global on_disagree='flag' → disagreements are flagged rather than dropped."""
         monkeypatch.setattr(cv_mod, "cfg", _build_cfg(test_cfg, on_disagree="flag"))
 
         bto = {"Common Blackbird": "Blackbird"}
@@ -151,7 +149,7 @@ class TestAgreement:
     def test_per_species_on_disagree_flag_overrides_global_drop(
         self, monkeypatch, sample_audio
     ):
-        """Per-species on_disagree='flag' takes precedence over global 'drop'."""
+        """A per-species on_disagree setting overrides the global default."""
         monkeypatch.setattr(
             cv_mod, "get_species_config", lambda _name: _species_cfg(on_disagree="flag")
         )
@@ -166,7 +164,7 @@ class TestAgreement:
         assert r.action == "flag"
 
     def test_case_insensitive_bto_comparison(self, sample_audio):
-        """BTO name comparison ignores case."""
+        """BTO name matching should be case-insensitive."""
         bto = {"European Robin": "robin"}   # lowercase on secondary side
         sec = _MockInferencer(results=[("European Robin", 0.8)])
         v = CrossValidator(sec, bto, "perch", min_conf_threshold=0.5)
@@ -176,7 +174,7 @@ class TestAgreement:
         assert r.agree is True
 
     def test_both_bto_none_same_raw_name_agree(self, sample_audio):
-        """Both BTO names None → fall back to raw label comparison; same → agree."""
+        """If neither side has a BTO name, fall back to comparing raw labels."""
         sec = _MockInferencer(results=[("European Robin", 0.8)])
         v = CrossValidator(sec, {}, "perch", min_conf_threshold=0.5)
 
@@ -186,7 +184,7 @@ class TestAgreement:
         assert r.agree is True
 
     def test_both_bto_none_different_raw_disagree(self, sample_audio):
-        """Both BTO names None; different raw labels → disagree."""
+        """No BTO names on either side and different raw labels → disagree."""
         sec = _MockInferencer(results=[("Common Blackbird", 0.8)])
         v = CrossValidator(sec, {}, "perch", min_conf_threshold=0.5)
 
@@ -195,17 +193,17 @@ class TestAgreement:
         assert r.agree is False
 
     def test_one_bto_none_cannot_compare_disagree(self, sample_audio):
-        """Primary has BTO name but secondary doesn't → can't bridge → disagree."""
+        """If only one side has a BTO name, comparison is not possible → disagree."""
         sec = _MockInferencer(results=[("European Robin", 0.8)])
         v = CrossValidator(sec, {}, "perch", min_conf_threshold=0.5)
 
-        # primary has BTO="Robin", secondary has no BTO mapping → one-sided
+        # primary has BTO="Robin", secondary has no BTO mapping
         r = v.validate(sample_audio, "European Robin", "Robin", primary_conf=0.75)
 
         assert r.agree is False
 
     def test_final_confidence_equals_primary_conf(self, sample_audio):
-        """final_confidence is always set to primary_conf."""
+        """final_confidence should always reflect the primary model's confidence."""
         bto = {"European Robin": "Robin"}
         sec = _MockInferencer(results=[("European Robin", 0.99)])
         v = CrossValidator(sec, bto, "perch", min_conf_threshold=0.5)
@@ -219,7 +217,7 @@ class TestAgreement:
 
 class TestNoSecondaryResults:
     def test_empty_result_disagrees(self, sample_audio):
-        """Secondary returns no candidates → agree=False, secondary fields None."""
+        """No candidates from the secondary model → treated as disagreement."""
         sec = _MockInferencer(results=[])
         v = CrossValidator(sec, {}, "birdnet", min_conf_threshold=0.5)
 
@@ -231,7 +229,7 @@ class TestNoSecondaryResults:
         assert r.secondary_confidence is None
 
     def test_all_below_min_conf(self, sample_audio):
-        """All secondary results below min_conf → treated as no candidates."""
+        """All secondary results below min_conf → no usable candidate → disagree."""
         sec = _MockInferencer(results=[("European Robin", 0.3), ("Song Thrush", 0.2)])
         v = CrossValidator(sec, {}, "birdnet", min_conf_threshold=0.5)
 
@@ -241,7 +239,7 @@ class TestNoSecondaryResults:
         assert r.secondary_species is None
 
     def test_first_result_above_threshold_used(self, sample_audio):
-        """When multiple candidates pass min_conf, only the first (index 0) is used."""
+        """The first result above min_conf is used; lower-ranked candidates are ignored."""
         bto = {"European Robin": "Robin", "Song Thrush": "Song Thrush"}
         sec = _MockInferencer(
             results=[("European Robin", 0.85), ("Song Thrush", 0.75)]
@@ -254,7 +252,7 @@ class TestNoSecondaryResults:
         assert r.agree is True
 
     def test_first_result_below_second_above(self, sample_audio):
-        """If results[0] is below threshold but results[1] is above, results[1] is used."""
+        """If the top result is below threshold but the next is not, the next is used."""
         bto = {"Song Thrush": "Song Thrush"}
         sec = _MockInferencer(
             results=[("European Robin", 0.3), ("Song Thrush", 0.8)]
@@ -263,7 +261,7 @@ class TestNoSecondaryResults:
 
         r = v.validate(sample_audio, "European Robin", "Robin", primary_conf=0.75)
 
-        # After filtering below min_conf, candidates = [("Song Thrush", 0.8)]
+        # After filtering, the only candidate is Song Thrush
         assert r.secondary_species == "Song Thrush"
         assert r.agree is False   # primary BTO="Robin" ≠ "Song Thrush"
 
@@ -272,7 +270,7 @@ class TestNoSecondaryResults:
 
 class TestInferenceError:
     def test_exception_yields_save_no_cv(self, sample_audio):
-        """Secondary model raises → performed=False, action='save', agree=None."""
+        """If the secondary model raises, the detection is saved without CV."""
         class _Broken:
             window_seconds = 3.0
             def run_inference(self, audio):
@@ -294,14 +292,14 @@ class TestInferenceError:
 
 class TestMiscellaneous:
     def test_window_seconds_proxied_from_model(self):
-        """window_seconds property delegates to the secondary model."""
+        """window_seconds should delegate to the secondary model."""
         sec = _MockInferencer()
         sec.window_seconds = 5.0
         v = CrossValidator(sec, {}, "perch", min_conf_threshold=0.5)
         assert v.window_seconds == pytest.approx(5.0)
 
     def test_species_name_param_used_for_lookup(self, monkeypatch, sample_audio):
-        """species_name kwarg is passed to get_species_config, not primary_species."""
+        """The species_name kwarg (not primary_species) is passed to get_species_config."""
         seen_names: list[str] = []
 
         def tracking_gsc(name: str) -> SpeciesConfig:
@@ -325,7 +323,7 @@ class TestMiscellaneous:
         assert "Custom Override Name" in seen_names
 
     def test_secondary_model_name_stored(self, sample_audio):
-        """secondary_model_name in result matches what was passed to constructor."""
+        """The secondary model name passed to the constructor should appear in results."""
         sec = _MockInferencer(results=[])
         v = CrossValidator(sec, {}, "my_model_v2", min_conf_threshold=0.5)
 

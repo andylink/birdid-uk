@@ -1,24 +1,22 @@
 """
-constants.py — project-wide constants.
+Project-wide label filter sets used by both inference backends.
 
-NOISE_LABELS is a frozenset of lowercase label strings that are filtered out
-of inference results before they reach the detection pipeline.  It covers:
+NOISE_LABELS — labels that are never birds and should be dropped immediately
+after inference, before results reach the detection pipeline. Covers generic
+BirdNET catch-alls and all 198 non-bird sound classes from the Perch v2
+label set (FSD50K namespace).
 
-  - Generic BirdNET catch-all labels ("background", "noise", etc.)
-  - All 198 FSD50K non-bird sound classes from the Perch v2
-    inat2024_fsd50k label namespace (stored lowercase for O(1) lookup).
+HUMAN_LABELS — a subset of NOISE_LABELS covering human voices and body sounds.
+Used by the privacy filter to detect and suppress clips containing people.
 
-Both inference backends (inference_birdnet.py, inference_perch.py) import this
-set and check ``label.lower() not in NOISE_LABELS``.  The BOU filter provides
-an independent second line of defence, but listing non-bird classes here means
-they are dropped inside run_inference() before they ever reach the detect loop.
+Both sets store labels in lowercase for fast O(1) membership checks.
 """
 
 NOISE_LABELS: frozenset[str] = frozenset({
-    # ── Generic BirdNET catch-all labels ─────────────────────────────────────
+    # Generic BirdNET catch-all labels
     "background", "noise", "silence", "other",
 
-    # ── Perch v2 FSD50K non-bird sound classes (198 entries) ─────────────────
+    # Perch v2 FSD50K non-bird sound classes (198 entries)
     "accelerating_and_revving_and_vroom", "accordion", "acoustic_guitar",
     "aircraft", "alarm", "animal", "applause", "bark", "bass_drum",
     "bass_guitar", "bathtub_(filling_or_washing)", "bell", "bicycle",
@@ -70,35 +68,20 @@ NOISE_LABELS: frozenset[str] = frozenset({
     "wind_instrument_and_woodwind_instrument", "wood", "writing", "yell",
     "zipper_(clothing)",
 
-    # ── Legacy BirdNET labels (kept for compatibility) ────────────────────────
+    # Legacy BirdNET labels (kept for backwards compatibility)
     "human non-vocal", "power tools",
 })
 
 
-# ── Human-sound label subset ──────────────────────────────────────────────────
-#
-# HUMAN_LABELS is a frozenset of lowercase label strings that specifically
-# represent human voices and body sounds.  It is a deliberate subset of
-# NOISE_LABELS, used by the privacy filter (filters/privacy_filter.py) to
-# detect human presence in a saved clip and suppress it before persistence.
-#
-# Covers two namespaces:
-#
-#   BirdNET catch-all:
-#     "human non-vocal" — the only explicit human label in BirdNET GLOBAL 6K.
-#
-#   Perch v2 FSD50K classes:
-#     Scientific-name-style entries whose common name is the class itself
-#     (e.g. self._classes[i] == "speech").  These map through sci_to_common
-#     unchanged (not in BTO JSON) and are checked against this set.
-
+# Labels that indicate human presence in a recording.
+# Used by the privacy filter to suppress clips before saving.
 HUMAN_LABELS: frozenset[str] = frozenset({
-    # BirdNET (all three human labels from BirdNET_GLOBAL_6K_V2.4_Labels.txt)
+    # BirdNET human labels
     "human non-vocal",
     "human vocal",
     "human whistle",
 
-    # Perch FSD50K — voice and vocalisations
+    # Perch FSD50K — speech and conversation
     "speech",
     "speech_synthesizer",
     "human_voice",
@@ -110,11 +93,11 @@ HUMAN_LABELS: frozenset[str] = frozenset({
     "chatter",
     "cheering",
 
-    # Perch FSD50K — crowd and group
+    # Perch FSD50K — crowd and group sounds
     "crowd",
     "human_group_actions",
 
-    # Perch FSD50K — emotional / reactive vocalisations
+    # Perch FSD50K — emotional vocalisations
     "crying_and_sobbing",
     "laughter",
     "chuckle_and_chortle",
@@ -125,13 +108,13 @@ HUMAN_LABELS: frozenset[str] = frozenset({
     "gasp",
     "sigh",
 
-    # Perch FSD50K — respiratory
+    # Perch FSD50K — breathing and respiratory
     "cough",
     "sneeze",
     "breathing",
     "respiratory_sounds",
 
-    # Perch FSD50K — singing (human)
+    # Perch FSD50K — human singing
     "singing",
     "male_singing",
     "female_singing",

@@ -1,13 +1,13 @@
 """
-database.py — multi-backend persistence for bird detections.
+database.py — saves bird detections to SQLite or PostgreSQL.
 
-Supported backends (configured via ``[database]`` in config.toml):
-    sqlite      — default, zero config; path taken from ``[paths] db_path``
-    postgresql  — standard PostgreSQL (requires ``psycopg2-binary``)
+Configure the backend via ``[database]`` in config.toml:
+    sqlite      — default, no setup required; path from ``[paths] db_path``
+    postgresql  — requires psycopg2-binary; set host/port/name/user/password
 
-TimescaleDB is an opt-in PostgreSQL extension.  Set ``timescaledb = true``
-in ``[database]`` to run ``create_hypertable`` on ``detections.timestamp``
-at init time; the backend ``type`` stays ``"postgresql"``.
+TimescaleDB: set ``timescaledb = true`` under ``[database]`` to enable time-series
+optimisation. The backend type stays ``"postgresql"`` — TimescaleDB is just an
+extension on top of it.
 
 Schema
 ------
@@ -102,7 +102,7 @@ _detections = Table(
     Column("confidence", Float,   nullable=False),
     Column("clip_path",  String),
     Column("model",      String),
-    # Cross-validation columns — all nullable; NULL = CV not performed
+    # Cross-validation columns — NULL means CV was not performed
     Column("primary_confidence",  Float),
     Column("cross_validated",     Boolean),
     Column("cv_secondary_model",  String),
@@ -111,7 +111,7 @@ _detections = Table(
     Column("cv_confidence",       Float),
     Column("cv_agree",            Boolean),
     Column("flagged",             Boolean),
-    # Weather metadata columns — all nullable; NULL = weather disabled / fetch failed
+    # Weather columns — NULL means weather was disabled or the fetch failed
     Column("weather_temp",           Float),
     Column("weather_humidity",        Float),
     Column("weather_wind_speed",      Float),
@@ -120,9 +120,9 @@ _detections = Table(
     Column("weather_condition",       String),
     Column("weather_precipitation",   Float),
     Column("weather_provider",        String),
-    # Multi-source column — NULL in legacy single-source mode
+    # NULL in single-source mode; set to the source name when multiple sources are active
     Column("source_name",            String),
-    # Deduplication column — NULL when dedup is disabled or detection is primary
+    # NULL when dedup is disabled or this is the primary detection
     Column("deduplicated",           Boolean),
 )
 
@@ -151,9 +151,8 @@ _species_info = Table(
     Column("avicommons_image_url",       String),
 )
 
-# ── Cross-validation columns added in this version ────────────────────────────
-# If the detections table already exists (created by an older version without
-# these columns), _migrate_detections_table() adds them via ALTER TABLE.
+# Columns added when cross-validation support was introduced.
+# _migrate_detections_table() adds these to older databases that predate CV.
 _CV_COLUMNS: dict[str, str] = {
     "primary_confidence":  "FLOAT",
     "cross_validated":     "BOOLEAN",
@@ -165,14 +164,14 @@ _CV_COLUMNS: dict[str, str] = {
     "flagged":             "BOOLEAN",
 }
 
-# ── species_info columns added after initial schema ───────────────────────────
+# Columns added to species_info after the initial schema.
 _SPECIES_INFO_COLUMNS: dict[str, str] = {
     "ebird_code":           "TEXT",
     "avicommons_image_url": "TEXT",
 }
 
-# ── Weather metadata columns added in this version ────────────────────────────
-# Nullable on all rows; NULL = weather disabled or fetch failed at detection time.
+# Columns added when weather logging was introduced.
+# NULL on all rows where weather was disabled or the fetch failed.
 _WEATHER_COLUMNS: dict[str, str] = {
     "weather_temp":           "FLOAT",
     "weather_humidity":       "FLOAT",
@@ -184,17 +183,15 @@ _WEATHER_COLUMNS: dict[str, str] = {
     "weather_provider":       "TEXT",
 }
 
-# ── Multi-source column added in this version ─────────────────────────────────
-# NULL on all rows created before multi-source support; populated from the
-# [[audio.sources]] block name when multiple sources are active.
+# Column added when multi-source audio support was introduced.
+# NULL on rows created before this; set to [[audio.sources]] name going forward.
 _SOURCE_NAME_COLUMN: dict[str, str] = {
     "source_name": "TEXT",
 }
 
-# ── Deduplication column ───────────────────────────────────────────────────────
-# NULL when deduplication is disabled or the detection is the first (primary)
-# from its source.  TRUE when on_duplicate = "flag" and this detection was
-# identified as a cross-source duplicate.
+# Column added when cross-source deduplication was introduced.
+# NULL when dedup is off or this is the first detection from its source.
+# TRUE when on_duplicate = "flag" and this is a flagged duplicate.
 _DEDUP_COLUMN: dict[str, str] = {
     "deduplicated": "BOOLEAN",
 }
@@ -220,10 +217,9 @@ def _engine_url() -> str | URL:
 def _migrate_detections_table(engine: sa.Engine) -> None:
     """Add any missing cross-validation columns to an existing detections table.
 
-    SQLite does not support ``ALTER TABLE … ADD COLUMN IF NOT EXISTS`` so we
-    introspect the schema first and only issue ``ALTER TABLE`` for columns that
-    are genuinely absent.  Safe to call on a fresh database (no-op when all
-    columns already exist because ``create_all`` created them).
+    SQLite doesn't support ``ALTER TABLE … ADD COLUMN IF NOT EXISTS``, so we
+    check which columns exist first and only add what's missing. Safe to call
+    on a fresh database — it's a no-op when all columns already exist.
     """
     db_type = cfg.database.type
     with engine.begin() as conn:
@@ -248,8 +244,7 @@ def _migrate_detections_table(engine: sa.Engine) -> None:
 def _migrate_species_info_table(engine: sa.Engine) -> None:
     """Add any missing columns to an existing species_info table.
 
-    Mirrors :func:`_migrate_detections_table` — safe to call on a fresh
-    database (no-op when the columns already exist from ``create_all``).
+    Same pattern as _migrate_detections_table — safe to call on a fresh database.
     """
     db_type = cfg.database.type
     with engine.begin() as conn:
@@ -272,11 +267,10 @@ def _migrate_species_info_table(engine: sa.Engine) -> None:
 
 
 def _migrate_weather_columns(engine: sa.Engine) -> None:
-    """Add weather metadata columns to an existing detections table.
+    """Add weather columns to an existing detections table.
 
-    Idempotent — safe to call on both fresh databases (columns already exist
-    from ``create_all``) and on databases created before weather support was
-    added (adds only what is missing via ``ALTER TABLE``).
+    Safe to call on fresh databases (no-op) and on older databases that
+    predate weather support (adds only the missing columns).
     """
     db_type = cfg.database.type
     with engine.begin() as conn:
@@ -299,13 +293,11 @@ def _migrate_weather_columns(engine: sa.Engine) -> None:
 
 
 def _migrate_source_name_column(engine: sa.Engine) -> None:
-    """Add the ``source_name`` column to an existing detections table.
+    """Add the source_name column to an existing detections table.
 
-    Added when multi-source support was introduced.  NULL on rows created
-    before this migration; populated with the source's ``name`` field from
-    ``[[audio.sources]]`` going forward.
-
-    Idempotent — no-op when the column already exists.
+    Introduced with multi-source audio support. Rows created before this
+    migration will have NULL; new rows are populated from [[audio.sources]] name.
+    No-op if the column already exists.
     """
     db_type = cfg.database.type
     with engine.begin() as conn:
@@ -328,14 +320,11 @@ def _migrate_source_name_column(engine: sa.Engine) -> None:
 
 
 def _migrate_dedup_column(engine: sa.Engine) -> None:
-    """Add the ``deduplicated`` column to an existing detections table.
+    """Add the deduplicated column to an existing detections table.
 
-    Added when cross-source deduplication was introduced.  NULL on all rows
-    created before this migration.  Set to ``true`` when
-    ``[deduplication] on_duplicate = "flag"`` and the detection was a
-    cross-source duplicate.
-
-    Idempotent — no-op when the column already exists.
+    Introduced with cross-source deduplication. Rows before this migration
+    will have NULL. Set to TRUE when on_duplicate = "flag" and the detection
+    is a cross-source duplicate. No-op if the column already exists.
     """
     db_type = cfg.database.type
     with engine.begin() as conn:
@@ -358,15 +347,10 @@ def _migrate_dedup_column(engine: sa.Engine) -> None:
 
 
 def init_db() -> None:
-    """
-    Open the database, ensure the schema exists, and (when configured)
-    initialise the TimescaleDB hypertable on *detections.timestamp*.
+    """Open the database, create tables if needed, and run any pending migrations.
 
-    Also runs :func:`_migrate_detections_table` to add cross-validation
-    columns to any database created by an earlier version of the detector.
-
-    Safe to call multiple times — ``CREATE TABLE IF NOT EXISTS`` is used and
-    ``create_hypertable`` is called with ``if_not_exists => TRUE``.
+    Also enables the TimescaleDB hypertable on detections.timestamp when
+    ``[database] timescaledb = true``. Safe to call more than once.
     """
     global _engine
 
@@ -378,7 +362,7 @@ def init_db() -> None:
             url,
             connect_args={"check_same_thread": False},
         )
-        # WAL mode: readers don't block the writer and vice-versa.
+        # WAL mode lets readers and writers run concurrently without blocking each other.
         @event.listens_for(_engine, "connect")
         def _set_wal_mode(dbapi_conn, _record) -> None:
             dbapi_conn.execute("PRAGMA journal_mode=WAL")
@@ -408,7 +392,7 @@ def record_detection(
     secondary:  list[tuple[str, float]],
     bto_name:   str | None = None,
     model_name: str | None = None,
-    # Cross-validation fields — all optional; omit entirely when CV is disabled
+    # Cross-validation fields — omit (leave None) when CV is disabled
     primary_confidence:  float | None = None,
     cross_validated:     bool | None  = None,
     cv_secondary_model:  str | None   = None,
@@ -417,7 +401,7 @@ def record_detection(
     cv_confidence:       float | None = None,
     cv_agree:            bool | None  = None,
     flagged:             bool | None  = None,
-    # Weather metadata — all optional; None when weather is disabled or unavailable
+    # Weather fields — None when weather is disabled or unavailable
     weather_temp:           float | None = None,
     weather_humidity:       float | None = None,
     weather_wind_speed:     float | None = None,
@@ -426,63 +410,47 @@ def record_detection(
     weather_condition:      str | None   = None,
     weather_precipitation:  float | None = None,
     weather_provider:       str | None   = None,
-    # Multi-source — None in legacy single-source mode
+    # None in single-source mode
     source_name:            str | None   = None,
-    # Deduplication — True when flagged as a cross-source duplicate; None otherwise
+    # True when flagged as a cross-source duplicate; None otherwise
     deduplicated:           bool | None  = None,
 ) -> None:
-    """
-    Persist one detection to the database.
+    """Write one detection to the database.
 
     Inserts a row into ``detections`` for the top species, then one row per
-    entry in *secondary* into ``detection_results`` (FK back to
-    ``detections``).  Both inserts run in a single transaction.
-
-    When cross-validation was performed, pass the :class:`CrossValidationResult`
-    fields directly.  The ``confidence`` column contains the primary model
-    confidence score; the raw primary score is also stored in
-    ``primary_confidence``.
-
-    Weather metadata fields are stored when ``[weather] enabled = true`` and a
-    snapshot was successfully fetched at detection time.  All weather columns
-    accept ``None`` (stored as SQL NULL) when weather is disabled or the
-    provider returns no data.
+    entry in ``secondary`` into ``detection_results``. Both inserts share a
+    single transaction.
 
     Args:
-        ts:                  UTC timestamp of the best-confidence hit.
+        ts:                  UTC timestamp of the detection.
         species:             Primary model common name (e.g. "European Robin").
         confidence:          Primary model confidence score.
-        clip_path:           Path to the saved WAV clip.
-        secondary:           Additional candidate species from the same window
-                             (written to ``detection_results``).
-        bto_name:            BTO British name (e.g. "Robin"); ``None`` if
-                             unmapped.
-        model_name:          Primary inference backend (e.g. ``"birdnet"``).
-        primary_confidence:  Raw primary model confidence before any ensemble
-                             averaging.  ``None`` when CV was not performed
-                             (``confidence`` already equals the primary score).
-        cross_validated:     ``True`` / ``False`` if CV ran; ``None`` if CV is
-                             disabled or the detection bypassed CV.
-        cv_secondary_model:  Name of the secondary model (e.g. ``"perch"``).
+        clip_path:           Path to the saved audio clip.
+        secondary:           Other candidate species from the same window,
+                             written to ``detection_results``.
+        bto_name:            BTO British name (e.g. "Robin"); None if unmapped.
+        model_name:          Primary inference backend (e.g. "birdnet").
+        primary_confidence:  Raw primary score before any ensemble averaging.
+                             None when CV was not performed.
+        cross_validated:     True/False if CV ran; None if CV is disabled.
+        cv_secondary_model:  Name of the secondary model (e.g. "perch").
         cv_species:          Secondary model's top species label.
-        cv_bto_name:         BTO-resolved name for ``cv_species``.
+        cv_bto_name:         BTO-resolved name for cv_species.
         cv_confidence:       Secondary model's top confidence score.
-        cv_agree:            ``True`` if both BTO names matched.
-        flagged:             ``True`` when disagreement + ``on_disagree="flag"``.
+        cv_agree:            True if both models agreed on the same BTO name.
+        flagged:             True when models disagreed and on_disagree="flag".
         weather_temp:        Air temperature in °C at detection time.
-        weather_humidity:    Relative humidity in % at detection time.
-        weather_wind_speed:  Mean wind speed in m/s at detection time.
+        weather_humidity:    Relative humidity (%) at detection time.
+        weather_wind_speed:  Wind speed in m/s at detection time.
         weather_wind_direction: Wind direction in degrees (0–360) at detection time.
         weather_pressure:    Sea-level pressure in hPa at detection time.
         weather_condition:   Human-readable sky condition, e.g. "Light rain".
-        weather_precipitation:  mm of precipitation at detection time.
+        weather_precipitation: Precipitation in mm at detection time.
         weather_provider:    Data source identifier, e.g. "open_meteo".
-        source_name:         Name of the audio source that produced this detection
-                             (from ``[[audio.sources]] name``).  ``None`` (stored as
-                             SQL NULL) in legacy single-source mode.
-        deduplicated:        ``True`` when this detection was saved as a flagged
-                             cross-source duplicate (``on_duplicate = "flag"``).
-                             ``None`` (SQL NULL) in all other cases.
+        source_name:         Audio source name from ``[[audio.sources]]``.
+                             None (SQL NULL) in single-source mode.
+        deduplicated:        True when saved as a flagged cross-source duplicate.
+                             None in all other cases.
     """
     if _engine is None:
         return
@@ -528,14 +496,12 @@ def record_detection(
 
 
 def seed_species_info(json_path: Path) -> None:
-    """Populate ``species_info`` from the BTO JSON file.
+    """Load species reference data from the BTO JSON file into species_info.
 
     Runs an upsert on every startup so that newly-added columns (e.g.
-    ``ebird_code``, ``avicommons_image_url``) are back-filled into existing
-    databases without requiring a manual truncate.
+    ebird_code, avicommons_image_url) are back-filled into existing databases.
 
-    To force a full reset (e.g. to remove deleted species)::
-
+    To force a full reset (e.g. to remove deleted species):
         DELETE FROM species_info;
 
     Supports both SQLite (INSERT OR REPLACE) and PostgreSQL (INSERT … ON
@@ -573,7 +539,7 @@ def seed_species_info(json_path: Path) -> None:
     db_type = cfg.database.type
     with _engine.begin() as conn:
         if db_type == "sqlite":
-            # INSERT OR REPLACE handles any future re-seeding after a partial truncate.
+            # INSERT OR REPLACE handles re-seeding after a partial truncate.
             conn.execute(
                 text(
                     "INSERT OR REPLACE INTO species_info "

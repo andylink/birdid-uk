@@ -1,27 +1,17 @@
 """
-main.py — unified single-process entrypoint for development and SBC deployments.
+Runs the bird detector and web dashboard together in a single process.
 
-Runs the detector daemon and the FastAPI dashboard in a single Python process:
+The detector runs on a daemon thread; the dashboard (uvicorn) runs on the main
+thread so that Ctrl-C is handled correctly. On shutdown, the detector is given
+up to 30 seconds to stop cleanly before the process exits.
 
-  * Detector: started as a daemon thread so it dies automatically if the main
-    thread exits unexpectedly.
-  * Dashboard: uvicorn runs on the main thread (its signal handlers work correctly
-    on the main thread; running it on a worker thread would suppress Ctrl-C).
+For crash-isolated deployments, use the separate systemd services in systemd/
+instead of this file.
 
-Shutdown sequence (Ctrl-C or SIGTERM):
-  1. uvicorn catches the signal and returns from ``uvicorn.run()``.
-  2. The ``finally`` block sets ``detector.stop_event`` (which signals the
-     recording thread and classify loop to exit).
-  3. We join the detector thread for up to 30 seconds, then exit.
-
-For production deployments where crash isolation matters, use the two independent
-systemd services in ``systemd/`` instead of this file.
-
-Usage::
-
+Usage:
     python main.py [--host HOST] [--port PORT]
 
-    python main.py                      # 0.0.0.0:8080
+    python main.py                       # 0.0.0.0:8080
     python main.py --host 127.0.0.1 --port 9000
 """
 
@@ -59,9 +49,8 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    # Configure logging once, before either component emits any messages.
-    # Pass log_config=None to uvicorn.run() below so uvicorn's dictConfig
-    # call doesn't clobber the file handler we set up here.
+    # Set up logging before anything else emits messages.
+    # log_config=None below prevents uvicorn from overwriting this config.
     setup_logging()
 
     args = _parse_args()
@@ -71,8 +60,7 @@ def main() -> None:
         args.host, args.port,
     )
 
-    # Start the detector on a daemon thread so it does not prevent interpreter
-    # exit if main() returns unexpectedly.
+    # Daemon thread means it won't block the process from exiting if main() returns.
     t = threading.Thread(target=detector.main, name="detector", daemon=True)
     t.start()
 
@@ -81,7 +69,7 @@ def main() -> None:
             "dashboard.app:app",
             host=args.host,
             port=args.port,
-            log_config=None,   # preserve our logging config; suppress uvicorn's dictConfig
+            log_config=None,  # keep our logging config; don't let uvicorn replace it
         )
     finally:
         logger.info("Dashboard stopped — signalling detector to shut down …")

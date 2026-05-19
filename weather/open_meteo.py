@@ -1,20 +1,11 @@
 """
-weather_open_meteo.py — Open-Meteo weather provider.
+Open-Meteo weather provider.
 
-Open-Meteo (https://open-meteo.com) is a free, open-source weather API that
-requires no registration or API key.  It provides current conditions worldwide
-via the Forecast API, requesting only the ``current`` variables needed here so
-the payload is minimal.
+Fetches current conditions from https://open-meteo.com — free, no API key
+needed. Requests only the ``current`` variables required here to keep the
+response small.
 
 API reference: https://open-meteo.com/en/docs
-
-This module exposes a single function, ``fetch``, matching the interface
-expected by ``weather.py``::
-
-    def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None
-
-All exceptions are caught internally; the caller (``weather.get_weather``)
-never sees an exception from this module.
 """
 
 from __future__ import annotations
@@ -32,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://api.open-meteo.com/v1/forecast"
 
-# Variables requested in the ``current`` block.
-# wind_speed_unit=ms requests m/s directly so no unit conversion is needed.
+# Fields to request in the ``current`` block.
+# wind_speed_unit=ms asks for m/s so no conversion is needed later.
 _CURRENT_VARS = (
     "temperature_2m,"
     "relative_humidity_2m,"
@@ -44,8 +35,8 @@ _CURRENT_VARS = (
     "weather_code"
 )
 
-# WMO Weather Interpretation Codes → human-readable strings.
-# https://open-meteo.com/en/docs#weathervariables
+# WMO weather interpretation codes mapped to plain-English descriptions.
+# Full list: https://open-meteo.com/en/docs#weathervariables
 _WMO: dict[int, str] = {
     0:  "Clear sky",
     1:  "Mainly clear",
@@ -79,17 +70,10 @@ _WMO: dict[int, str] = {
 
 
 def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
-    """Fetch current conditions from the Open-Meteo Forecast API.
+    """Fetch current conditions from Open-Meteo.
 
-    Args:
-        lat: Latitude in WGS-84 decimal degrees.
-        lon: Longitude in WGS-84 decimal degrees.
-        ts:  Detection timestamp (not used directly; Open-Meteo always
-             returns the most recent current observation).
-
-    Returns:
-        A populated :class:`~weather.WeatherData` instance, or ``None``
-        if the request fails for any reason.
+    ``ts`` is not used — Open-Meteo always returns the latest observation.
+    Returns ``None`` if the request fails for any reason.
     """
     params = urllib.parse.urlencode({
         "latitude":        round(lat, 6),
@@ -115,6 +99,7 @@ def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
 
     cur = body.get("current", {})
 
+    # Map the numeric WMO code to a readable string; fall back to "WMO <n>"
     wmo_raw   = cur.get("weather_code")
     condition: str | None = None
     if wmo_raw is not None:
@@ -136,7 +121,7 @@ def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
 
 
 def _f(val: object) -> float | None:
-    """Coerce a value to float; return ``None`` for missing or non-numeric."""
+    """Convert a value to float, or return ``None`` if missing or non-numeric."""
     if val is None:
         return None
     try:

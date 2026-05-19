@@ -1,16 +1,16 @@
 /**
- * Visual style constants for BTO/BoCC species metadata.
- * The underlying data now comes from the species_info DB table via the API.
+ * Display constants for BTO/BoCC species metadata.
+ * Source data comes from the species_info table via the API.
  */
 
-/** Inline hex colours for UK BoCC status dots. */
+/** Hex colours for UK Birds of Conservation Concern (BoCC) status indicators. */
 export const BOCC_COLOR: Record<string, string> = {
 	Red:   '#ef4444',
 	Amber: '#f59e0b',
 	Green: '#22c55e',
 };
 
-/** Background + text colour for species_status pills. */
+/** Background and text colours for species rarity pills. */
 export const SPECIES_STATUS_STYLE: Record<string, { bg: string; text: string }> = {
 	'Common':    { bg: 'rgba(100,116,139,0.25)', text: '#94a3b8' },
 	'Scarce':    { bg: 'rgba(234,179,8,0.20)',   text: '#eab308' },
@@ -18,7 +18,7 @@ export const SPECIES_STATUS_STYLE: Record<string, { bg: string; text: string }> 
 	'Very rare': { bg: 'rgba(239,68,68,0.20)',   text: '#ef4444' },
 };
 
-/** One unique colour per taxonomic group_name. */
+/** A distinct colour for each taxonomic group, used in badges and charts. */
 export const GROUP_BADGE_COLORS: Record<string, string> = {
 	'Accentors':             '#96dc2c',
 	'Auks':                  '#2c72dc',
@@ -73,13 +73,16 @@ export const GROUP_BADGE_COLORS: Record<string, string> = {
 	'Wrens':                 '#dc902c',
 };
 
-/** Hex badge colour for a group_name; falls back to slate if unknown. */
+/** Returns the badge colour for a taxonomic group, or slate grey for unknown groups. */
 export function groupBadgeColor(groupName: string | null | undefined): string {
 	return (groupName && GROUP_BADGE_COLORS[groupName]) ?? '#64748b';
 }
 
-/** Derive a display code from BTO codes or fall back to initials.
- *  Priority: 2-letter code → 5-letter code → initials from species name. */
+/**
+ * Returns a short display code for a species.
+ * Prefers the 2-letter BTO code, then the 5-letter code, then falls back to
+ * initials derived from the species name.
+ */
 export function speciesInitials(
 	name: string,
 	bto5: string | null | undefined,

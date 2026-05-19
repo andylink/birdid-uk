@@ -1,23 +1,22 @@
 """
-retention.py — clip retention and disk cleanup for data/detections/.
+retention.py — automatic cleanup of old audio clips in data/detections/.
 
-Policy (applied in two passes):
-  1. Age pass   — delete clips older than ``max_age_days``, but always keep the
-                  ``min_clips_per_species`` newest clips for each species.
-  2. Usage pass — if disk usage still exceeds ``max_usage_percent``, delete the
-                  globally oldest clips (still honouring per-species minimums)
-                  until usage falls below the threshold.
+Two cleanup passes run in order:
+  1. Age pass   — delete clips older than max_age_days, but always keep the
+                  min_clips_per_species newest clips for each species.
+  2. Usage pass — if disk usage still exceeds max_usage_percent, delete the
+                  oldest clips globally (still honouring per-species minimums)
+                  until usage drops below the threshold.
 
-Both passes are skipped when ``enabled = false`` in the ``[retention]`` config
-section.  The thread started by ``start_retention_thread()`` runs the policy on
-startup and then every ``run_interval_seconds`` seconds.
+Both passes are skipped when enabled = false in the [retention] config section.
+start_retention_thread() runs cleanup on startup and then every
+run_interval_seconds seconds.
 
-Filename convention (produced by audio.save_clip):
+Clip filename convention (produced by audio.save_clip):
     YYYYMMDD_HHMMSS_<safe_species>.flac
 
-The species key is extracted by splitting on ``_`` at most twice, taking the
-third part.  This groups clips by species without needing to reverse
-``audio.safe_name``.
+The species key is extracted by splitting on '_' at most twice and taking the
+third part. This groups clips by species without needing to reverse audio.safe_name.
 """
 
 from __future__ import annotations
@@ -37,11 +36,9 @@ logger = logging.getLogger(__name__)
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _clips_by_species(detections_dir: Path) -> dict[str, list[Path]]:
-    """
-    Return ``{species_key: [path, ...]}`` for every ``*.flac`` in
-    *detections_dir*, sorted oldest-first within each species group.
+    """Group all .flac clips in detections_dir by species key, sorted oldest first.
 
-    Files whose names don't match the expected ``YYYYMMDD_HHMMSS_<species>.flac``
+    Files that don't match the expected YYYYMMDD_HHMMSS_<species>.flac naming
     pattern are silently skipped.
     """
     groups: dict[str, list[Path]] = {}
@@ -59,13 +56,13 @@ def _clips_by_species(detections_dir: Path) -> dict[str, list[Path]]:
 
 
 def _disk_usage_percent(path: Path) -> float:
-    """Return current disk usage % for the volume containing *path*."""
+    """Return current disk usage % for the volume containing path."""
     usage = shutil.disk_usage(path)
     return usage.used / usage.total * 100.0
 
 
 def _protected_set(clips: list[Path], min_keep: int) -> set[Path]:
-    """Return the set of *min_keep* newest clips that must not be deleted."""
+    """Return the min_keep newest clips for a species — these must not be deleted."""
     if min_keep <= 0:
         return set()
     return set(clips[-min_keep:])
@@ -74,10 +71,9 @@ def _protected_set(clips: list[Path], min_keep: int) -> set[Path]:
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def run_cleanup(detections_dir: Path | None = None) -> int:
-    """
-    Apply the retention policy to *detections_dir* (defaults to
-    ``cfg.paths.detections_dir``).
+    """Apply the retention policy and delete clips that exceed the configured limits.
 
+    Uses cfg.paths.detections_dir if detections_dir is not provided.
     Returns the total number of clips deleted.
     """
     rc = cfg.retention
@@ -93,7 +89,7 @@ def run_cleanup(detections_dir: Path | None = None) -> int:
     deleted = 0
     min_keep = rc.min_clips_per_species
 
-    # ── Pass 1: age-based deletion ────────────────────────────────────────────
+    # ── Pass 1: delete clips older than max_age_days ──────────────────────────
     if rc.max_age_days > 0:
         age_cutoff = datetime.now() - timedelta(days=rc.max_age_days)
         groups = _clips_by_species(detections_dir)
@@ -111,12 +107,12 @@ def run_cleanup(detections_dir: Path | None = None) -> int:
                     clip.unlink(missing_ok=True)
                     deleted += 1
 
-    # ── Pass 2: disk-usage-based deletion ────────────────────────────────────
+    # ── Pass 2: delete oldest clips until disk usage is within the limit ──────
     if _disk_usage_percent(detections_dir) > rc.max_usage_percent:
-        # Re-scan so we don't try to delete already-removed files.
+        # Re-scan so we don't try to delete files already removed in pass 1.
         groups = _clips_by_species(detections_dir)
 
-        # Flat list of deletable clips sorted oldest-first.
+        # Build a flat list of deletable clips sorted oldest-first.
         candidates: list[tuple[float, Path]] = []
         for clips in groups.values():
             protected = _protected_set(clips, min_keep)
@@ -141,9 +137,10 @@ def run_cleanup(detections_dir: Path | None = None) -> int:
 
 
 def start_retention_thread() -> threading.Thread:
-    """
-    Start and return a daemon thread that runs ``run_cleanup()`` immediately on
-    startup, then repeats every ``cfg.retention.run_interval_seconds`` seconds.
+    """Start a background thread that runs clip cleanup on a repeating schedule.
+
+    Runs immediately on startup, then repeats every
+    cfg.retention.run_interval_seconds seconds.
     """
     def _loop() -> None:
         run_cleanup()

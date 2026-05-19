@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 """
-add_ebird_codes.py — Enrich uk_species_filter.json with eBird codes.
+add_ebird_codes.py — Enrich uk_species_filter.json with eBird species codes.
 
 Downloads the AviCommons species catalogue (https://avicommons.org/latest.json),
-matches each BTO species to an AviCommons entry via three-stage lookup, and
-writes the ``ebird_code`` field (or ``null``) back into the JSON in-place.
+matches each BTO species to an AviCommons entry, and writes the ebird_code and
+avicommons_image_url fields back into the JSON in-place.
 
 Matching stages (first match wins):
   1. Scientific name   — exact, case-insensitive
-  2. International English name (hyphen-normalised)
-  3. BTO British name  (hyphen-normalised)
+  2. International English name (hyphens treated as spaces)
+  3. BTO British name  (hyphens treated as spaces)
 
-Hyphen normalisation: replace ``-`` with space, lowercase, strip whitespace.
-
-Manual overrides are applied before the automatic stages.
+Manual overrides are applied before the automatic stages, to handle cases where
+genus reclassification or name splits would otherwise cause a wrong or missing match.
 
 Usage:
     python add_ebird_codes.py
@@ -37,9 +36,8 @@ AVICOMMONS_URL = "https://avicommons.org/latest.json"
 AVICOMMONS_CDN = "https://static.avicommons.org"
 
 # ── Manual overrides ───────────────────────────────────────────────────────────
-# BTO British name → eBird code.  Applied before automatic matching.
-# Needed when scientific-name lookup fails (e.g. genus reclassification) and
-# the English-name lookup is ambiguous or absent in AviCommons.
+# BTO British name → eBird code. Applied before automatic matching.
+# Add entries here when the automatic lookup gives a wrong or missing result.
 
 MANUAL_OVERRIDES: dict[str, str] = {
     "Lesser Redpoll":    "redpol1",   # shares code with Arctic Redpoll
@@ -52,7 +50,7 @@ MANUAL_OVERRIDES: dict[str, str] = {
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _norm(s: str | None) -> str:
-    """Hyphen-normalise: lower-case, replace hyphens with spaces, strip."""
+    """Normalise a name for fuzzy matching: lowercase, replace hyphens with spaces, strip."""
     if not s:
         return ""
     return s.replace("-", " ").lower().strip()
@@ -68,9 +66,10 @@ def _fetch_avicommons(url: str) -> list[dict]:
 
 
 def _build_lookup_tables(avi_entries: list[dict]) -> tuple[
-    dict[str, dict],   # sciname_lower → AviCommons entry
-    dict[str, dict],   # norm_name     → AviCommons entry
+    dict[str, dict],   # scientific name (lower) → AviCommons entry
+    dict[str, dict],   # normalised name          → AviCommons entry
 ]:
+    """Index AviCommons entries by scientific name and common name for fast lookup."""
     by_sci:  dict[str, dict] = {}
     by_name: dict[str, dict] = {}
 
@@ -87,7 +86,7 @@ def _build_lookup_tables(avi_entries: list[dict]) -> tuple[
 
 
 def _image_url(avi_entry: dict) -> str | None:
-    """Return the AviCommons CDN image URL for an entry, or None if key is absent."""
+    """Build the AviCommons CDN image URL for an entry, or return None if unavailable."""
     code = avi_entry.get("code")
     key  = avi_entry.get("key")
     if code and key:
@@ -105,11 +104,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Load BTO species list
     with SPECIES_JSON.open(encoding="utf-8") as fh:
         entries: list[dict] = json.load(fh)
 
-    # Download AviCommons catalogue
     try:
         avi_entries = _fetch_avicommons(AVICOMMONS_URL)
     except Exception as exc:
@@ -123,7 +120,7 @@ def main() -> None:
     matched_manual = 0
     unmatched: list[str] = []
 
-    # Build a lookup from code → AviCommons entry (for manual-override image URLs)
+    # Needed to resolve image URLs for manual-override entries
     by_code: dict[str, dict] = {e["code"]: e for e in avi_entries if e.get("code")}
 
     for entry in entries:
@@ -132,7 +129,7 @@ def main() -> None:
         int_name  = _norm(entry.get("international_english_name"))
         norm_bto  = _norm(bto_name)
 
-        # Stage 0: manual override
+        # Stage 0: manual override — checked first to avoid wrong automatic matches
         if bto_name in MANUAL_OVERRIDES:
             code = MANUAL_OVERRIDES[bto_name]
             entry["ebird_code"] = code
@@ -149,7 +146,7 @@ def main() -> None:
             matched_auto += 1
             continue
 
-        # Stage 2: international English name (hyphen-normalised)
+        # Stage 2: international English name (hyphens normalised)
         if int_name:
             avi = by_name.get(int_name)
             if avi:
@@ -158,7 +155,7 @@ def main() -> None:
                 matched_auto += 1
                 continue
 
-        # Stage 3: BTO British name (hyphen-normalised)
+        # Stage 3: BTO British name (hyphens normalised)
         avi = by_name.get(norm_bto)
         if avi:
             entry["ebird_code"] = avi["code"]
@@ -166,7 +163,7 @@ def main() -> None:
             matched_auto += 1
             continue
 
-        # No match
+        # No match found
         entry["ebird_code"] = None
         entry["avicommons_image_url"] = None
         unmatched.append(bto_name)

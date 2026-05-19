@@ -16,6 +16,7 @@
 	const PAGE_SIZE = 50;
 
 	const speciesName = $derived($page.params.name ?? '');
+	// Derive back-navigation target from the 'from' query param set by callers.
 	const backHref    = $derived($page.url.searchParams.get('from') === 'dashboard' ? '/' : '/species');
 	const backLabel   = $derived($page.url.searchParams.get('from') === 'dashboard' ? 'Dashboard' : 'All species');
 
@@ -48,6 +49,8 @@
 			.catch(e => { statsError = (e as Error).message; statsLoading = false; });
 	});
 
+	// Stale-response guard: compare name+offset at response time to discard
+	// results from superseded requests.
 	$effect(() => {
 		const name = speciesName;
 		const off  = offset;

@@ -1,11 +1,11 @@
 """
-birdmap.py — fire-and-forget uploader for birdmap.co.uk
+birdmap.py — Uploads bird detections to birdmap.co.uk.
 
-After each detection, call ``post_detection()`` once.  The function returns
-immediately; the HTTP POST runs on a daemon thread and is silently dropped
-on any network or server error.
+Call post_detection() after each detection. It returns immediately; the HTTP
+POST runs on a daemon thread and errors are silently logged so the classify
+loop is never interrupted.
 
-Controlled entirely by the ``[birdmap]`` section of config.toml::
+Configure in config.toml:
 
     [birdmap]
     enabled      = true
@@ -14,9 +14,8 @@ Controlled entirely by the ``[birdmap]`` section of config.toml::
     station_id   = "norfolk-garden"
     upload_audio = true
 
-Set ``enabled = false`` (the default) to disable without removing the
-section.  When disabled, ``post_detection()`` is a no-op and no network
-activity occurs.
+Set enabled = false (the default) to disable. When disabled, post_detection()
+does nothing and no network requests are made.
 """
 
 from __future__ import annotations
@@ -35,7 +34,7 @@ from config import cfg
 logger = logging.getLogger(__name__)
 
 _SOURCE = "bird-detector/1.0"
-_MAX_AUDIO_BYTES = 2 * 1024 * 1024  # 2 MB
+_MAX_AUDIO_BYTES = 2 * 1024 * 1024  # 2 MB upload limit
 
 
 def post_detection(
@@ -46,13 +45,13 @@ def post_detection(
 ) -> None:
     """Schedule a background POST to birdmap.co.uk and return immediately.
 
-    Silently no-ops if ``cfg.birdmap.enabled`` is ``False`` or if any error
-    occurs during transmission (network unavailable, bad credentials, etc.).
+    Does nothing if cfg.birdmap.enabled is False or if transmission fails
+    (network unavailable, bad credentials, etc.).
 
     Args:
-        ts:         Timestamp of the detection (naive or aware datetime).
+        ts:         Detection timestamp (naive or timezone-aware).
         species:    Detected species common name.
-        confidence: Detection confidence in the range 0.0–1.0.
+        confidence: Confidence score in the range 0.0–1.0.
         clip_path:  Path to the saved FLAC clip, or None if not saved.
     """
     if not cfg.birdmap.enabled:
@@ -74,7 +73,7 @@ def _send(
     try:
         bm = cfg.birdmap
 
-        # Optionally base64-encode the audio clip
+        # Encode audio as base64 if upload is enabled and the clip is within the size limit.
         audio_b64: str | None = None
         if bm.upload_audio and clip_path and clip_path.exists():
             size = clip_path.stat().st_size
@@ -87,20 +86,17 @@ def _send(
                     _MAX_AUDIO_BYTES,
                 )
 
-        # Normalise timestamp to UTC ISO 8601 with Z suffix
-        if ts.tzinfo is None:
-            ts_utc = ts.astimezone(timezone.utc)
-        else:
-            ts_utc = ts.astimezone(timezone.utc)
+        # Normalise to UTC regardless of whether the timestamp was naive or aware.
+        ts_utc = ts.astimezone(timezone.utc)
         timestamp = ts_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         payload: dict = {
-            "station_id": bm.station_id,
-            "timestamp": timestamp,
-            "species": species,
-            "confidence": round(float(confidence), 4),
-            "lat": None,
-            "lon": None,
+            "station_id":      bm.station_id,
+            "timestamp":       timestamp,
+            "species":         species,
+            "confidence":      round(float(confidence), 4),
+            "lat":             None,
+            "lon":             None,
             "source_software": _SOURCE,
         }
         if audio_b64 is not None:

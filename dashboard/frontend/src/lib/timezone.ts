@@ -1,10 +1,10 @@
 /**
- * timezone.ts — runtime timezone and station-name config fetched from /api/v1/config.
+ * Runtime timezone and station name, fetched from /api/v1/config at startup.
  *
- * TIMEZONE and STATION_NAME are exported as plain mutable strings. Call
- * initTimezone() once at app startup (in +layout.svelte onMount) before any
- * rendering that depends on them. The defaults handle the very first render
- * before the fetch completes.
+ * TIMEZONE and STATION_NAME are plain mutable module-level variables. Call
+ * initTimezone() once in +layout.svelte's onMount before any rendering that
+ * depends on them. The defaults below are used for the initial render while
+ * the fetch is in flight.
  */
 
 export let TIMEZONE: string = 'Europe/London';
@@ -15,6 +15,7 @@ interface RuntimeConfig {
 	station_name?: string;
 }
 
+/** Fetch timezone and station name from the backend and update the module variables. */
 export async function initTimezone(): Promise<RuntimeConfig | null> {
 	try {
 		const res = await fetch('/api/v1/config');
@@ -25,7 +26,7 @@ export async function initTimezone(): Promise<RuntimeConfig | null> {
 			return data;
 		}
 	} catch {
-		// Silently keep the defaults — dashboard still works.
+		// Keep the defaults — the dashboard still works without server config.
 	}
 	return null;
 }

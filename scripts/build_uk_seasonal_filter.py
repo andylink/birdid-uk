@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """
-build_uk_seasonal_filter.py — Generate uk_seasonal_filter.json from GBIF
-Great Britain occurrence data.
+build_uk_seasonal_filter.py — Generate uk_seasonal_filter.json from GBIF occurrence data.
 
-For each BTO-listed species this script:
+For each BTO-listed species, queries GBIF for monthly GB occurrence counts,
+works out which months the species is regularly present, and converts those
+months to ISO week numbers. The result is written as a JSON filter that the
+detector uses to suppress out-of-season detections.
 
-  1. Looks up the GBIF taxon key via api.gbif.org/v1/species/match (scientific name).
-  2. Queries monthly GB occurrence counts via the GBIF occurrence facet API
-     (country=GB, facet=month) — one HTTP request per matched species.
-  3. Normalises each month's count as a fraction of the species' annual total.
-  4. Marks a month as "present" if its fraction exceeds the threshold (default 2%).
-  5. Maps present calendar months to ISO week numbers (1–52) using a fixed
-     month→week table.
-  6. Species present in all 12 months are omitted (no restriction needed).
-  7. Species with fewer than MIN_RECORDS total GB records are also omitted
-     (data too sparse to be reliable).
+Steps per species:
+  1. Look up the GBIF taxon key by scientific name.
+  2. Fetch monthly GB occurrence counts (one request per species).
+  3. Treat a month as "present" if its share of annual records exceeds
+     the threshold (default 2%).
+  4. Convert present months to ISO week numbers using MONTH_TO_ISO_WEEKS.
+  5. Skip species present all 12 months (no restriction needed) and
+     species with too few total records to be reliable.
 
-The JSON keys are BirdNET common names in the configured locale (en_uk by default),
-not BTO British names, because that is what the detector sees at runtime.
+JSON keys use BirdNET common names (en_uk locale by default), not BTO names,
+because that is what the detector produces at runtime.
 
 Usage:
     python build_uk_seasonal_filter.py
@@ -45,10 +45,10 @@ REPO_ROOT    = Path(__file__).parent.parent
 BOU_JSON     = REPO_ROOT / "filters" / "uk_species_filter.json"
 OUTPUT_JSON  = REPO_ROOT / "filters" / "uk_seasonal_filter.json"
 
-# Minimum fraction of annual GB records for a month to be considered "present".
-# 0.02 = 2%.  A species recorded uniformly all year scores ~8.3% per month, so
-# 2% comfortably includes year-round residents while excluding months with only
-# a handful of vagrant records.
+# A month must account for at least this fraction of a species' annual GB records
+# to be counted as "present". At 2%, a species recorded evenly year-round scores
+# ~8.3% per month, so genuine residents are always included; months with only a
+# handful of vagrant records are excluded.
 DEFAULT_THRESHOLD = 0.02
 
 # Species with fewer total GB records than this are skipped — not enough data.
@@ -58,11 +58,11 @@ DEFAULT_LOCALE = "en_uk"
 
 GBIF_API = "https://api.gbif.org/v1"
 
-# Polite delay between GBIF requests (seconds).
+# Pause between GBIF requests to stay within rate limits.
 REQUEST_DELAY = 0.25
 
-# Fixed month → ISO-week mapping.  Approximate but consistent; covers weeks
-# 1–52 exactly (5 months have 5 weeks, 7 months have 4 weeks).
+# Fixed month-to-ISO-week mapping. Approximate but consistent across years;
+# covers weeks 1–52 exactly (5 months with 5 weeks, 7 with 4).
 MONTH_TO_ISO_WEEKS: dict[int, list[int]] = {
     1:  [1,  2,  3,  4],
     2:  [5,  6,  7,  8],
@@ -82,11 +82,11 @@ MONTH_TO_ISO_WEEKS: dict[int, list[int]] = {
 # ── Label helpers ──────────────────────────────────────────────────────────────
 
 def load_birdnet_label_lookups(locale: str) -> tuple[dict[str, str], dict[str, str]]:
-    """Load the BirdNET label file and return two lookup dicts.
+    """Load the BirdNET label file for the given locale and build two lookup dicts.
 
     Returns:
-        sci_to_common:         {scientific_name_lower: birdnet_common_name}
-        common_lower_to_common:{birdnet_common_name_lower: birdnet_common_name}
+        sci_to_common:          scientific name (lower) → BirdNET common name
+        common_lower_to_common: BirdNET common name (lower) → BirdNET common name
     """
     import birdnet_analyzer
     base = Path(birdnet_analyzer.__file__).parent
@@ -116,7 +116,7 @@ def load_birdnet_label_lookups(locale: str) -> tuple[dict[str, str], dict[str, s
         sci    = sci.strip()
         common = common.strip()
         if sci and common:
-            sci_to_common[sci.lower()]          = common
+            sci_to_common[sci.lower()]             = common
             common_lower_to_common[common.lower()] = common
 
     return sci_to_common, common_lower_to_common
@@ -127,28 +127,30 @@ def match_bto_to_birdnet(
     sci_to_common:          dict[str, str],
     common_lower_to_common: dict[str, str],
 ) -> str | None:
-    """Return the BirdNET common name for a BTO species entry using 3-stage matching.
+    """Find the BirdNET common name for a BTO species entry.
 
-    Stage 0: explicit ``international_english_name`` field (handles UK vs IOC splits,
-             e.g. "Wigeon" → "Eurasian Wigeon").
-    Stage 1: scientific name match.
-    Stage 2: BTO British common name vs BirdNET common name (case-insensitive).
+    Tries three stages in order and returns the first match:
+      Stage 0: explicit international_english_name field — handles cases where
+               the BTO name and BirdNET name diverge (e.g. "Wigeon" vs
+               "Eurasian Wigeon").
+      Stage 1: scientific name.
+      Stage 2: BTO British common name (case-insensitive).
 
-    Returns ``None`` if no match is found.
+    Returns None if no match is found.
     """
     intl  = (sp.get("international_english_name") or "").strip()
     sci   = (sp.get("scientific_name")            or "").strip().lower()
     bto   = (sp.get("name")                        or "").strip().lower()
 
-    # Stage 0
+    # Stage 0: prefer the international name when explicitly provided
     if intl and intl.lower() in common_lower_to_common:
         return common_lower_to_common[intl.lower()]
 
-    # Stage 1
+    # Stage 1: scientific name match
     if sci and sci in sci_to_common:
         return sci_to_common[sci]
 
-    # Stage 2
+    # Stage 2: British common name match
     if bto and bto in common_lower_to_common:
         return common_lower_to_common[bto]
 
@@ -158,7 +160,7 @@ def match_bto_to_birdnet(
 # ── GBIF helpers ───────────────────────────────────────────────────────────────
 
 def gbif_get(url: str, max_retries: int = 4) -> dict | None:
-    """HTTP GET a GBIF API endpoint; retries on 429 with exponential backoff."""
+    """Fetch a GBIF API URL; retries on rate-limit (HTTP 429) with exponential backoff."""
     for attempt in range(max_retries):
         try:
             req = urllib.request.Request(
@@ -185,7 +187,7 @@ def gbif_get(url: str, max_retries: int = 4) -> dict | None:
 
 
 def lookup_gbif_key(scientific_name: str) -> int | None:
-    """Return the GBIF usageKey for *scientific_name*, or None if not found."""
+    """Return the GBIF usageKey for a scientific name, or None if not found."""
     encoded = urllib.parse.quote(scientific_name)
     url     = (
         f"{GBIF_API}/species/match"
@@ -202,9 +204,10 @@ def lookup_gbif_key(scientific_name: str) -> int | None:
 
 
 def get_gb_monthly_counts(gbif_key: int) -> dict[int, int]:
-    """Return ``{month: record_count}`` for Great Britain occurrences.
+    """Fetch monthly GB occurrence counts for a GBIF taxon.
 
-    Missing months (no records) are absent from the returned dict (treat as 0).
+    Returns {month: record_count}. Months with no records are absent
+    from the dict (treat missing keys as 0).
     """
     url = (
         f"{GBIF_API}/occurrence/search"
@@ -226,7 +229,7 @@ def get_gb_monthly_counts(gbif_key: int) -> dict[int, int]:
 # ── Week helpers ───────────────────────────────────────────────────────────────
 
 def months_to_iso_weeks(present_months: set[int]) -> list[int]:
-    """Map a set of present calendar months to sorted ISO week numbers (1–52)."""
+    """Convert a set of calendar months to a sorted list of ISO week numbers."""
     weeks: set[int] = set()
     for m in present_months:
         for w in MONTH_TO_ISO_WEEKS.get(m, []):
@@ -254,14 +257,14 @@ def weeks_to_ranges(weeks: list[int]) -> str:
 
 
 def build_week_reference() -> dict[str, str]:
-    """Return {str(week): "D Mon"} for ISO weeks 1–52 using 2025 as reference."""
+    """Return a {week_number: "D Mon"} calendar reference using 2025 as the base year."""
     ref: dict[str, str] = {}
     for week in range(1, 53):
         try:
             monday = datetime.date.fromisocalendar(2025, week, 1)
             ref[str(week)] = monday.strftime("%-d %b")
         except ValueError:
-            break  # 2025 only has 52 weeks; stop gracefully
+            break  # 2025 has 52 weeks; stop if fromisocalendar raises
     return ref
 
 
@@ -274,10 +277,11 @@ def inspect_species(
     common_lower_to_common: dict[str, str],
     threshold: float,
 ) -> None:
-    """Print detailed GBIF monthly data and derived seasonality for one species."""
+    """Print a detailed breakdown of GBIF monthly data and derived seasonality for one species.
+    Useful for debugging filter decisions for a specific bird."""
     target = name.strip().lower()
 
-    # Find a match in the BTO list
+    # Find the species in the BTO list by BTO name or BirdNET name
     hit_sp: dict | None = None
     hit_birdnet: str | None = None
     for sp in bou_species:
@@ -402,16 +406,14 @@ def main() -> None:
         bto_name  = sp.get("name", "?")
         sci_name  = (sp.get("scientific_name") or "").strip()
 
-        # Progress indicator
         print(f"  [{i:3d}/{len(bou_species)}] {bto_name:<35}", end="\r", flush=True)
 
-        # Match to BirdNET label name
+        # Skip if there's no matching BirdNET label — can't use the filter at runtime
         birdnet_name = match_bto_to_birdnet(sp, sci_to_common, common_lower_to_common)
         if not birdnet_name:
             n_unmatched_bn += 1
             continue
 
-        # GBIF species lookup
         if not sci_name:
             n_no_gbif += 1
             continue
@@ -422,7 +424,6 @@ def main() -> None:
             n_no_gbif += 1
             continue
 
-        # Monthly occurrence counts in GB
         time.sleep(REQUEST_DELAY)
         counts = get_gb_monthly_counts(gbif_key)
         total  = sum(counts.values())
@@ -431,7 +432,6 @@ def main() -> None:
             n_sparse += 1
             continue
 
-        # Determine present months
         present_months: set[int] = set()
         for month in range(1, 13):
             frac = counts.get(month, 0) / total
@@ -440,7 +440,7 @@ def main() -> None:
 
         if len(present_months) == 12:
             n_year_round += 1
-            # Year-round — no restriction entry needed
+            # Present all year — no seasonal restriction needed
             continue
 
         if len(present_months) == 0:
@@ -450,7 +450,7 @@ def main() -> None:
         iso_weeks = months_to_iso_weeks(present_months)
         seasonal[birdnet_name] = iso_weeks
 
-    print()  # clear progress line
+    print()  # clear the progress line
 
     # Sort alphabetically for readable diffs
     seasonal = dict(sorted(seasonal.items()))

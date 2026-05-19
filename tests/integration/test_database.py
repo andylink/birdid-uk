@@ -1,12 +1,12 @@
 """
-tests/integration/test_database.py — integration tests for database.py.
+Integration tests for database.py.
 
-Each test gets a fresh SQLite database in a tmp directory.  We patch
-``database.cfg`` so init_db() and record_detection() use that temp file
-instead of the real data/birds.db.
+Each test gets a fresh SQLite database in a temp directory. `database.cfg`
+is patched so init_db() and record_detection() use that temp file instead of
+the real data/birds.db.
 
-The module-level ``database._engine`` global is reset to None before and
-after each test to ensure init_db() always creates a fresh engine.
+The module-level `database._engine` is reset to None before and after each
+test so init_db() always creates a fresh engine.
 """
 
 from __future__ import annotations
@@ -47,7 +47,6 @@ def db_cfg(test_cfg, tmp_path):
 def _reset_engine(monkeypatch, db_cfg):
     """Patch database.cfg and reset the engine before/after each test."""
     monkeypatch.setattr(database, "cfg", db_cfg)
-    # Ensure a clean engine for every test
     monkeypatch.setattr(database, "_engine", None)
     yield
     # Dispose cleanly to avoid ResourceWarning on the SQLite file
@@ -83,12 +82,12 @@ class TestInitDb:
         assert "detection_results" in {r[0] for r in rows}
 
     def test_idempotent_second_call(self, db_cfg):
-        """Calling init_db() twice does not raise."""
+        """Calling init_db() twice should not raise."""
         init_db()
         init_db()
 
     def test_cv_columns_present_after_init(self, db_cfg):
-        """All cross-validation columns are created by init_db()."""
+        """All cross-validation columns should be present after init_db()."""
         init_db()
         engine = database._engine
         with engine.connect() as conn:
@@ -98,7 +97,7 @@ class TestInitDb:
             assert col_name in cols, f"Missing CV column: {col_name}"
 
     def test_wal_mode_enabled(self, db_cfg):
-        """SQLite WAL journal mode is set."""
+        """SQLite WAL journal mode should be enabled for better concurrent access."""
         init_db()
         engine = database._engine
         with engine.connect() as conn:
@@ -155,7 +154,7 @@ class TestRecordDetection:
         assert len(results) == 0
 
     def test_cv_fields_stored(self, db_cfg):
-        """Cross-validation columns are persisted correctly."""
+        """Cross-validation columns should be persisted correctly."""
         ts = datetime(2026, 5, 13, 10, 0, 0, tzinfo=timezone.utc)
         record_detection(
             ts, "European Robin", 0.85,
@@ -194,15 +193,14 @@ class TestRecordDetection:
         assert rows[0][0] == 1
 
     def test_no_engine_is_noop(self, monkeypatch):
-        """record_detection silently returns when _engine is None."""
+        """record_detection should return silently when the engine is not initialised."""
         monkeypatch.setattr(database, "_engine", None)
         ts = datetime(2026, 5, 13, 10, 0, 0, tzinfo=timezone.utc)
         record_detection(ts, "European Robin", 0.85, Path("clip.flac"), [])
-        # No exception = pass
 
     def test_multiple_detections_auto_increment(self, db_cfg):
         ts = datetime(2026, 5, 13, 10, 0, 0, tzinfo=timezone.utc)
-        record_detection(ts, "Robin", 0.8, Path("a.flac"), [])
+        record_detection(ts, "Robin",     0.8, Path("a.flac"), [])
         record_detection(ts, "Blackbird", 0.9, Path("b.flac"), [])
         engine = database._engine
         with engine.connect() as conn:
@@ -215,11 +213,10 @@ class TestRecordDetection:
 
 class TestMigration:
     def test_migration_noop_on_fresh_db(self, db_cfg):
-        """_migrate_detections_table is a no-op when all CV columns already exist."""
+        """_migrate_detections_table should not change columns on a fresh database."""
         init_db()
         engine = database._engine
 
-        # Get column names before
         with engine.connect() as conn:
             before = {r[1] for r in conn.execute(text("PRAGMA table_info(detections)")).fetchall()}
 
@@ -231,7 +228,7 @@ class TestMigration:
         assert before == after
 
     def test_migration_adds_missing_cv_columns(self, db_cfg):
-        """Missing CV columns are added when _migrate_detections_table is called."""
+        """Missing CV columns should be added by _migrate_detections_table."""
         init_db()
         engine = database._engine
 
@@ -244,13 +241,11 @@ class TestMigration:
             conn.execute(text("DROP TABLE detections"))
             conn.execute(text("ALTER TABLE detections_old RENAME TO detections"))
 
-        # Verify columns are missing
         with engine.connect() as conn:
             existing = {r[1] for r in conn.execute(text("PRAGMA table_info(detections)")).fetchall()}
         for col in _CV_COLUMNS:
             assert col not in existing
 
-        # Now migrate
         _migrate_detections_table(engine)
 
         with engine.connect() as conn:
@@ -263,15 +258,13 @@ class TestMigration:
 
 class TestSeedSpeciesInfo:
     def test_seeds_from_json(self, db_cfg, tmp_path):
-        """seed_species_info populates species_info from a JSON file."""
+        """seed_species_info should populate species_info from a JSON file."""
         import json
 
         json_path = tmp_path / "species.json"
         json_path.write_text(json.dumps([
-            {"name": "Robin", "scientific_name": "Erithacus rubecula",
-             "uk_bocc": "Green", "group_name": "Chats"},
-            {"name": "Blackbird", "scientific_name": "Turdus merula",
-             "uk_bocc": "Green", "group_name": "Thrushes"},
+            {"name": "Robin",     "scientific_name": "Erithacus rubecula", "uk_bocc": "Green", "group_name": "Chats"},
+            {"name": "Blackbird", "scientific_name": "Turdus merula",      "uk_bocc": "Green", "group_name": "Thrushes"},
         ]), encoding="utf-8")
 
         init_db()
@@ -285,7 +278,7 @@ class TestSeedSpeciesInfo:
         assert "Robin" in names
 
     def test_seed_is_idempotent(self, db_cfg, tmp_path):
-        """Calling seed_species_info twice upserts without duplicates."""
+        """Calling seed_species_info twice should upsert without creating duplicates."""
         import json
 
         json_path = tmp_path / "species.json"
@@ -303,7 +296,7 @@ class TestSeedSpeciesInfo:
         assert count == 1
 
     def test_no_engine_is_noop(self, monkeypatch, tmp_path):
-        """seed_species_info returns silently when _engine is None."""
+        """seed_species_info should return silently when the engine is not initialised."""
         monkeypatch.setattr(database, "_engine", None)
         import json
         json_path = tmp_path / "species.json"

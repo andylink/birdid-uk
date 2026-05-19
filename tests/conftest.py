@@ -1,21 +1,19 @@
 """
-tests/conftest.py — shared pytest fixtures for the bird-detector test suite.
-
+Shared pytest fixtures for the bird-detector test suite.
 All fixtures here are available to every test file under tests/.
 
-Config patching strategy
-------------------------
-Several production modules hold a module-level reference to the ``cfg``
-singleton (imported as ``from config import cfg``).  Because the reference is
-bound at import time, patching ``config.cfg`` alone won't affect those modules.
+Config patching note
+--------------------
+Several modules import `cfg` at module load time (e.g. `from config import cfg`).
+Patching `config.cfg` alone won't affect those already-bound references.
 Tests that need to override config values must patch the reference in each
-module they exercise, e.g.::
+module they exercise, e.g.:
 
     monkeypatch.setattr(audio, "cfg", test_cfg)
     monkeypatch.setattr(retention, "cfg", test_cfg)
 
-The ``test_cfg`` fixture below provides a fully-populated Config object backed
-by temporary directories so tests don't touch the real data/ tree.
+The `test_cfg` fixture provides a fully-populated Config object backed by
+temporary directories so tests never touch the real data/ tree.
 """
 
 from __future__ import annotations
@@ -55,7 +53,7 @@ from config import (
 
 @pytest.fixture
 def test_cfg(tmp_path: Path) -> Config:
-    """A fully-populated Config backed by *tmp_path* so no real files are touched."""
+    """A fully-populated Config backed by tmp_path so no real files are touched."""
     detections_dir = tmp_path / "detections"
     detections_dir.mkdir()
     db_path = tmp_path / "test.db"
@@ -191,10 +189,9 @@ def sample_audio() -> np.ndarray:
 # ── Mock Inferencer fixture ───────────────────────────────────────────────────
 
 class MockInferencer:
-    """Lightweight stand-in for a real Inferencer (BirdNET / Perch).
+    """Stand-in for a real Inferencer (BirdNET / Perch).
 
-    Set ``.results`` before calling ``run_inference()`` to control what
-    the mock returns.
+    Set `.results` before calling `run_inference()` to control what it returns.
     """
 
     window_seconds: float = 3.0

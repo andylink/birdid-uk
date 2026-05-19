@@ -1,7 +1,7 @@
 # BirdID-UK
 
 <p align="center">
-  <em>Real-time UK garden bird classifier for Raspberry Pi and Linux</em>
+  <em>Real-time UK only bird classifier for Linux based systems such as Raspberry Pi or mini-pc with Ubuntu Linux (install script is currently Ubunutu only)</em>
 </p>
 
 <p align="center">
@@ -15,46 +15,45 @@
   </a>
 </p>
 
-BirdID-UK listens to your garden through a microphone, identifies bird calls in real time using AI, and streams confirmed detections to a live web dashboard — all running locally on a Raspberry Pi.
-
+BirdID-UK listens through a microphone, identifies bird calls in real time using Machine Learning and streams confirmed detections to a live web dashboard — all running locally, no cloud required.
 ---
 
 ## Features
 
 **Detection pipeline**
 - Continuous 24/7 audio capture from USB microphones or RTSP IP camera streams
-- AI inference using **BirdNET GLOBAL 6K V2.4** (3-second sliding windows)
+- ML inference using **BirdNET GLOBAL 6K V2.4** (3-second sliding windows)
 - Optional **Google Perch v2** as an alternative or cross-validation model
 - Butterworth high-pass filter to reduce wind and traffic noise before inference
 - Confirmation filter — requires multiple hits within a configurable window to suppress false positives
 - Per-species configurable confidence thresholds, cooldowns, and detection counts
 
-**UK-specific filtering stack**
-1. **BOU allowlist** — enforces the British Ornithologists' Union British List; approximately 255 vagrant species suppressed by default
-2. **Seasonal filter** — species excluded outside their expected UK season using GBIF ISO-week occurrence data
+**UK-specific filtering**
+1. **Species allowlist** — enforces a curated British Ornithologists' Union British List; approximately 255 vagrant species suppressed by default
+2. **Seasonal filter** — species excluded outside their expected UK season using GBIF occurrence data
 3. **Nocturnal filter** — owls, nightjars and similar species gated to appropriate hours via astronomical sunset/sunrise calculations
 4. **Privacy filter** — Silero VAD neural network discards any clip containing human speech before saving
 
 **Multi-source audio**
-- Up to 8 simultaneous microphones or RTSP streams
+- Multiple simultaneous microphones or RTSP streams
 - Cross-source deduplication prevents duplicate database entries for the same bird
 
 **Live web dashboard** (FastAPI + SvelteKit)
-- Real-time detection feed via Server-Sent Events — no page refresh needed
+- Real-time detection feed via SSE — no page refresh needed
 - Each card shows species name, confidence score, spectrogram, and audio playback
 - Species browser with BTO metadata, BoCC conservation status, and photos
 - Analytics: hourly heatmap, daily trends, top-10 species, conservation status breakdown
-- Served on port 8080; Node.js is **not** required at runtime
+- Served on port 8080;
 
 **Integrations**
-- **MQTT** — publishes each detection as JSON to any MQTT broker
+- **MQTT** — publishes each detection as JSON to any MQTT broker.  Perfect for Home Assistant
 - **BirdWeather** — forwards detections and audio to [app.birdweather.com](https://app.birdweather.com)
 - **BirdMap UK** — forwards detections to [birdmap.co.uk](https://birdmap.co.uk)
-- **Weather metadata** — attaches conditions to every detection row (Open-Meteo, OpenWeatherMap, Yr.no, WeatherFlow Tempest, or Meteobridge)
+- **Weather metadata** — attaches weather conditions to every detection row (Open-Meteo, OpenWeatherMap, Yr.no, WeatherFlow Tempest, or Meteobridge)
 
 **Storage and operations**
 - SQLite (default, zero-config) or PostgreSQL / TimescaleDB
-- Audio clips saved as FLAC in `data/detections/`
+- Audio clips saved as FLAC in default: `data/detections/`
 - Automatic retention management — age-based and disk-usage-based cleanup with a configurable per-species minimum
 - systemd service units for production deployment with automatic restart
 
@@ -65,8 +64,8 @@ BirdID-UK listens to your garden through a microphone, identifies bird calls in 
 **Hardware**
 - A microphone positioned outdoors or near a window — an omnidirectional USB condenser mic works well
 - Any modern 64-bit Linux machine:
-  - Raspberry Pi 4 (2 GB+ RAM) — 1–2 microphones
-  - Raspberry Pi 5 — 3–4 microphones
+  - Raspberry Pi 4 (2 GB+ RAM) — ~1–2 microphones
+  - Raspberry Pi 5 — ~3–4 microphones
   - Any 64-bit x86 server or desktop
 
 **Software**
@@ -193,7 +192,7 @@ The model is downloaded automatically on the first inference run.
 ## Related Projects
 
 - [BirdNET-Analyzer](https://github.com/birdnet-team/BirdNET-Analyzer) — upstream project providing the BirdNET AI model used for bird sound identification
-- [BirdNET-Go](https://github.com/tphakala/birdnet-go) — Go implementation of a BirdNET-based continuous monitoring system
+
 
 ---
 
@@ -220,4 +219,4 @@ This project is released under the [Creative Commons Attribution-NonCommercial-S
 
 ## Author
 
-Andy ([andylink](https://github.com/andylink))
+Andrew Calderebank-Link ([andylink](https://github.com/andylink))

@@ -1,9 +1,7 @@
 <script lang="ts">
 	/**
-	 * Spectrogram.svelte — inline spectrogram image + audio player.
-	 *
-	 * Uses /spectrogram/{filename} and /audio/{filename} since the dashboard
-	 * serves media by filename (basename of clip_path), not by detection ID.
+	 * Inline spectrogram image and audio player for a detection clip.
+	 * Media is served by filename (the basename of clip_path), not by detection ID.
 	 */
 
 	let {
@@ -23,7 +21,7 @@
 
 {#if filename}
 	<div class="spectrogram-wrap">
-		<!-- Spectrogram image with loading skeleton + error fallback -->
+		<!-- Show a skeleton placeholder until the image loads; hide entirely on error -->
 		{#if !imgError}
 			<div class="spec-img-box">
 				{#if !imgLoaded}
@@ -41,7 +39,6 @@
 			</div>
 		{/if}
 
-		<!-- Audio player -->
 		<audio
 			src="/audio/{filename}"
 			controls
@@ -74,6 +71,7 @@
 		background: var(--color-skeleton-2);
 	}
 
+	/* Image fades in once loaded */
 	.spec-img {
 		height: 100%;
 		width: 100%;

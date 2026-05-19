@@ -47,6 +47,8 @@
 
 	const isSortedByGroup = $derived(sort === 'group_asc' || sort === 'group_desc');
 
+	// When sorted by group, build sequential sections from the already-sorted list
+	// rather than doing a separate group-by on the full dataset.
 	interface GroupedSection { group: string; items: SpeciesStats[] }
 	const groupedSections = $derived((): GroupedSection[] => {
 		if (!isSortedByGroup) return [];
@@ -60,6 +62,8 @@
 		return sections;
 	});
 
+	// Stale-response guard: capture filter values before the async fetch so we
+	// can discard results that belong to a superseded request.
 	$effect(() => {
 		const p   = period;
 		const s   = sort;
@@ -104,6 +108,7 @@
 <div class="page-scroll">
 	<div class="page-inner">
 
+		<!-- Header + controls -->
 		<!-- Header + controls -->
 		<div class="page-header">
 			<h1 class="page-title">Species</h1>

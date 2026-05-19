@@ -1,31 +1,28 @@
 """
-dashboard/routes/weather.py — weather analytics endpoints.
+Weather analytics endpoints — correlate detections with weather conditions.
 
-All endpoints require at least one detection with weather metadata before
-returning meaningful data.  The ``/status`` endpoint is designed to be
-called first; the frontend uses its ``with_weather`` field to decide whether
-to render charts or a "weather not configured" info card.
+All endpoints require detections to have weather metadata populated. The
+/status endpoint should be called first; the frontend uses its `with_weather`
+field to decide whether to show charts or a "weather not configured" message.
 
 Condition normalisation
 -----------------------
-The ``by-condition`` endpoint maps raw provider condition strings stored in
-``detections.weather_condition`` to eight canonical buckets so that results
-are comparable across providers (Open-Meteo, yr.no, OpenWeatherMap, Tempest).
-Normalisation is done in Python rather than SQL to keep the logic readable
-and provider-agnostic.  The buckets are checked in priority order:
+Raw provider condition strings (from Open-Meteo, yr.no, OpenWeatherMap, etc.)
+are mapped to eight fixed buckets in Python rather than SQL to keep the logic
+readable and provider-agnostic. Buckets are checked in priority order so that
+composite descriptions always resolve to the most significant category:
 
     Thunder → Snow/Sleet → Drizzle → Rain → Fog/Mist
     → Overcast → Partly cloudy → Clear → Other
 
-Wind direction rose
--------------------
-Sectors are computed with::
+Wind direction sectors
+----------------------
+Degrees are converted to one of 16 compass sectors (22.5° each) with:
 
     sector = CAST((weather_wind_direction + 11.25) / 22.5 AS INTEGER) % 16
 
-Sector 0 = N, increasing clockwise (N, NNE, NE, … NNW).  The query groups
-by sector index; missing sectors are filled with zero so the response always
-has exactly 16 entries in compass order.
+Sector 0 = N, increasing clockwise. Missing sectors are zero-filled so the
+response always contains all 16 directions.
 """
 
 from __future__ import annotations
@@ -42,7 +39,7 @@ from dashboard.utils import period_clause as _period_clause
 
 router = APIRouter()
 
-# ── Canonical condition buckets ───────────────────────────────────────────────
+# ── Canonical condition buckets (display order) ───────────────────────────────
 
 _CANONICAL_ORDER = [
     "Clear",
@@ -58,11 +55,10 @@ _CANONICAL_ORDER = [
 
 
 def _normalise_condition(raw: str) -> str:
-    """Map a raw provider condition string to a canonical bucket.
+    """Map a raw provider condition string to one of the eight canonical buckets.
 
-    Rules are checked in priority order so composite descriptions (e.g.
-    "Snow with thunder", "Thunderstorm with heavy hail") always resolve to
-    the most meteorologically significant bucket.
+    Checked in priority order so the most significant condition wins when
+    descriptions are compound (e.g. "Thunderstorm with heavy hail").
     """
     s = raw.lower()
     if "thunder" in s or ("storm" in s and "snow" not in s):
@@ -84,8 +80,7 @@ def _normalise_condition(raw: str) -> str:
     return "Other"
 
 
-# ── Wind direction labels (sector 0 = N, clockwise) ──────────────────────────
-
+# 16 compass direction labels, sector 0 = N, clockwise.
 _WIND_DIRECTIONS = [
     "N", "NNE", "NE", "ENE",
     "E", "ESE", "SE", "SSE",
@@ -93,8 +88,7 @@ _WIND_DIRECTIONS = [
     "W", "WNW", "NW", "NNW",
 ]
 
-# ── Wind speed bins (fixed order for display) ─────────────────────────────────
-
+# Wind speed bins in fixed display order.
 _WIND_BINS: list[tuple[str, str]] = [
     ("calm",     "Calm (<2 m/s)"),
     ("light",    "Light (2–5 m/s)"),
@@ -102,8 +96,7 @@ _WIND_BINS: list[tuple[str, str]] = [
     ("strong",   "Strong (>10 m/s)"),
 ]
 
-# ── Temperature bins (fixed order for display) ────────────────────────────────
-
+# Temperature bins in fixed display order.
 _TEMP_BINS: list[tuple[str, str]] = [
     ("sub_zero",       "Below 0°C"),
     ("zero_five",      "0–5°C"),
@@ -121,10 +114,10 @@ async def weather_status(
     period: str = Query("30d"),
     db: AsyncConnection = Depends(get_db),
 ):
-    """Return detection counts and weather coverage for the given period.
+    """Return total detections and how many have weather data for the period.
 
-    The frontend calls this first.  When ``with_weather`` is zero the page
-    renders an informational card instead of charts.
+    The frontend calls this first. If `with_weather` is zero it shows an
+    info card rather than weather charts.
     """
     where, params = _period_clause(period)
     row = (
@@ -156,9 +149,9 @@ async def weather_summary(
     period: str = Query("30d"),
     db: AsyncConnection = Depends(get_db),
 ):
-    """Aggregate weather statistics (averages + most common condition).
+    """Average weather conditions and most common weather type for the period.
 
-    All fields are ``null`` when no weather data exists for the period.
+    All fields are null when no weather data exists.
     """
     where, params = _period_clause(period)
 
@@ -177,7 +170,7 @@ async def weather_summary(
         )
     ).mappings().one()
 
-    # Most common condition — normalise first, then find the modal bucket.
+    # Normalise raw condition strings to buckets, then find the most common.
     cond_rows = (
         await db.execute(
             text(f"""
@@ -216,9 +209,8 @@ async def weather_by_condition(
 ):
     """Detection counts grouped by normalised weather condition.
 
-    Raw provider strings from ``detections.weather_condition`` are mapped to
-    eight canonical buckets before aggregation, so results are comparable
-    across providers.  Buckets with zero detections are omitted.
+    Raw provider strings are mapped to canonical buckets before aggregating.
+    Buckets with zero detections are omitted from the response.
     """
     where, params = _period_clause(period)
 
@@ -239,7 +231,7 @@ async def weather_by_condition(
         bucket = _normalise_condition(r["weather_condition"])
         bucket_counts[bucket] += r["count"]
 
-    # Return in canonical display order, omitting empty buckets.
+    # Return in canonical display order, skipping empty buckets.
     return [
         {"condition": name, "count": bucket_counts[name]}
         for name in _CANONICAL_ORDER
@@ -255,7 +247,7 @@ async def weather_by_wind_speed(
     """Detection counts grouped into four wind speed bins.
 
     Bins: Calm (<2 m/s), Light (2–5 m/s), Moderate (5–10 m/s), Strong (>10 m/s).
-    All four bins are always present in the response (zero-filled).
+    All four bins are always present (zero-filled).
     """
     where, params = _period_clause(period)
 
@@ -293,7 +285,7 @@ async def weather_by_temperature(
     """Detection counts grouped into six temperature bins.
 
     Bins: <0°C, 0–5°C, 5–10°C, 10–15°C, 15–20°C, >20°C.
-    All six bins are always present in the response (zero-filled).
+    All six bins are always present (zero-filled).
     """
     where, params = _period_clause(period)
 
@@ -330,13 +322,10 @@ async def weather_wind_rose(
     period: str = Query("30d"),
     db: AsyncConnection = Depends(get_db),
 ):
-    """Detection counts grouped into 16 compass direction sectors.
+    """Detection counts grouped into 16 compass direction sectors (22.5° each).
 
-    Sector 0 = N, increasing clockwise in 22.5° steps (N, NNE, NE, … NNW).
-    All 16 sectors are always present (zero-filled).  The sector index is
-    computed as::
-
-        CAST((weather_wind_direction + 11.25) / 22.5 AS INTEGER) % 16
+    Sector 0 = N, increasing clockwise (N, NNE, NE, … NNW).
+    All 16 sectors are always present (zero-filled).
     """
     where, params = _period_clause(period)
 

@@ -1,23 +1,15 @@
 """
-weather_openweathermap.py — OpenWeatherMap weather provider.
+OpenWeatherMap weather provider.
 
-OpenWeatherMap's Current Weather API (https://openweathermap.org/current)
-provides real-time conditions worldwide.  A free API key is required (sign
-up at https://openweathermap.org/api).
+Fetches current conditions from https://openweathermap.org/current.
+A free API key is required — sign up at https://openweathermap.org/api.
 
-Set ``api_key`` in the ``[weather]`` section of config.toml::
+Add to config.toml::
 
     [weather]
     enabled  = true
     provider = "openweathermap"
     api_key  = "your_key_here"
-
-This module exposes a single function, ``fetch``, matching the interface
-expected by ``weather.py``::
-
-    def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None
-
-All exceptions are caught internally.
 """
 
 from __future__ import annotations
@@ -38,20 +30,12 @@ _BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 
 def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
-    """Fetch current conditions from the OpenWeatherMap Current Weather API.
+    """Fetch current conditions from OpenWeatherMap.
 
-    Requests ``units=metric`` so temperatures are in °C and wind speed in m/s.
-    Precipitation is taken from the ``rain.1h`` field (last-hour accumulation
-    in mm); ``None`` if no rain data is present.
-
-    Args:
-        lat: Latitude in WGS-84 decimal degrees.
-        lon: Longitude in WGS-84 decimal degrees.
-        ts:  Detection timestamp (not used directly; OWM returns current data).
-
-    Returns:
-        A populated :class:`~weather.WeatherData` instance, or ``None``
-        if the API key is missing or the request fails.
+    Uses ``units=metric`` so temperatures are °C and wind speed is m/s.
+    Precipitation is last-hour rainfall in mm (``rain.1h``); ``None`` when
+    the field is absent (i.e. no rain). ``ts`` is not used directly.
+    Returns ``None`` if the API key is missing or the request fails.
     """
     api_key = cfg.weather.api_key
     if not api_key:

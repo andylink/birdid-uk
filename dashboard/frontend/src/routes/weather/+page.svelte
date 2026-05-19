@@ -18,6 +18,7 @@
 	let summary = $state<WeatherSummary | null>(null);
 	let loading = $state(true);
 
+	// Stale-response guard: discard results from a superseded period selection.
 	$effect(() => {
 		const p = period;
 		loading = true;
@@ -34,6 +35,7 @@
 			.finally(() => { if (period === p) loading = false; });
 	});
 
+	// Format a nullable number as a fixed-decimal string with unit, or return undefined for StatCard.
 	function fmt(v: number | null | undefined, unit: string, dp = 1): string | undefined {
 		return v != null ? `${v.toFixed(dp)}${unit}` : undefined;
 	}

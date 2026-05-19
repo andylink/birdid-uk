@@ -1,24 +1,22 @@
 """
-filters/privacy_filter.py — clip-level human-speech privacy gate.
+filters/privacy_filter.py — drops detection clips that contain human speech.
 
-When enabled, :class:`PrivacyFilter` runs silero-vad against each confirmed
-detection clip (inside ``_deferred_save``) and drops any clip where the
-fraction of voiced frames meets or exceeds ``min_voiced_fraction``.  No
-database row, FLAC clip, MQTT message, or BirdWeather upload is created for
-dropped clips.
+When enabled, PrivacyFilter runs silero-vad against each confirmed detection
+clip (inside _deferred_save) and drops any clip where the fraction of voiced
+frames meets or exceeds min_voiced_fraction. Dropped clips produce no database
+row, FLAC file, MQTT message, or BirdWeather upload.
 
-silero-vad is a small (~1.8 MB) ONNX-backed neural VAD that correctly
-distinguishes human speech from environmental audio including bird song.
-It does not depend on the active inference model and runs on CPU only.
+silero-vad is a small (~1.8 MB) ONNX-backed neural VAD that reliably
+distinguishes human speech from bird song and other environmental audio.
+It runs on CPU and is independent of the BirdNET inference model.
 
-Usage::
-
+Usage:
     from filters.privacy_filter import PrivacyFilter
     from config import cfg
 
     pf = PrivacyFilter(cfg.privacy_filter, cfg.audio.sample_rate)
     if pf.scan(audio_segment):
-        return  # drop — human speech detected
+        return  # human speech detected — drop this clip
 """
 
 from __future__ import annotations
@@ -34,25 +32,23 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_SILERO_SR = 16_000  # silero-vad only accepts 16 kHz input
+_SILERO_SR = 16_000  # silero-vad requires 16 kHz input
 
 
 class PrivacyFilter:
-    """Clip-level gate that drops detections containing human speech.
+    """Drops detection clips that contain human speech above a configurable threshold.
 
-    Uses silero-vad (neural VAD) to compute the fraction of voiced frames in
-    the clip.  If the voiced fraction meets or exceeds *min_voiced_fraction*
-    the clip is considered to contain human speech and should be dropped.
+    Uses silero-vad to compute the fraction of voiced frames in a clip.
+    If that fraction meets or exceeds min_voiced_fraction, the clip is
+    considered to contain human speech and the caller should discard it.
 
     Parameters
     ----------
     cfg:
-        :class:`~config.PrivacyFilterConfig` with ``enabled``,
-        ``threshold``, and ``min_voiced_fraction``.
+        PrivacyFilterConfig with enabled, threshold, and min_voiced_fraction.
     sample_rate:
-        Native sample rate of audio passed to :meth:`scan`
-        (``cfg.audio.sample_rate``).  Audio will be resampled to 16 kHz
-        internally; the original array is not modified.
+        Sample rate of audio passed to scan() (cfg.audio.sample_rate).
+        Audio is resampled to 16 kHz internally; the original array is not modified.
     """
 
     def __init__(
@@ -63,8 +59,7 @@ class PrivacyFilter:
         self._cfg         = cfg
         self._sample_rate = sample_rate
 
-        # Lazy-load silero-vad model on first use to avoid slowing startup
-        # when the filter is enabled but the detector hasn't confirmed a clip yet.
+        # Model is loaded on first use to avoid slowing startup
         self._model = None
 
         logger.info(
@@ -81,31 +76,29 @@ class PrivacyFilter:
 
     @property
     def enabled(self) -> bool:
-        """True when the filter is active (mirrors ``cfg.privacy_filter.enabled``)."""
+        """True when the filter is active."""
         return self._cfg.enabled
 
     def scan(self, audio: np.ndarray) -> bool:
-        """Return ``True`` if human speech is detected above threshold.
+        """Return True if human speech is detected above threshold.
 
-        Resamples *audio* to 16 kHz, runs silero-vad frame-by-frame with the
-        configured *threshold*, and returns whether the voiced fraction of the
-        clip meets or exceeds ``cfg.min_voiced_fraction``.
+        Resamples to 16 kHz, runs silero-vad, and returns True if the voiced
+        fraction of the clip meets or exceeds min_voiced_fraction.
 
         Args:
-            audio: PCM float32 (or int16) array at ``sample_rate`` — typically
-                the model-window slice of the assembled detection clip.
+            audio: PCM float32 (or int16) array at the configured sample_rate —
+                typically the model-window slice of the assembled detection clip.
 
         Returns:
-            ``True``  → voiced fraction ≥ min_voiced_fraction; caller should
-                         drop the clip.
-            ``False`` → speech below threshold; proceed normally.
+            True  → voiced fraction ≥ min_voiced_fraction; caller should drop the clip.
+            False → below threshold; proceed normally.
         """
         import torch
         from silero_vad import get_speech_timestamps
 
         self._ensure_model()
 
-        # ── Convert to float32 mono ───────────────────────────────────────────
+        # Convert to float32 mono
         if audio.ndim > 1:
             audio = audio.mean(axis=1)
         if audio.dtype == np.int16:
@@ -113,7 +106,7 @@ class PrivacyFilter:
         else:
             audio = audio.astype(np.float32)
 
-        # ── Resample to 16 kHz ────────────────────────────────────────────────
+        # Resample to 16 kHz if needed
         if self._sample_rate != _SILERO_SR:
             from scipy.signal import resample_poly
             g    = gcd(self._sample_rate, _SILERO_SR)

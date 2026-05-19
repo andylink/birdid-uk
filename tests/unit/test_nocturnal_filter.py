@@ -1,9 +1,9 @@
 """
-tests/unit/test_nocturnal_filter.py — unit tests for nocturnal_filter.py
+Unit tests for nocturnal_filter.py.
 
-Fixed-window logic is tested deterministically.  The sunset_sunrise window
-type is tested with real astral calculations at a known location and a
-manually-chosen datetime that is unambiguously daytime or night-time.
+Fixed-window tests are fully deterministic. Sunset/sunrise window tests use
+real astral calculations for London on a known date (2026-06-21, summer solstice)
+where sunrise (~03:30 UTC) and sunset (~20:15 UTC) are unambiguous.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ def _make_filter_json(tmp_path: Path, species_data: dict) -> Path:
 
 
 def _make_filter(tmp_path: Path, species_data: dict, **kwargs) -> NocturnalFilter:
-    """Build a NocturnalFilter with test data."""
+    """Build a NocturnalFilter with test data, defaulting to London coordinates."""
     json_path = _make_filter_json(tmp_path, species_data)
     return NocturnalFilter(
         enabled=True,
@@ -63,6 +63,7 @@ class TestNocturnalFilterDisabled:
         assert nf.check("Tawny Owl", ts) is True
 
     def test_disabled_when_json_missing(self, tmp_path):
+        """A missing JSON file should cause the filter to disable itself gracefully."""
         nf = NocturnalFilter(
             enabled=True,
             json_path=tmp_path / "missing.json",
@@ -88,7 +89,7 @@ class TestUnrestrictedSpecies:
 class TestFixedWindow:
     @pytest.fixture
     def nf_overnight(self, tmp_path):
-        """Tawny Owl active 22:00–04:00 (overnight, start > end)."""
+        """Tawny Owl active 22:00–04:00 (overnight window, start > end)."""
         return _make_filter(
             tmp_path,
             {"Tawny Owl": {"type": "fixed", "start": "22:00", "end": "04:00"}},
@@ -97,7 +98,7 @@ class TestFixedWindow:
 
     @pytest.fixture
     def nf_sameday(self, tmp_path):
-        """Swift active 06:00–20:00 (same-day window, start < end)."""
+        """Common Swift active 06:00–20:00 (same-day window, start < end)."""
         return _make_filter(
             tmp_path,
             {"Common Swift": {"type": "fixed", "start": "06:00", "end": "20:00"}},
@@ -107,32 +108,28 @@ class TestFixedWindow:
     # ── Overnight window ──────────────────────────────────────────────────────
 
     def test_overnight_allowed_after_start(self, nf_overnight):
-        # 23:00 UTC — within [22:00, 04:00] window
         ts = datetime(2026, 6, 15, 23, 0, tzinfo=timezone.utc)
         assert nf_overnight.check("Tawny Owl", ts) is True
 
     def test_overnight_allowed_before_end(self, nf_overnight):
-        # 02:00 UTC — within [22:00, 04:00] window
         ts = datetime(2026, 6, 15, 2, 0, tzinfo=timezone.utc)
         assert nf_overnight.check("Tawny Owl", ts) is True
 
     def test_overnight_allowed_at_midnight(self, nf_overnight):
-        # 00:00 — within overnight window
         ts = datetime(2026, 6, 15, 0, 0, tzinfo=timezone.utc)
         assert nf_overnight.check("Tawny Owl", ts) is True
 
     def test_overnight_blocked_during_day(self, nf_overnight):
-        # 12:00 UTC — clearly daytime, outside the window
         ts = datetime(2026, 6, 15, 12, 0, tzinfo=timezone.utc)
         assert nf_overnight.check("Tawny Owl", ts) is False
 
     def test_overnight_blocked_just_before_start(self, nf_overnight):
-        # 21:59 UTC — one minute before window starts
+        # One minute before the window opens
         ts = datetime(2026, 6, 15, 21, 59, tzinfo=timezone.utc)
         assert nf_overnight.check("Tawny Owl", ts) is False
 
     def test_overnight_blocked_just_after_end(self, nf_overnight):
-        # 04:01 UTC — one minute after window ends
+        # One minute after the window closes
         ts = datetime(2026, 6, 15, 4, 1, tzinfo=timezone.utc)
         assert nf_overnight.check("Tawny Owl", ts) is False
 
@@ -159,14 +156,13 @@ class TestFixedWindow:
 
 class TestSunsetSunriseWindow:
     """
-    Use London coordinates on a mid-summer day where we know the rough
-    sunrise (~04:30 BST / 03:30 UTC) and sunset (~21:15 BST / 20:15 UTC).
-    2026-06-21 (summer solstice).
+    Uses London on the 2026 summer solstice (2026-06-21).
+    Approximate times: sunrise ~03:30 UTC, sunset ~20:15 UTC.
     """
 
     @pytest.fixture
     def nf_sunset_sunrise(self, tmp_path):
-        """Tawny Owl active outside daytime (sunset_sunrise, no offsets)."""
+        """Tawny Owl restricted to between sunset and sunrise (no offset)."""
         return _make_filter(
             tmp_path,
             {"Tawny Owl": {"type": "sunset_sunrise",
@@ -176,12 +172,12 @@ class TestSunsetSunriseWindow:
         )
 
     def test_blocked_during_midday(self, nf_sunset_sunrise):
-        # 12:00 BST = 11:00 UTC — well within daytime
+        # 12:00 BST = 11:00 UTC — clearly within daytime
         ts = datetime(2026, 6, 21, 11, 0, tzinfo=timezone.utc)
         assert nf_sunset_sunrise.check("Tawny Owl", ts) is False
 
     def test_allowed_at_midnight(self, nf_sunset_sunrise):
-        # 00:00 BST = 23:00 UTC on the previous day — well outside daytime
+        # 00:00 BST = 23:00 UTC previous day — clearly nighttime
         ts = datetime(2026, 6, 20, 23, 0, tzinfo=timezone.utc)
         assert nf_sunset_sunrise.check("Tawny Owl", ts) is True
 
@@ -190,13 +186,12 @@ class TestSunsetSunriseWindow:
 
 class TestConfigOverride:
     def test_config_override_replaces_json_window(self, tmp_path):
-        """A per-species config override supersedes the JSON data file."""
-        # JSON says Tawny Owl is active 22:00-04:00
+        """A per-species config override should replace the window from the JSON file."""
         json_path = _make_filter_json(
             tmp_path,
             {"Tawny Owl": {"type": "fixed", "start": "22:00", "end": "04:00"}},
         )
-        # Config override changes Tawny Owl to active 06:00-12:00 (same-day)
+        # Override changes active hours to 06:00–12:00
         nf = NocturnalFilter(
             enabled=True,
             json_path=json_path,
@@ -208,16 +203,16 @@ class TestConfigOverride:
             },
         )
 
-        # 09:00 UTC — inside override window → allowed
+        # 09:00 — inside override window → allowed
         ts_inside = datetime(2026, 6, 15, 9, 0, tzinfo=timezone.utc)
         assert nf.check("Tawny Owl", ts_inside) is True
 
-        # 23:00 UTC — inside original JSON window but NOT override → blocked
+        # 23:00 — inside original JSON window, but override takes precedence → blocked
         ts_night = datetime(2026, 6, 15, 23, 0, tzinfo=timezone.utc)
         assert nf.check("Tawny Owl", ts_night) is False
 
     def test_config_override_adds_new_species(self, tmp_path):
-        """A config override can restrict a species not in the JSON at all."""
+        """A config override can add restrictions for a species not in the JSON."""
         nf = _make_filter(
             tmp_path,
             {},  # empty JSON
@@ -226,11 +221,9 @@ class TestConfigOverride:
                 "Robin": {"active_hours": {"type": "fixed", "start": "06:00", "end": "22:00"}}
             },
         )
-        # Midnight → outside window → blocked
         ts_midnight = datetime(2026, 6, 15, 0, 0, tzinfo=timezone.utc)
         assert nf.check("Robin", ts_midnight) is False
 
-        # 10:00 → inside window → allowed
         ts_day = datetime(2026, 6, 15, 10, 0, tzinfo=timezone.utc)
         assert nf.check("Robin", ts_day) is True
 
@@ -241,10 +234,9 @@ class TestCaseInsensitiveLookup:
     def test_lookup_is_case_insensitive(self, tmp_path):
         nf = _make_filter(
             tmp_path,
-            # JSON key uses title case
             {"Tawny Owl": {"type": "fixed", "start": "22:00", "end": "04:00"}},
             timezone_str="UTC",
         )
-        # Queried with lower case — should still find the window
+        # Queried with lowercase — should still find the window
         ts_day = datetime(2026, 6, 15, 12, 0, tzinfo=timezone.utc)
-        assert nf.check("tawny owl", ts_day) is False  # daytime → blocked
+        assert nf.check("tawny owl", ts_day) is False

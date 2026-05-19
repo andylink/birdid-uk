@@ -1,24 +1,19 @@
 """
-mqtt.py — MQTT publishing for bird detections.
+mqtt.py — Publishes bird detections to an MQTT broker as JSON messages.
 
-Each detection is serialised as a JSON message and published to the
-configured broker topic.  Publishing is fire-and-forget: failures are logged
-as warnings and never raise into the classify loop.
+Publishing is fire-and-forget: errors are logged as warnings and never
+interrupt the classify loop. The paho-mqtt network loop runs in a background
+thread, so publishes are non-blocking with automatic reconnection.
 
-The paho-mqtt client runs its network loop in a background thread
-(``loop_start``), so publishes are non-blocking.  The client reconnects
-automatically if the broker drops the connection.
-
-Payload schema
---------------
+Payload schema:
 {
-    "timestamp":  "2026-05-07T16:20:59",   // ISO-8601 to the second
-    "species":    "European Robin",         // top-confidence species
-    "bto_name":   "Robin",                 // BTO British name (null if unknown)
-    "confidence": 0.9211,                  // rounded to 4 dp
-    "source_name": "garden-north",         // audio source name (null in single-source mode)
-    "clip_path":  "data/detections/...",
-    "secondary":  [                         // additional candidates (may be empty)
+    "timestamp":   "2026-05-07T16:20:59",   // ISO-8601 to the second
+    "species":     "European Robin",         // top-confidence species
+    "bto_name":    "Robin",                  // BTO British name (null if unknown)
+    "confidence":  0.9211,                   // rounded to 4 dp
+    "source_name": "garden-north",           // audio source name (null in single-source mode)
+    "clip_path":   "data/detections/...",
+    "secondary":   [                         // additional candidates (may be empty)
         {"species": "Song Thrush", "confidence": 0.4503}
     ]
 }
@@ -35,16 +30,15 @@ from config import cfg
 
 logger = logging.getLogger(__name__)
 
-_client = None   # paho mqtt.Client once initialised, else None
+_client = None  # paho mqtt.Client once initialised, else None
 
 
 def init_mqtt() -> None:
-    """
-    Connect to the MQTT broker and start the background network loop.
+    """Connect to the MQTT broker and start the background network loop.
 
-    No-op when ``[mqtt] enabled = false``.  Logs a clear error and leaves
-    ``_client`` as ``None`` if paho-mqtt is not installed or the broker is
-    unreachable; ``publish_detection`` becomes a silent no-op in that case.
+    No-op when [mqtt] enabled = false. Logs an error and leaves _client as
+    None if paho-mqtt is not installed or the broker is unreachable, making
+    publish_detection a silent no-op.
     """
     global _client
 
@@ -58,8 +52,7 @@ def init_mqtt() -> None:
         return
 
     def _on_connect(client, userdata, flags, *args) -> None:
-        # args[0] is rc (int) in paho v1, ReasonCode in paho v2 — both compare
-        # equal to 0 on success.
+        # paho v1 passes rc as int; paho v2 passes a ReasonCode — both equal 0 on success.
         rc = args[0] if args else 0
         if rc == 0:
             logger.info("[mqtt] connected to %s:%d", cfg.mqtt.broker, cfg.mqtt.port)
@@ -67,19 +60,18 @@ def init_mqtt() -> None:
             logger.warning("[mqtt] connection refused (rc=%s)", rc)
 
     def _on_disconnect(client, userdata, *args) -> None:
-        # Signature varies between paho v1 (rc) and v2 (disconnect_flags, reason_code, properties).
+        # Signature differs between paho v1 and v2; check first arg for error code.
         rc = args[0] if args else 0
         if rc != 0:
             logger.warning("[mqtt] disconnected unexpectedly (rc=%s) — will reconnect", rc)
 
-    # Instantiate client — handle paho-mqtt v1 (< 2.0) and v2 (>= 2.0).
+    # CallbackAPIVersion.VERSION2 was added in paho-mqtt 2.0; fall back for older installs.
     try:
         client = _mqtt.Client(
             _mqtt.CallbackAPIVersion.VERSION2,
             client_id="bird-detector",
         )
     except AttributeError:
-        # paho-mqtt < 2.0 does not have CallbackAPIVersion
         client = _mqtt.Client(client_id="bird-detector")
 
     client.on_connect    = _on_connect
@@ -106,12 +98,10 @@ def publish_detection(
     bto_name: str | None = None,
     source_name: str | None = None,
 ) -> None:
-    """
-    Publish one detection event as JSON to ``cfg.mqtt.topic``.
+    """Publish one detection event as JSON to cfg.mqtt.topic.
 
     Silently returns if MQTT is disabled or the client is not connected.
-    Any publish error is logged at WARNING level and swallowed so it never
-    interrupts the classify loop.
+    Publish errors are logged at WARNING level and never interrupt the classify loop.
     """
     if _client is None:
         return

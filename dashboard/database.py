@@ -1,20 +1,15 @@
 """
-dashboard/database.py — async database access via SQLAlchemy asyncio.
+Async database access for the dashboard, supporting SQLite and PostgreSQL.
 
-Supports both SQLite (default) and PostgreSQL, driven by [database] type in
-config.toml.  The async engine is created once at startup and shared across
-all requests via a module-level instance.
+A single async SQLAlchemy engine is created at startup and shared across all
+requests.  The correct driver is chosen automatically based on DB_URL from
+dashboard/config.py:
+    sqlite     → sqlite+aiosqlite
+    postgresql → postgresql+asyncpg
 
-Driver selection is handled by the DB_URL constructed in dashboard/config.py:
-    sqlite      → sqlite+aiosqlite:///path/to/birds.db
-    postgresql  → postgresql+asyncpg://user:pass@host:port/db
-
-All queries use SQLAlchemy ``text()`` with ``:name`` bound parameters, which
-SQLAlchemy translates to the correct wire format for each driver (``?`` for
-aiosqlite, ``$1…`` for asyncpg).
-
-Rows are returned as ``RowMapping`` objects (dict-like, keyed by column name)
-from ``.mappings().all()`` / ``.mappings().first()``.
+All queries use SQLAlchemy text() with :name bound parameters.  Rows come back
+as RowMapping objects (dict-like, keyed by column name) via .mappings().all()
+or .mappings().first().
 """
 
 from __future__ import annotations
@@ -27,16 +22,16 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_en
 from dashboard.config import DB_TYPE, DB_URL
 
 # ── Engine ────────────────────────────────────────────────────────────────────
-# Created once at import time; startup_db() / shutdown_db() manage its lifecycle.
+# Initialised by startup_db(); None until then.
 _engine: AsyncEngine | None = None
 
 
 def _make_engine() -> AsyncEngine:
-    """Build the async engine appropriate for the configured backend."""
+    """Create the async engine for the configured database backend."""
     if DB_TYPE == "sqlite":
         engine = create_async_engine(DB_URL, connect_args={"check_same_thread": False})
 
-        # WAL mode: allow concurrent reads alongside the detector's write engine.
+        # Enable WAL mode so the dashboard can read while the detector is writing.
         @event.listens_for(engine.sync_engine, "connect")
         def _set_wal(dbapi_conn, _record) -> None:
             dbapi_conn.execute("PRAGMA journal_mode=WAL")
@@ -50,13 +45,13 @@ def _make_engine() -> AsyncEngine:
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 async def startup_db() -> None:
-    """Initialise the async engine.  Called from the FastAPI lifespan hook."""
+    """Create the async engine. Called from the FastAPI lifespan hook."""
     global _engine
     _engine = _make_engine()
 
 
 async def shutdown_db() -> None:
-    """Dispose the async engine and release all connections."""
+    """Close all connections and dispose the engine on shutdown."""
     global _engine
     if _engine is not None:
         await _engine.dispose()
@@ -64,7 +59,7 @@ async def shutdown_db() -> None:
 
 
 def get_engine() -> AsyncEngine:
-    """Return the live engine; raises if startup_db() has not been called."""
+    """Return the live engine. Raises if startup_db() hasn't been called yet."""
     if _engine is None:
         raise RuntimeError("Database engine not initialised — was startup_db() called?")
     return _engine
@@ -73,11 +68,6 @@ def get_engine() -> AsyncEngine:
 # ── FastAPI dependency ────────────────────────────────────────────────────────
 
 async def get_db() -> AsyncGenerator[AsyncConnection, None]:
-    """FastAPI dependency: yield a read-only async database connection.
-
-    Rows returned by ``conn.execute(text(sql), params).mappings().all()`` are
-    ``RowMapping`` objects that support dict-like column-name access and
-    ``dict(row)`` conversion, for both SQLite and PostgreSQL backends.
-    """
+    """FastAPI dependency that yields an async database connection per request."""
     async with get_engine().connect() as conn:
         yield conn

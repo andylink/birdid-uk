@@ -1,9 +1,8 @@
 """
-tests/unit/test_audio.py — unit tests for audio.py
+Unit tests for audio.py.
 
-audio/utils.py imports ``cfg`` at module level, so we monkeypatch
-``audio.utils.cfg`` with a test Config in each test that exercises
-cfg-dependent code paths.
+audio/utils.py imports `cfg` at module level, so we monkeypatch
+`audio.utils.cfg` in each test that exercises config-dependent code.
 """
 
 from __future__ import annotations
@@ -70,24 +69,20 @@ class TestApplyHighpass:
         assert result.max() <= 32767
 
     def test_high_frequency_preserved(self):
-        """A signal above the cutoff should survive the filter with reasonable amplitude."""
+        """A 1 kHz tone (well above the 150 Hz cutoff) should retain substantial energy."""
         sr = 48000
         t = np.linspace(0, 1.0, sr, endpoint=False)
-        # 1 kHz sine — well above the 150 Hz cutoff
         high = (np.sin(2 * np.pi * 1000 * t) * 8000).astype(np.int16)
         filtered = apply_highpass(high, sr, cutoff_hz=150.0, order=5)
-        # The 1 kHz tone should still have substantial energy after filtering
         assert np.abs(filtered).max() > 1000
 
     def test_low_frequency_attenuated(self):
-        """A signal at DC (0 Hz) should be heavily attenuated by the high-pass filter."""
+        """A 10 Hz tone (well below the 150 Hz cutoff) should be heavily attenuated."""
         sr = 48000
-        # 10 Hz tone — well below the 150 Hz cutoff
         t = np.linspace(0, 1.0, sr, endpoint=False)
         low = (np.sin(2 * np.pi * 10 * t) * 16000).astype(np.int16)
         filtered = apply_highpass(low, sr, cutoff_hz=150.0, order=5)
-        # The 10 Hz tone should be significantly reduced
-        # Allow generous tolerance: just check it's at most 10% of original peak
+        # Filtered mean amplitude should be less than 10% of the original
         original_peak = np.abs(low.astype(np.float32)).mean()
         filtered_peak = np.abs(filtered.astype(np.float32)).mean()
         assert filtered_peak < original_peak * 0.1
@@ -138,31 +133,28 @@ class TestSaveClip:
         assert p.suffix == ".flac"
 
     def test_normalisation_scales_to_peak_32767(self, test_cfg):
-        """save_clip normalises to full int16 range."""
-        # Low-amplitude signal (peak = 100)
+        """save_clip should normalise audio to full int16 range before saving."""
         low_signal = np.full(48000, 100, dtype=np.int16)
         ts = datetime(2026, 5, 13, 12, 0, 0, tzinfo=timezone.utc)
         p = save_clip(low_signal, ts, "TestBird")
         data, _ = sf.read(str(p), dtype="int16")
-        # After normalisation, peak should be 32767
         assert np.abs(data).max() == 32767
 
     def test_silent_clip_handled_without_error(self, test_cfg):
-        """All-zeros audio (silent clip) should not raise ZeroDivisionError."""
+        """All-zeros (silent) audio should not cause a ZeroDivisionError."""
         silent = np.zeros(48000, dtype=np.int16)
         ts = datetime(2026, 5, 13, 12, 0, 0, tzinfo=timezone.utc)
         p = save_clip(silent, ts, "SilentBird")
         assert p.exists()
 
     def test_detections_dir_created_if_missing(self, test_cfg, tmp_path, monkeypatch):
-        """save_clip creates detections_dir if it doesn't exist yet."""
+        """save_clip should create the detections directory if it doesn't exist yet."""
         import config as config_mod
         from config import PathsConfig
 
         new_dir = tmp_path / "new_detections"
         assert not new_dir.exists()
 
-        # Build a modified cfg with a non-existent detections_dir
         new_cfg = config_mod.Config(
             paths=PathsConfig(detections_dir=new_dir, db_path=test_cfg.paths.db_path),
             audio=test_cfg.audio,

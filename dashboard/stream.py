@@ -1,11 +1,9 @@
 """
-dashboard/stream.py — SSE stream that polls the DB every 2 s and pushes new
-detections as named 'detection' events.
+SSE stream that polls the database every 2 seconds and pushes new detections
+to connected clients as named 'detection' events.
 
-Uses SQLAlchemy asyncio (via get_engine()) so it works with both SQLite and
-PostgreSQL backends.  The generator seeds ``last_id`` from the current DB
-maximum so only detections that arrive *after* the client connects are streamed
-(no replay on reconnect).
+Only detections that arrive after the client connects are sent — no history
+is replayed on reconnect. Works with both SQLite and PostgreSQL.
 """
 
 from __future__ import annotations
@@ -28,8 +26,8 @@ def _row_to_dict(row: dict) -> dict:
     clip_path = d.get("clip_path")
     d["filename"] = Path(clip_path).name if clip_path else None
     d["timestamp"] = to_utc_iso(d.get("timestamp"))
-    # Normalise boolean fields to integers so the frontend === 1 checks hold
-    # for both SQLite (returns int) and PostgreSQL (returns bool via asyncpg).
+    # PostgreSQL returns booleans; SQLite returns integers.
+    # Normalise to integers so frontend === 1 checks work on both backends.
     for key in ("flagged", "cross_validated", "cv_agree"):
         if key in d and isinstance(d[key], bool):
             d[key] = int(d[key])
@@ -41,15 +39,15 @@ async def detection_generator() -> AsyncGenerator[dict, None]:
     last_id: int = 0
 
     async with get_engine().connect() as conn:
-        # Seed last_id so we don't replay history on initial connect.
-        # Guard against a race where detect.py hasn't created the schema yet.
+        # Start from the current max ID so we don't send existing detections on connect.
+        # Silently skip if the detections table doesn't exist yet.
         try:
             row = (
                 await conn.execute(text("SELECT COALESCE(MAX(id), 0) AS m FROM detections"))
             ).one()
             last_id = int(row[0])
         except OperationalError:
-            pass  # table not yet created; last_id stays 0
+            pass
 
         while True:
             try:
@@ -72,7 +70,7 @@ async def detection_generator() -> AsyncGenerator[dict, None]:
                     )
                 ).mappings().all()
             except OperationalError:
-                rows = []  # table not yet created; wait and retry next cycle
+                rows = []  # table not yet created; retry next cycle
 
             for row in rows:
                 d = _row_to_dict(dict(row))

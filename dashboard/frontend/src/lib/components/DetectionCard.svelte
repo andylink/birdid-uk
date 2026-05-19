@@ -11,6 +11,7 @@
 	const date      = $derived(formatDate(detection.timestamp));
 	const badgeClass = $derived(confidenceBadgeClass(detection.confidence));
 
+	// Notable = UK Red List, Rare, or Very rare
 	const isNotable = $derived(
 		detection.uk_bocc === 'Red' ||
 		detection.species_status === 'Rare' ||
@@ -34,7 +35,7 @@
 	class:notable={isNotable}
 	class:flagged={isFlagged && !isNotable}
 >
-	<!-- Confidence bar -->
+	<!-- Vertical confidence bar on the left edge -->
 	<div class="conf-bar-wrap" aria-label="Confidence {formatConfidence(detection.confidence)}">
 		<div class="conf-bar-track">
 			<div
@@ -74,6 +75,7 @@
 
 		<Spectrogram filename={detection.filename} species={detection.species} />
 
+		<!-- Cross-validation detail: shown when a second model also ran -->
 		{#if cvRan}
 			<div class="cv-detail">
 				<span>primary: <span class="tabular">{detection.model ?? '—'}</span>
@@ -105,16 +107,18 @@
 	.detection-card:hover {
 		background: var(--color-surface-2);
 	}
+	/* Red left border for conservation-notable species */
 	.detection-card.notable {
 		border-left: 2px solid #ef4444;
 		background: rgba(239, 68, 68, 0.03);
 	}
+	/* Amber left border for manually flagged detections */
 	.detection-card.flagged {
 		border-left: 2px solid #f59e0b;
 		background: rgba(245, 158, 11, 0.03);
 	}
 
-	/* Confidence bar */
+	/* Vertical confidence bar */
 	.conf-bar-wrap {
 		display: flex;
 		flex-direction: column;
@@ -130,6 +134,7 @@
 		position: relative;
 		overflow: hidden;
 	}
+	/* Fill grows from the bottom; height is set by confidence (0–100%) */
 	.conf-bar-fill {
 		position: absolute;
 		bottom: 0;
@@ -142,7 +147,6 @@
 	.conf-bar-fill.fill-notable { background: #ef4444; }
 	.conf-bar-fill.fill-flagged { background: #f59e0b; }
 
-	/* Body */
 	.detection-body {
 		flex: 1;
 		min-width: 0;
@@ -178,7 +182,6 @@
 		margin-top: 0.125rem;
 	}
 
-	/* Micro badges */
 	.micro-badge {
 		font-size: 0.5625rem;
 		font-weight: 700;
@@ -195,7 +198,7 @@
 		font-weight: 500;
 	}
 
-	/* CV detail row */
+	/* Cross-validation result row below the spectrogram */
 	.cv-detail {
 		margin-top: 0.375rem;
 		font-size: 0.625rem;

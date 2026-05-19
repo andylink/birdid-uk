@@ -1,34 +1,32 @@
 """
-nocturnal_filter.py — time-of-day gate for nocturnal and crepuscular species.
+nocturnal_filter.py — restricts detections for night-active species to appropriate hours.
 
-For each species listed in the filter JSON (default: uk_nocturnal_filter.json),
-detections are only accepted within the species' active window.  Detections
-that fall in the middle of the day are discarded as likely false positives.
+For each species listed in uk_nocturnal_filter.json, detections are only accepted
+within the species' active window. Daytime detections of owls and other nocturnal
+or crepuscular species are likely false positives and are discarded.
 
 Two window types are supported:
 
-``sunset_sunrise`` (recommended)
-    The active window spans from (sunset + sunset_offset_minutes) to
-    (sunrise + sunrise_offset_minutes).  Offset signs follow the convention:
+sunset_sunrise (recommended)
+    Active window runs from (sunset + sunset_offset_minutes) to
+    (sunrise + sunrise_offset_minutes). Offset sign convention:
+      - sunset_offset_minutes < 0  → window starts before sunset
+      - sunrise_offset_minutes > 0 → window extends past sunrise into the morning
 
-      - ``sunset_offset_minutes < 0``  → window starts *before* sunset
-      - ``sunrise_offset_minutes > 0`` → window extends *past* sunrise into the morning
+    Sunrise/sunset times are computed from the lat/lon in config.toml using the
+    astral library, cached per calendar date, and compared in the configured timezone.
 
-    Sunrise and sunset are computed from [location] lat/lon in config.toml
-    using the *astral* library and cached per calendar date.  All comparisons
-    are made in the detector's configured timezone ([general] timezone).
+fixed
+    Active window is a fixed local clock range, e.g.:
+      {"type": "fixed", "start": "21:00", "end": "05:00"}
+    Windows that span midnight (start > end) are handled correctly.
 
-``fixed``
-    The active window is a fixed local clock-time range, e.g.
-    ``{"type": "fixed", "start": "21:00", "end": "05:00"}``.  A window that
-    spans midnight (start > end) is handled correctly.
-
-Species absent from both the data file and config overrides are unrestricted.
+Species not listed in the data file or config are unrestricted.
 
 Per-species config overrides
 -----------------------------
-Add an ``active_hours`` inline table to any ``[species."Name"]`` block in
-config.toml to override (or add) a time restriction::
+Add an active_hours inline table to any [species."Name"] block in config.toml
+to override or add a restriction:
 
     [species."Tawny Owl"]
     min_detections = 1
@@ -37,7 +35,7 @@ config.toml to override (or add) a time restriction::
     [species."Barn Owl"]
     active_hours   = {type = "fixed", start = "20:00", end = "06:00"}
 
-Config overrides take priority over the JSON data file.
+Config overrides take priority over the JSON file.
 """
 
 from __future__ import annotations
@@ -60,19 +58,17 @@ class NocturnalFilter:
     Parameters
     ----------
     enabled:
-        If ``False``, :meth:`check` always returns ``True`` (pass-through).
+        If False, check() always returns True (no filtering).
     json_path:
-        Path to the JSON data file mapping BirdNET species names to active
-        window specs (default: ``uk_nocturnal_filter.json``).
+        Path to the JSON file mapping species names to active window specs.
+        Defaults to uk_nocturnal_filter.json.
     lat, lon:
-        WGS-84 decimal degrees — used for sunrise/sunset computation when
-        ``type = "sunset_sunrise"`` windows are in use.
+        WGS-84 decimal degrees for sunrise/sunset calculation.
     timezone_str:
-        IANA timezone name, e.g. ``"Europe/London"``.  All time comparisons
-        are made in this timezone.
+        IANA timezone name, e.g. "Europe/London". All time comparisons use this zone.
     species_overrides:
-        Raw ``[species]`` dict from config.toml.  Any entry that contains an
-        ``active_hours`` key overrides the JSON data file for that species.
+        The [species] dict from config.toml. Entries with an active_hours key
+        override the JSON file for that species.
     """
 
     def __init__(
@@ -94,11 +90,10 @@ class NocturnalFilter:
             latitude=lat,
             longitude=lon,
         )
-        # Sunrise/sunset results cached per calendar date.
-        # The classify loop is single-threaded so no locking is needed.
+        # Sunrise/sunset results cached by date. Safe without locking — classify loop is single-threaded.
         self._sun_cache: dict[date, dict[str, datetime]] = {}
 
-        # Windows keyed by BirdNET common name (case-sensitive as stored in JSON).
+        # Active window specs keyed by BirdNET common name (case-sensitive as stored in JSON)
         self._windows: dict[str, dict] = {}
 
         if enabled:
@@ -116,7 +111,7 @@ class NocturnalFilter:
                 )
                 self.enabled = False
 
-        # Apply per-species config overrides — these take priority over the JSON.
+        # Config overrides take priority over the JSON file
         for species, overrides in species_overrides.items():
             if "active_hours" in overrides:
                 self._windows[species] = overrides["active_hours"]
@@ -129,10 +124,10 @@ class NocturnalFilter:
     # ------------------------------------------------------------------
 
     def _get_sun(self, local_date: date) -> dict[str, datetime]:
-        """Return astral sunrise/sunset datetimes for *local_date*.
+        """Return astral sunrise/sunset times for the given date, using a per-date cache.
 
-        Results are memoised; entries older than 2 days are evicted so the
-        cache stays small over a long-running daemon.
+        Old entries (more than 2 days back) are evicted to keep memory use low
+        for long-running processes.
         """
         if local_date not in self._sun_cache:
             self._sun_cache[local_date] = _astral_sun(
@@ -140,17 +135,16 @@ class NocturnalFilter:
                 date=local_date,
                 tzinfo=self._tz,
             )
-            # Evict stale entries (keep only today and yesterday).
+            # Keep only today and yesterday
             cutoff = local_date - timedelta(days=2)
             for stale in [d for d in self._sun_cache if d < cutoff]:
                 del self._sun_cache[stale]
         return self._sun_cache[local_date]
 
     def _get_window(self, species: str) -> dict | None:
-        """Return the window spec for *species*, or ``None`` if unrestricted.
+        """Return the active window spec for a species, or None if unrestricted.
 
-        Lookup is case-insensitive so minor capitalisation differences in
-        BirdNET output are handled gracefully.
+        Case-insensitive lookup to handle minor capitalisation differences in BirdNET output.
         """
         species_lower = species.lower()
         for key, val in self._windows.items():
@@ -163,21 +157,19 @@ class NocturnalFilter:
     # ------------------------------------------------------------------
 
     def check(self, species: str, ts: datetime) -> bool:
-        """Return ``True`` to allow the detection, ``False`` to discard it.
+        """Return True to allow the detection, False to discard it.
 
-        A detection passes when any of the following are true:
-
-        * The filter is disabled.
-        * The species has no time restriction in the data file or config.
-        * The detection timestamp falls within the species' active window.
+        A detection passes if:
+        - The filter is disabled, or
+        - The species has no time restriction, or
+        - The detection timestamp falls within the species' active window.
 
         Parameters
         ----------
         species:
-            BirdNET common name (IOC English), e.g. ``"Tawny Owl"``.
+            BirdNET common name, e.g. "Tawny Owl".
         ts:
-            Detection timestamp (timezone-aware, typically UTC from the
-            classify loop).
+            Detection timestamp (timezone-aware, typically UTC from the classify loop).
         """
         if not self.enabled:
             return True
@@ -194,9 +186,8 @@ class NocturnalFilter:
             sunrise_offset = timedelta(minutes=window.get("sunrise_offset_minutes", 0))
             sunset_offset  = timedelta(minutes=window.get("sunset_offset_minutes",  0))
 
-            # The "daytime" band runs from (sunrise + morning_margin) to
-            # (sunset + evening_margin, which may be before sunset if negative).
-            # A detection is ALLOWED when it falls OUTSIDE this band.
+            # The "daytime" band is from (sunrise + morning margin) to (sunset + evening margin).
+            # The species is active — and the detection is allowed — outside this band.
             daytime_start = s["sunrise"] + sunrise_offset
             daytime_end   = s["sunset"]  + sunset_offset
 
@@ -207,16 +198,14 @@ class NocturnalFilter:
             start = _time.fromisoformat(window["start"])
             end   = _time.fromisoformat(window["end"])
             t     = ts_local.time()
-            # Strip tzinfo from the time component so comparisons work cleanly.
+            # Strip tzinfo from the time component so comparisons work cleanly
             t = t.replace(tzinfo=None)
 
             if start > end:
-                # Overnight window (e.g. 21:00 → 05:00): active if AFTER start
-                # OR BEFORE end.
+                # Overnight window (e.g. 21:00–05:00): active after start OR before end
                 return t >= start or t <= end
             else:
-                # Same-day window (unusual for nocturnal species): active if
-                # within [start, end].
+                # Same-day window: active between start and end
                 return start <= t <= end
 
         else:

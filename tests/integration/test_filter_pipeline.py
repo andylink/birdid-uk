@@ -1,16 +1,14 @@
 """
-tests/integration/test_filter_pipeline.py — integration tests for the filter
-pipeline as a whole.
+Integration tests for the filter pipeline as a whole.
 
-Rather than exercising the full detector thread (which requires audio hardware,
-sounddevice, etc.), these tests instantiate each filter component with
-controlled state and verify how they interact when applied in sequence —
-mirroring the order used in `detector._classify_loop`:
+Rather than running the full detector (which requires audio hardware), these
+tests instantiate each filter component with controlled state and verify how
+they interact when applied in sequence — mirroring the order used in
+`detector._classify_loop`:
 
     exclude list → min_confidence → BOU allowlist → seasonal → nocturnal
 
-The confirmation and cooldown stages are covered by the detector unit tests and
-are not tested here.
+Confirmation and cooldown stages are covered by detector unit tests.
 """
 
 from __future__ import annotations
@@ -30,10 +28,7 @@ from filters.nocturnal_filter import NocturnalFilter
 from config import SpeciesFilterConfig, SpeciesConfig
 
 
-# ── Shared label map used across all tests ───────────────────────────────────
-#
-# Keys are "scientific_name_Common name" strings (BirdNET label format).
-# Values are the BirdNET common names (the part after "_").
+# ── Shared label map ──────────────────────────────────────────────────────────
 
 _LABEL_MAP: dict[str, str] = {
     "European Robin":   "Erithacus rubecula_European Robin",
@@ -63,7 +58,7 @@ def _write_nocturnal_json(path: Path, species_windows: dict[str, dict]) -> None:
 # ── BOU allowlist ─────────────────────────────────────────────────────────────
 
 class TestBouAllowlistIntegration:
-    """Test BOU allowlist + BTO name map together."""
+    """Tests for BOU allowlist and BTO name map working together."""
 
     @pytest.fixture(autouse=True)
     def _patch_bou_json(self, monkeypatch, tmp_path):
@@ -112,7 +107,7 @@ class TestBouAllowlistIntegration:
         assert bto_map.get("Common Blackbird") == "Blackbird"
 
     def test_pipeline_filters_out_unlisted(self):
-        """Simulates the BOU filter step in _classify_loop."""
+        """Simulates the BOU filter step: species not in BOU JSON are removed."""
         allowed = build_bou_allowed_set(_LABEL_MAP)
         candidates = [
             ("European Robin",  0.85),
@@ -121,17 +116,14 @@ class TestBouAllowlistIntegration:
         ]
         filtered = [(s, c) for s, c in candidates if s in allowed]
         assert len(filtered) == 2
-        species_out = {s for s, _ in filtered}
-        assert "Common Cuckoo" not in species_out
+        assert "Common Cuckoo" not in {s for s, _ in filtered}
 
     def test_force_include_overrides_exclusion(self):
-        """force_include admits a species regardless of its status.
-        The value must match the BTO 'name' field (not the BirdNET common name).
-        """
+        """force_include uses the BTO 'name' field, not the BirdNET label."""
         allowed = build_bou_allowed_set(
             _LABEL_MAP,
             exclude_status=["Accidental"],
-            force_include=frozenset({"Curlew"}),  # BTO name, not BirdNET label
+            force_include=frozenset({"Curlew"}),  # BTO name
         )
         assert "Eurasian Curlew" in allowed
 
@@ -143,23 +135,21 @@ class TestSeasonalFilterIntegration:
     def seasonal_json(self, tmp_path) -> Path:
         path = tmp_path / "seasonal.json"
         _write_seasonal_json(path, {
-            "Common Cuckoo": list(range(17, 31)),    # weeks 17–30 (Apr–Jul approx)
-            "Barn Owl":      list(range(1, 53)),     # year-round in JSON
+            "Common Cuckoo": list(range(17, 31)),   # weeks 17–30 (Apr–Jul approx)
+            "Barn Owl":      list(range(1, 53)),    # year-round
         })
         return path
 
     def test_in_season_species_passes(self, seasonal_json):
         sf = SeasonalFilter(enabled=True, json_path=seasonal_json)
-        # Week 20 is in Cuckoo's allowed range
         assert sf.check("Common Cuckoo", 20) is True
 
     def test_out_of_season_blocked(self, seasonal_json):
         sf = SeasonalFilter(enabled=True, json_path=seasonal_json)
-        # Week 5 is not in Cuckoo's range
         assert sf.check("Common Cuckoo", 5) is False
 
     def test_unrestricted_species_always_passes(self, seasonal_json):
-        """Species not in the JSON → no restriction."""
+        """Species absent from the JSON have no restriction."""
         sf = SeasonalFilter(enabled=True, json_path=seasonal_json)
         assert sf.check("European Robin", 5) is True
 
@@ -168,9 +158,9 @@ class TestSeasonalFilterIntegration:
         assert sf.check("Common Cuckoo", 5) is True
 
     def test_pipeline_filters_out_of_season(self, seasonal_json):
-        """Simulates seasonal step in _classify_loop."""
+        """Simulates the seasonal step: out-of-season species are removed."""
         sf = SeasonalFilter(enabled=True, json_path=seasonal_json)
-        week = 5  # winter → Cuckoo out of season
+        week = 5  # winter — Cuckoo out of season
 
         candidates = [
             ("European Robin", 0.85),   # unrestricted
@@ -211,7 +201,7 @@ class TestNocturnalFilterIntegration:
         assert nf.check("Barn Owl", night) is True
 
     def test_non_nocturnal_always_passes(self, nocturnal_json):
-        """European Robin is not in nocturnal JSON → always allowed."""
+        """Species not in the nocturnal JSON are always allowed."""
         nf = NocturnalFilter(
             enabled=True, json_path=nocturnal_json,
             lat=51.5, lon=-0.1, timezone_str="UTC", species_overrides={},
@@ -228,7 +218,7 @@ class TestNocturnalFilterIntegration:
         assert nf.check("Barn Owl", midday) is True
 
     def test_pipeline_filters_nocturnal_during_day(self, nocturnal_json):
-        """Simulates nocturnal step in _classify_loop."""
+        """Simulates the nocturnal step: daytime detections of nocturnal species are removed."""
         nf = NocturnalFilter(
             enabled=True, json_path=nocturnal_json,
             lat=51.5, lon=-0.1, timezone_str="UTC", species_overrides={},
@@ -247,11 +237,10 @@ class TestNocturnalFilterIntegration:
 # ── Full pipeline integration ─────────────────────────────────────────────────
 
 class TestFullPipelineIntegration:
-    """Simulate all filter stages running in sequence on a candidate list."""
+    """Run all filter stages in sequence on a candidate list."""
 
     @pytest.fixture(autouse=True)
     def _setup(self, monkeypatch, tmp_path):
-        # BOU allowlist JSON
         bou_json = tmp_path / "bou.json"
         _write_bou_json(bou_json, [
             {
@@ -269,22 +258,19 @@ class TestFullPipelineIntegration:
         ])
         monkeypatch.setattr(species_filter, "_BOU_JSON", bou_json)
 
-        # Seasonal filter JSON
         seasonal_json = tmp_path / "seasonal.json"
         _write_seasonal_json(seasonal_json, {
-            "European Robin": list(range(40, 53)) + list(range(1, 10)),  # autumn/winter
+            "European Robin": list(range(40, 53)) + list(range(1, 10)),  # autumn/winter only
         })
         self.sf = SeasonalFilter(enabled=True, json_path=seasonal_json)
 
-        # Nocturnal filter JSON
         nocturnal_json = tmp_path / "nocturnal.json"
-        _write_nocturnal_json(nocturnal_json, {})  # no nocturnal species
+        _write_nocturnal_json(nocturnal_json, {})  # no nocturnal restrictions
         self.nf = NocturnalFilter(
             enabled=True, json_path=nocturnal_json,
             lat=51.5, lon=-0.1, timezone_str="UTC", species_overrides={},
         )
 
-        # Build BOU structures using the patched JSON
         self.bou_allowed = build_bou_allowed_set(_LABEL_MAP, exclude_status=["Accidental"])
 
     def _apply_pipeline(
@@ -300,7 +286,7 @@ class TestFullPipelineIntegration:
         if exclude:
             candidates = [(s, c) for s, c in candidates if s.lower() not in exclude]
 
-        # 2. Per-species min_confidence
+        # 2. Min confidence
         candidates = [(s, c) for s, c in candidates if c >= min_confidence]
 
         # 3. BOU allowlist
@@ -317,8 +303,8 @@ class TestFullPipelineIntegration:
         return candidates
 
     def test_compliant_species_survives_all_filters(self):
-        """A species passing every filter reaches the confirmation stage."""
-        ts = datetime(2026, 10, 15, 10, 0, tzinfo=timezone.utc)  # week ~42 = in Robin's range
+        """A species meeting all criteria should pass every stage."""
+        ts = datetime(2026, 10, 15, 10, 0, tzinfo=timezone.utc)  # week ~42, in Robin's season
         week = 42
         candidates = [("European Robin", 0.85)]
 
@@ -345,16 +331,16 @@ class TestFullPipelineIntegration:
         assert result == []
 
     def test_non_bou_species_removed(self):
-        """Common Cuckoo is not in our BOU JSON → removed at BOU stage."""
+        """Common Cuckoo is not in the BOU JSON → removed at BOU stage."""
         ts = datetime(2026, 5, 15, 10, 0, tzinfo=timezone.utc)
         week = 20
-        candidates = [("Common Cuckoo", 0.80)]   # high confidence but not in BOU list
+        candidates = [("Common Cuckoo", 0.80)]
 
         result = self._apply_pipeline(candidates, ts, week)
         assert result == []
 
     def test_excluded_bou_status_removes_species(self):
-        """Common Blackbird has 'Accidental' status → excluded at BOU stage."""
+        """Common Blackbird has 'Accidental' status in our test data → removed at BOU stage."""
         ts = datetime(2026, 5, 15, 10, 0, tzinfo=timezone.utc)
         week = 20
         candidates = [("Common Blackbird", 0.90)]
@@ -363,16 +349,16 @@ class TestFullPipelineIntegration:
         assert result == []
 
     def test_out_of_season_species_removed(self):
-        """European Robin in summer (week 25) is out of its JSON season."""
+        """European Robin in summer (week 25) is outside its defined season."""
         ts = datetime(2026, 6, 20, 10, 0, tzinfo=timezone.utc)
-        week = 25  # summer — Robin's JSON range is weeks 40-52 + 1-9
+        week = 25  # Robin's range is weeks 40-52 + 1-9
         candidates = [("European Robin", 0.85)]
 
         result = self._apply_pipeline(candidates, ts, week)
         assert result == []
 
     def test_multiple_candidates_filtered_independently(self):
-        """Each candidate is evaluated independently; survivors form the output."""
+        """Each candidate is evaluated independently; only those passing all stages survive."""
         ts = datetime(2026, 10, 15, 10, 0, tzinfo=timezone.utc)
         week = 42
         candidates = [
@@ -383,7 +369,7 @@ class TestFullPipelineIntegration:
         ]
         result = self._apply_pipeline(candidates, ts, week)
         species = [s for s, _ in result]
-        assert species == ["European Robin"]   # only the high-conf Robin survives
+        assert species == ["European Robin"]
 
     def test_empty_candidates_stays_empty(self):
         ts = datetime(2026, 10, 15, 10, 0, tzinfo=timezone.utc)

@@ -1,21 +1,18 @@
 """
-log_setup.py — configure Python logging for bird-detector.
+Configures Python logging for the bird detector.
 
-Call ``setup_logging()`` once at the very start of ``detector.main()`` before
-any log messages are emitted.  All other modules obtain their logger via::
+Call setup_logging() once at startup before any log messages are emitted.
+All other modules should get their logger with:
 
     import logging
     logger = logging.getLogger(__name__)
 
-Console behaviour is unchanged whether logging is enabled or not: a
-StreamHandler is always attached so output continues to appear on stdout in the
-same format as the previous ``print()`` calls.  When ``enabled = true`` in the
-``[log]`` config section a rotating file handler is added alongside it.
+A console (stdout) handler is always active. A rotating file handler is added
+when enabled = true in the [log] section of config.toml.
 
-Rotation modes (set via ``rotation`` in config.toml):
-    ``"daily"`` — rotate at midnight; keeps ``backup_count`` previous files.
-    ``"size"``  — rotate when the file exceeds ``max_size_bytes``; keeps
-                  ``backup_count`` previous files.
+Rotation modes (set via 'rotation' in config.toml):
+    "daily" — rotate at midnight; keeps backup_count previous files.
+    "size"  — rotate when the file exceeds max_size_bytes; keeps backup_count files.
 """
 
 from __future__ import annotations
@@ -25,8 +22,7 @@ import logging.handlers
 
 from config import cfg
 
-# Shared format strings — kept consistent between both handlers so log files
-# can be grepped without surprises.
+# Console uses short timestamps; file uses full date-time for easier searching.
 _CONSOLE_FMT = "%(asctime)s  %(message)s"
 _FILE_FMT    = "%(asctime)s  %(message)s"
 _CONSOLE_DATEFMT = "%H:%M:%S"
@@ -35,28 +31,21 @@ _FILE_DATEFMT    = "%Y-%m-%d %H:%M:%S"
 
 def setup_logging() -> None:
     """
-    Configure the root logger once.
+    Set up the root logger with console and (optionally) file output.
 
-    * A ``StreamHandler`` (stdout) is **always** added so console output is
-      preserved identically to the old ``print()`` behaviour.
-    * When ``cfg.log.enabled`` is ``True`` a rotating file handler is added.
-    * The verbosity level is read from ``cfg.log.level`` (default ``"INFO"``).
-      Set ``level = "DEBUG"`` in ``[log]`` to see seasonal/BOU filter decisions.
-    * Third-party loggers that are excessively chatty (``birdnet_analyzer``,
-      ``sounddevice``) are capped at WARNING so they don't pollute the output.
+    Safe to call more than once — does nothing if handlers are already set up,
+    so both detector.main() and main.py can call it without duplicating output.
 
-    Safe to call more than once — subsequent calls are a no-op so that
-    ``detector.main()`` and ``main.py`` can both call it without duplicating
-    handlers.
+    Set level = "DEBUG" in [log] to see filter decisions during development.
     """
     root = logging.getLogger()
     if root.handlers:
-        return  # already configured — avoid duplicate handlers
+        return  # already configured
 
     level = getattr(logging, cfg.log.level, logging.INFO)
     root.setLevel(level)
 
-    # ── Console handler (always active) ───────────────────────────────────────
+    # Console handler — always active
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(
         logging.Formatter(_CONSOLE_FMT, datefmt=_CONSOLE_DATEFMT)
@@ -64,7 +53,7 @@ def setup_logging() -> None:
     console_handler.setLevel(level)
     root.addHandler(console_handler)
 
-    # ── File handler (opt-in) ─────────────────────────────────────────────────
+    # File handler — only added when enabled in config
     lc = cfg.log
     if lc.enabled:
         lc.path.parent.mkdir(parents=True, exist_ok=True)
@@ -90,10 +79,10 @@ def setup_logging() -> None:
         file_handler.setLevel(level)
         root.addHandler(file_handler)
 
-    # ── Suppress noisy third-party loggers ────────────────────────────────────
+    # Silence noisy third-party libraries
     for noisy in (
         "birdnet_analyzer", "numba", "sounddevice", "tensorflow", "absl",
-        "aiosqlite",      # suppresses "executing functools.partial(...)" debug spam
-        "sse_starlette",  # suppresses SSE keep-alive ping log lines
+        "aiosqlite",    # otherwise logs every SQL call at DEBUG
+        "sse_starlette",  # otherwise logs every SSE keep-alive ping
     ):
         logging.getLogger(noisy).setLevel(logging.WARNING)

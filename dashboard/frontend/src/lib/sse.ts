@@ -1,5 +1,5 @@
 /**
- * SSE client with automatic reconnection.
+ * Lightweight SSE client with automatic reconnection.
  *
  * Usage:
  *   const sse = createSSE('/stream/detections');
@@ -18,7 +18,7 @@ export function createSSE(url: string, params?: Record<string, string>): SSEClie
 	const handlers: Map<string, SSEHandler[]> = new Map();
 	let es: EventSource | null = null;
 	let closed = false;
-	let retryDelay = 1000;
+	let retryDelay = 1000; // ms; doubles on each failed attempt, capped at 30s
 
 	const fullUrl = params
 		? `${url}?${new URLSearchParams(params).toString()}`
@@ -36,13 +36,14 @@ export function createSSE(url: string, params?: Record<string, string>): SSEClie
 		es.onerror = () => {
 			es?.close();
 			if (!closed) {
+				// Exponential back-off so a flaky connection doesn't hammer the server
 				setTimeout(connect, retryDelay);
 				retryDelay = Math.min(retryDelay * 2, 30_000);
 			}
 		};
 
 		es.onopen = () => {
-			retryDelay = 1000; // reset on successful connection
+			retryDelay = 1000; // reset back-off after a successful connection
 			handlers.get('open')?.forEach((h) => h(null));
 		};
 	}

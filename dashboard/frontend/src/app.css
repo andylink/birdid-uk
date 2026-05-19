@@ -3,9 +3,9 @@
   color-scheme: light;
 
   /* Backgrounds */
-  --color-page:      #f1f5f9;   /* page / outer background      */
-  --color-surface:   #ffffff;   /* card / panel background       */
-  --color-surface-2: #f1f5f9;   /* secondary surface, input bg   */
+  --color-page:      #f1f5f9;   /* outermost page background */
+  --color-surface:   #ffffff;   /* card / panel background   */
+  --color-surface-2: #f1f5f9;   /* secondary surface, input bg */
 
   /* Skeleton loaders */
   --color-skeleton:   #e2e8f0;
@@ -15,15 +15,15 @@
   --color-border:        #e2e8f0;
   --color-border-strong: #cbd5e1;
 
-  /* Text */
-  --color-text:       #0f172a;   /* primary   */
-  --color-text-2:     #1e293b;   /* secondary */
-  --color-text-3:     #334155;   /* tertiary  */
-  --color-text-muted: #64748b;   /* muted     */
-  --color-text-dim:   #94a3b8;   /* very muted */
-  --color-text-ghost: #cbd5e1;   /* ghost / placeholder */
+  /* Text — five levels from primary to near-invisible */
+  --color-text:       #0f172a;
+  --color-text-2:     #1e293b;
+  --color-text-3:     #334155;
+  --color-text-muted: #64748b;
+  --color-text-dim:   #94a3b8;
+  --color-text-ghost: #cbd5e1;   /* placeholder / disabled text */
 
-  /* Accent (emerald) */
+  /* Accent (emerald green) */
   --color-accent:        #059669;
   --color-accent-hover:  #047857;
   --color-accent-text:   #34d399;
@@ -31,11 +31,10 @@
   --color-accent-border: rgba(5, 150, 105, 0.35);
   --color-accent-ring:   rgba(5, 150, 105, 0.4);
 
-  /* Charts — read by Chart.js via getComputedStyle */
+  /* Chart colours — read by Chart.js via getComputedStyle */
   --chart-grid: rgba(0, 0, 0, 0.06);
   --chart-tick: #64748b;
 
-  /* Layout */
   --header-height: 3.25rem;
 }
 
@@ -89,7 +88,8 @@ body {
 }
 
 /* ── Confidence badges ──────────────────────────────────────────────────── */
-/* confidence.ts returns these class names directly, so they must be global. */
+/* These class names are emitted directly by confidence.ts, so they must be
+   global (not scoped inside a component). */
 .conf-badge-high,
 .conf-badge-medium,
 .conf-badge-low {
@@ -118,7 +118,7 @@ body {
   box-shadow: 0 0 0 1px rgba(100, 116, 139, 0.35);
 }
 
-/* ── Skeleton pulse ─────────────────────────────────────────────────────── */
+/* ── Skeleton pulse animation ───────────────────────────────────────────── */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.4; }
@@ -133,9 +133,11 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Use on numbers to prevent layout shift from variable-width digits */
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+/* Visually hidden but still readable by screen readers */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -148,12 +150,12 @@ body {
   border-width: 0;
 }
 
-/* ── Native audio player accent ─────────────────────────────────────────── */
+/* ── Native audio player accent colour ─────────────────────────────────── */
 audio {
   accent-color: #34d399;
 }
 
-/* ── Focus ring ─────────────────────────────────────────────────────────── */
+/* ── Keyboard focus ring ────────────────────────────────────────────────── */
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;

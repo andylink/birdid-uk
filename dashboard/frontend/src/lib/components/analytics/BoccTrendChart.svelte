@@ -20,12 +20,14 @@
 		Unknown: { bg: '#47556999',              border: '#475569'         },
 	};
 
+	// Append T00:00:00 to treat the date as local midnight, not UTC.
 	function fmtDay(iso: string): string {
 		return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', {
 			day: '2-digit', month: 'short',
 		});
 	}
 
+	// Read CSS custom properties so chart colours respect the active light/dark theme.
 	function chartColors() {
 		const s = getComputedStyle(document.documentElement);
 		return {
@@ -34,6 +36,7 @@
 		};
 	}
 
+	// Called whenever a 'themechange' event fires; patches scale and legend colours.
 	function applyColorsToChart() {
 		if (!chart) return;
 		const { grid, tick } = chartColors();
@@ -47,6 +50,7 @@
 		chart.update('none');
 	}
 
+	// Pivot flat API rows into one dataset per BoCC bucket, filling missing days with 0.
 	function pivot(rows: BoccTrendEntry[]) {
 		const daySet = new Set<string>();
 		for (const r of rows) daySet.add(r.day);
@@ -97,10 +101,11 @@
 				return;
 			}
 
-			if (!canvas) return;
+		if (!canvas) return;
 
-			const {
-				Chart, BarController, BarElement, CategoryScale,
+		// Chart.js is imported dynamically to keep it out of the initial bundle.
+		const {
+			Chart, BarController, BarElement, CategoryScale,
 				LinearScale, Tooltip, Legend,
 			} = await import('chart.js');
 			Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend);

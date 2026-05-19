@@ -1,10 +1,10 @@
 """
-weather_pws_meteobridge.py — Meteobridge personal weather station plugin.
+Meteobridge personal weather station plugin.
 
 Meteobridge (https://www.meteobridge.com) is a network bridge that connects
-professional weather stations (e.g. Davis Vantage Vue / Vantage Pro 2, and
-many others) to internet weather services.  It exposes a simple HTTP template
-API that expands bracketed variable names into live sensor readings.
+weather stations (Davis Vantage, and many others) to internet services. It
+exposes a simple HTTP template API that substitutes bracketed variable names
+with live sensor values.
 
 Configuration (config.toml)
 ---------------------------
@@ -16,46 +16,35 @@ Configuration (config.toml)
     pws_plugin = "meteobridge"
 
     [weather.pws_meteobridge]
-    host            = "192.168.1.100"   # Meteobridge IP address or hostname
+    host            = "192.168.1.100"   # IP address or hostname
     port            = 80
     username        = "meteobridge"     # HTTP Basic Auth credentials
     password        = "meteobridge"
-    wind_speed_unit = "ms"              # "ms" (m/s default) or "kmh"
+    wind_speed_unit = "ms"              # "ms" (m/s, default) or "kmh"
     template        = "[th0temp-act];[th0hum-act];[wind0avgspd-act];[wind0dir-act];[msl0press-act];[rain0rate-act]"
 
 Template format
 ---------------
-Values are fetched in a single HTTP request using a semicolon-separated
-template string.  The order of variables is fixed:
+Values are fetched in a single request as a semicolon-separated string.
+The order is fixed:
 
     temp ; humidity ; wind_speed ; wind_direction ; pressure ; rain_rate
 
 If your station uses different sensor numbering (e.g. ``th1`` for a second
-outdoor sensor), edit the ``template`` value in ``[weather.pws_meteobridge]``.
-Meteobridge returns ``------`` (six dashes) for any sensor that is offline or
-has no current reading; these are treated as ``None``.
+outdoor sensor), edit the ``template`` value in config.toml.
+Meteobridge returns ``------`` for any sensor that has no current reading.
 
-Wind speed unit
----------------
-Meteobridge can report wind speed in m/s or km/h depending on the unit
-settings in its web interface.  The default here is m/s (``wind_speed_unit
-= "ms"``).  If your setup reports km/h, set ``wind_speed_unit = "kmh"`` and
-the plugin converts to m/s automatically.
+Wind speed
+----------
+Set ``wind_speed_unit = "kmh"`` if your Meteobridge is configured to report
+km/h; this plugin will convert to m/s automatically.
 
-Note on condition
------------------
-Personal weather stations measure raw atmospheric data; they do not report a
-sky condition string (clear, cloudy, raining, etc.).  The ``condition`` field
-is therefore always ``None`` for this provider.  Sky state can be inferred
-from precipitation rate and solar radiation if those sensors are available,
-but that logic is left to future extensions.
+Note: personal weather stations don't report a sky condition (clear, cloudy,
+etc.), so ``condition`` is always ``None`` for this provider.
 
-Writing a new PWS plugin
-------------------------
-Copy this file to ``weather/pws_<yourstation>.py``, implement the single
-``fetch(lat, lon, ts) -> WeatherData | None`` function, and set
-``pws_plugin = "<yourstation>"`` in ``[weather]`` config.toml.  No changes
-to ``weather/__init__.py`` or ``detector.py`` are needed.
+To write a new PWS plugin, copy this file to ``weather/pws_<name>.py``,
+implement ``fetch(lat, lon, ts) -> WeatherData | None``, and set
+``pws_plugin = "<name>"`` in config.toml.
 """
 
 from __future__ import annotations
@@ -72,24 +61,16 @@ from . import WeatherData
 
 logger = logging.getLogger(__name__)
 
-_NULL_SENTINEL = "------"  # Meteobridge default null placeholder
+_NULL_SENTINEL = "------"  # Meteobridge placeholder for missing/offline sensor
 
 
 def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
-    """Fetch current readings from Meteobridge via the HTTP template API.
+    """Fetch live readings from Meteobridge via its HTTP template API.
 
-    Sends a single GET request to ``/cgi-bin/template.cgi`` with the
-    configured template string.  The response is a semicolon-delimited list
-    of sensor values in template order.
-
-    Args:
-        lat: Latitude (not used; Meteobridge reads from local sensors).
-        lon: Longitude (not used; Meteobridge reads from local sensors).
-        ts:  Detection timestamp (not used; returns live sensor readings).
-
-    Returns:
-        A populated :class:`~weather.WeatherData` instance, or ``None``
-        if the device is unreachable or the response cannot be parsed.
+    Sends one GET request to ``/cgi-bin/template.cgi``. The response is a
+    semicolon-separated list of values matching the configured template order.
+    ``lat``, ``lon``, and ``ts`` are not used — readings come from local sensors.
+    Returns ``None`` if the device is unreachable or the response is malformed.
     """
     mb       = cfg.weather.pws_meteobridge
     host     = mb.host
@@ -103,7 +84,6 @@ def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
 
     try:
         req = urllib.request.Request(url)
-        # HTTP Basic Authentication
         credentials = base64.b64encode(
             f"{username}:{password}".encode()
         ).decode()
@@ -119,8 +99,7 @@ def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
         logger.debug("[weather/meteobridge] unexpected error: %s", exc)
         return None
 
-    # Response is semicolon-separated values in template order:
-    # temp ; humidity ; wind_speed ; wind_direction ; pressure ; rain_rate
+    # Response fields: temp ; humidity ; wind_speed ; wind_direction ; pressure ; rain_rate
     parts = body.split(";")
     if len(parts) < 6:
         logger.debug(
@@ -136,7 +115,7 @@ def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
     pres = _parse(parts[4])
     rain = _parse(parts[5])
 
-    # Convert wind speed to m/s if the station is configured to report km/h
+    # Convert to m/s if the station reports km/h
     if mb.wind_speed_unit == "kmh" and wspd is not None:
         wspd = wspd / 3.6
 
@@ -153,10 +132,10 @@ def fetch(lat: float, lon: float, ts: datetime) -> WeatherData | None:
 
 
 def _parse(s: str) -> float | None:
-    """Parse a single Meteobridge template field.
+    """Parse one Meteobridge template field.
 
     Returns ``None`` for the null sentinel (``------``), empty strings, or
-    any value that cannot be converted to float.
+    anything that isn't a valid number.
     """
     s = s.strip()
     if not s or s == _NULL_SENTINEL:

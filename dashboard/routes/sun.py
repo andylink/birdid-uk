@@ -1,8 +1,9 @@
 """
-dashboard/routes/sun.py — sunrise and sunset times for a given local date.
+Sunrise and sunset times for a given local date.
 
-Uses the astral library with the lat/lon from [location] in config.toml and
-the configured IANA timezone so returned times are always in local time.
+Uses the astral library with the lat/lon from [location] in config.toml.
+Returned times are in the configured local timezone so the frontend can
+overlay them directly onto the hourly activity heatmap.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from dashboard.config import LOCAL_TZ, SUN_LAT, SUN_LON, TIMEZONE
 
 router = APIRouter()
 
+# Built once at startup from config — reused for every request.
 _LOCATION = LocationInfo(
     name="Garden",
     region="UK",
@@ -30,12 +32,7 @@ _LOCATION = LocationInfo(
 async def get_sun_times(
     date: str = Query(..., description="YYYY-MM-DD local date"),
 ):
-    """Return sunrise and sunset times (local HH:MM) for the given date.
-
-    Times are returned in the timezone configured in config.toml so the
-    frontend can directly compare them against the local-hour column index
-    in the heatmap.
-    """
+    """Return sunrise and sunset times (HH:MM) in local time for the given date."""
     try:
         d = date_cls.fromisoformat(date)
     except ValueError:

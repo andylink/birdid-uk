@@ -12,11 +12,7 @@
 		speciesInitials,
 	} from '$lib/bto';
 
-	// ── Props ─────────────────────────────────────────────────────────────────
-
 	let { selectedDate = $bindable(todayStr()) }: { selectedDate?: string } = $props();
-
-	// ── State ─────────────────────────────────────────────────────────────────
 
 	let summaries  = $state<DailySpeciesSummary[]>([]);
 	let loading    = $state(true);
@@ -25,11 +21,9 @@
 	let boccFilter = $state<string>('all');
 	let sunTimes   = $state<SunTimes | null>(null);
 
-	// ── Constants ─────────────────────────────────────────────────────────────
-
 	const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-	// Dark-theme heatmap: empty → cyan scale (9 levels)
+	// Cyan scale: index 0 = empty cell, 1–9 = increasing detection intensity
 	const HEATMAP_COLORS = [
 		'',
 		'#082f49',
@@ -43,10 +37,9 @@
 		'#bae6fd',
 	] as const;
 
-	// ── Derived ───────────────────────────────────────────────────────────────
-
 	const isToday = $derived(selectedDate === todayStr());
 
+	// Sort by total count descending, then by most-recently-heard
 	const sortedSummaries = $derived(
 		[...summaries].sort((a, b) => {
 			if (b.count !== a.count) return b.count - a.count;
@@ -64,14 +57,13 @@
 		Math.max(1, ...summaries.flatMap((s) => s.hourly_counts))
 	);
 
+	// Extract just the hour from sunrise/sunset HH:MM strings for column highlighting
 	const sunriseHour = $derived(
 		sunTimes ? parseInt(sunTimes.sunrise.slice(0, 2), 10) : null
 	);
 	const sunsetHour = $derived(
 		sunTimes ? parseInt(sunTimes.sunset.slice(0, 2), 10) : null
 	);
-
-	// ── Helpers ───────────────────────────────────────────────────────────────
 
 	function todayStr(): string { return localToday(); }
 
@@ -81,18 +73,18 @@
 		});
 	}
 
+	// Returns a new date string offset by n days; uses noon to avoid DST edge cases
 	function addDays(d: string, n: number): string {
 		const date = new Date(d + 'T12:00:00');
 		date.setDate(date.getDate() + n);
 		return date.toISOString().slice(0, 10);
 	}
 
+	// Maps a count to one of 9 intensity levels relative to the day's peak
 	function getIntensity(count: number): number {
 		if (count <= 0) return 0;
 		return Math.min(9, Math.max(1, Math.ceil((count / maxHourlyCount) * 9)));
 	}
-
-	// ── Data loading ──────────────────────────────────────────────────────────
 
 	async function fetchData(date: string) {
 		loading = true;
@@ -113,8 +105,6 @@
 
 	$effect(() => { void fetchData(selectedDate); });
 
-	// ── Date navigation ───────────────────────────────────────────────────────
-
 	function prevDay()   { selectedDate = addDays(selectedDate, -1); }
 	function nextDay()   { if (!isToday) selectedDate = addDays(selectedDate, 1); }
 	function goToToday() { selectedDate = todayStr(); }
@@ -124,11 +114,11 @@
 		if (val && val <= todayStr()) selectedDate = val;
 	}
 
-	// ── SSE: real-time heatmap updates for today ──────────────────────────────
-
+	// Keep heatmap live for today: on each new detection, update the relevant row in place
 	onMount(() => {
 		sse = createSSE('/stream/detections');
 
+		// Reload on reconnect in case we missed events
 		sse.on('open', () => void fetchData(selectedDate));
 
 		sse.on('detection', (raw) => {
@@ -143,6 +133,7 @@
 			const idx  = summaries.findIndex((s) => s.species === d.species);
 
 			if (idx >= 0) {
+				// Update existing row immutably
 				const updated = { ...summaries[idx] };
 				updated.count++;
 				updated.hourly_counts = [...updated.hourly_counts];
@@ -154,6 +145,7 @@
 					...summaries.slice(idx + 1),
 				];
 			} else {
+				// First detection of this species today — add a new row
 				const hc = new Array(24).fill(0);
 				hc[hour] = 1;
 				summaries = [{
@@ -178,7 +170,6 @@
 
 <section class="heatmap" aria-label="Daily species heatmap">
 
-	<!-- ── Header ─────────────────────────────────────────────────────────── -->
 	<header class="hm-header">
 		<h2 class="hm-title">Daily Species Summary</h2>
 
@@ -192,7 +183,7 @@
 			{/if}
 		{/if}
 
-		<!-- BoCC filter toggles -->
+		<!-- Filter by BoCC conservation list colour -->
 		{#if !loading && !error && summaries.length > 0}
 			<div class="bocc-filters">
 				{#each [['all', 'All', ''], ['Red', 'Red', '#ef4444'], ['Amber', 'Amber', '#f59e0b'], ['Green', 'Green', '#22c55e']] as [val, label, color]}
@@ -211,7 +202,7 @@
 			</div>
 		{/if}
 
-		<!-- Date navigation -->
+		<!-- Prev/next day navigation; date picker for jumping directly -->
 		<div class="date-nav">
 			<button class="nav-btn" onclick={prevDay} aria-label="Previous day">
 				<svg viewBox="0 0 20 20" aria-hidden="true">
@@ -242,7 +233,6 @@
 		</div>
 	</header>
 
-	<!-- ── Scrollable table ───────────────────────────────────────────────── -->
 	<div class="hm-scroll">
 
 		{#if loading}
@@ -324,6 +314,7 @@
 						<tr class="hm-row">
 							<td class="td-species">
 								<div class="species-cell">
+									<!-- Coloured group badge showing BTO code abbreviation -->
 									<span
 										class="group-badge"
 										style="background-color: {groupBadgeColor(item.group_name)}"
@@ -390,7 +381,6 @@
 		{/if}
 	</div>
 
-	<!-- ── Legend ─────────────────────────────────────────────────────────── -->
 	{#if !loading && !error && summaries.length > 0}
 		<div class="hm-legend">
 			<span class="legend-label">Less</span>
@@ -416,7 +406,6 @@
 		overflow: hidden;
 	}
 
-	/* ── Header ── */
 	.hm-header {
 		display: flex;
 		align-items: center;
@@ -446,7 +435,6 @@
 		color: var(--color-text-muted);
 	}
 
-	/* BoCC filter */
 	.bocc-filters {
 		display: flex;
 		align-items: center;
@@ -480,7 +468,7 @@
 		border-radius: 9999px;
 	}
 
-	/* Date navigation */
+	/* Date nav pushed to the right */
 	.date-nav {
 		margin-left: auto;
 		display: flex;
@@ -541,21 +529,18 @@
 		background: rgba(16, 185, 129, 0.25);
 	}
 
-	/* ── Scrollable area ── */
 	.hm-scroll {
 		flex: 1;
 		overflow: auto;
 		min-height: 0;
 	}
 
-	/* Skeleton rows */
 	.hm-skeletons { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.25rem; }
 	.sk-row { display: flex; gap: 0.125rem; }
 	.sk-name  { height: 1.75rem; width: 11rem; background: var(--color-skeleton); border-radius: 0.25rem; flex-shrink: 0; }
 	.sk-cell  { height: 1.75rem; width: 2rem; background: color-mix(in srgb, var(--color-skeleton) 40%, transparent); border-radius: 0.125rem; flex-shrink: 0; }
 	.sk-total { height: 1.75rem; width: 3rem; background: var(--color-skeleton); border-radius: 0.25rem; flex-shrink: 0; }
 
-	/* State (error / empty) */
 	.hm-state {
 		display: flex;
 		flex-direction: column;
@@ -577,21 +562,20 @@
 		text-decoration: underline;
 	}
 
-	/* ── Table ── */
 	.hm-table {
 		border-collapse: collapse;
 		min-width: max-content;
 		width: 100%;
 	}
 
-	/* Sticky thead */
+	/* Sticky thead so hour labels scroll with the table horizontally but stay at top */
 	thead {
 		position: sticky;
 		top: 0;
 		z-index: 10;
 	}
 
-	/* Species header cell — sticky left + sticky top */
+	/* Species column: sticky left so it stays visible on horizontal scroll */
 	.th-species {
 		position: sticky;
 		left: 0;
@@ -639,7 +623,6 @@
 		background: var(--color-surface);
 	}
 
-	/* Body rows */
 	.hm-row:hover .td-species {
 		background: var(--color-skeleton);
 	}
@@ -713,6 +696,7 @@
 		user-select: none;
 		color: #e2e8f0;
 	}
+	/* Switch to dark text on the lightest (high-intensity) cyan cells */
 	.hour-count.light-text { color: #0f172a; }
 
 	.td-total {
@@ -726,7 +710,6 @@
 		font-weight: 500;
 	}
 
-	/* ── Legend ── */
 	.hm-legend {
 		display: flex;
 		align-items: center;

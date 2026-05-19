@@ -8,11 +8,11 @@
 		empty?: boolean;
 		error?: string | null;
 		emptyMessage?: string;
-		/** CSS height value for the card. Default: 20rem (≈ h-80). */
+		/** CSS height for the card, e.g. "20rem". */
 		height?: string;
-		/** Bind to this to get a reference to the canvas element. */
+		/** Bind to get a reference to the canvas element. */
 		canvasEl?: HTMLCanvasElement;
-		/** Optional snippet rendered beside the title (e.g. mode-toggle buttons). */
+		/** Optional slot rendered beside the title (e.g. mode-toggle buttons). */
 		headerExtra?: Snippet;
 	}
 
@@ -43,6 +43,7 @@
 	</header>
 
 	<div class="chart-body">
+		<!-- Canvas is hidden (not removed) while loading to preserve Chart.js layout -->
 		<canvas
 			bind:this={canvasEl}
 			class="chart-canvas"

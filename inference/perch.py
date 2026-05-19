@@ -1,5 +1,5 @@
 """
-inference_perch.py — Google Perch v2 bird sound classifier backend.
+Google Perch v2 bird sound classifier backend.
 
 Prerequisites
 -------------
@@ -7,48 +7,44 @@ Install the inference package::
 
     pip install 'perch-hoplite[tf]'
 
-Kaggle credentials are required for the first model download.  Create an API
+Kaggle credentials are required for the first model download. Create an API
 token at https://www.kaggle.com/settings and save it as
 ``~/.config/kaggle/kaggle.json`` (or set the ``KAGGLE_KEY`` environment
-variable).  The model (~400 MB) is cached in ``~/.cache/kagglehub/`` after
-the first download; subsequent runs use the local copy.
+variable). The model (~400 MB) is cached in ``~/.cache/kagglehub/`` and
+reused on subsequent runs.
 
-Audio specification
--------------------
-Perch v2 expects **5-second windows at 32 kHz**.  The classify loop records
-audio at ``cfg.audio.sample_rate`` (typically 48 kHz) and accumulates a 5-second
-buffer; :meth:`PerchModel.run_inference` resamples from the recording rate to
-32 kHz internally using ``scipy.signal.resample_poly``.  Clip saving and the
-capture ring buffer are unaffected — they always operate at the recording rate.
+Audio
+-----
+Perch v2 expects 5-second windows at 32 kHz. The classify loop records at
+``cfg.audio.sample_rate`` (typically 48 kHz) and accumulates a 5-second
+buffer. ``run_inference`` resamples to 32 kHz internally using
+``scipy.signal.resample_poly``. Clip saving and the capture ring buffer are
+unaffected — they always operate at the recording rate.
 
 Label mapping
 -------------
-Perch v2's class list (``model.class_list["labels"].classes``) contains
-**scientific names** in ``inat2024_fsd50k`` namespace order — the same order
-as the logits vector.  :meth:`PerchModel.load_label_map` maps these to common
-names via the following priority:
+Perch v2's class list contains scientific names in ``inat2024_fsd50k``
+namespace order, aligned with the logits vector. ``load_label_map`` converts
+these to common names using:
 
-1. Scientific-name match against ``uk_species_filter.json`` → BTO
-   British common name (e.g. ``"Robin"``).  This re-uses the same data that
-   drives the BOU filter so the BOU allowlist works correctly with Perch.
-2. Scientific name itself as a last resort (ensures no species is silently
-   dropped; non-UK species are filtered by the BOU allowlist anyway).
+1. Scientific-name lookup in ``uk_species_filter.json`` → BTO British common
+   name (e.g. ``"Robin"``). This reuses the same data as the BOU filter.
+2. Scientific name as a fallback (non-UK species are filtered by the BOU
+   allowlist anyway, so nothing is silently dropped).
 
 The returned ``{common_name: "Scientific_Common"}`` format is identical to
-BirdNET's label map so ``species_filter`` and ``seasonal_filter`` work without
-modification.
+BirdNET's so ``species_filter`` and ``seasonal_filter`` work unchanged.
 
-Implementation notes
---------------------
-The ordered class list is read from ``assets/labels.csv`` (column
-``inat2024_fsd50k``) in the Kaggle model cache directory.  This avoids loading
-the 400 MB TF model just to build the label map.  The model itself is loaded
-lazily on the first :meth:`run_inference` call.
+Implementation note
+-------------------
+The ordered class list is read from ``assets/labels.csv`` in the Kaggle
+model cache. This avoids loading the 400 MB TF model just to build the label
+map. The TF model is loaded lazily on the first ``run_inference`` call.
 
 ``run_inference`` uses the cached ``self._classes`` list (scientific names,
-aligned with the logits vector) and never re-accesses
-``model.class_list`` — avoiding the key mismatch between logits key
-``"label"`` and class_list key ``"labels"``.
+aligned with the logits vector) rather than re-accessing
+``model.class_list`` — the logits key is ``"label"`` but the class_list key
+is ``"labels"``, which would cause a mismatch at runtime.
 """
 
 from __future__ import annotations
@@ -76,31 +72,27 @@ class PerchModel:
     """Google Perch v2 bird sound classifier backend.
 
     All heavy objects (TF model, label maps) are loaded lazily on first use
-    so that importing this module has zero cost when Perch is not active.
+    so that importing this module is free when Perch is not active.
     """
 
-    #: Analysis window expected by Perch v2.
+    #: Audio window size expected by Perch v2.
     window_seconds: float = _PERCH_WINDOW_SECONDS
 
     def __init__(self) -> None:
         self._model: object | None = None
         self._label_map:    dict[str, str] | None = None  # {common_name: label_str}
         self._sci_to_common: dict[str, str]        = {}   # {scientific_name: common_name}
-        self._classes:       list[str]             = []   # ordered sci names (aligned with logits)
+        self._classes:       list[str]             = []   # scientific names, aligned with logits
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _deduplicate_ebird_csv(self) -> None:
-        """Pre-deduplicate ``perch_v2_ebird_classes.csv`` in the Kaggle cache.
+        """Remove duplicate rows from ``perch_v2_ebird_classes.csv`` in the model cache.
 
-        Perch v2 ships with a ``perch_v2_ebird_classes.csv`` that contains
-        duplicate entries.  When ``model_configs.load_model_by_name`` loads the
-        model it reads this file and emits a noisy
-        "Failed to load class list … duplicate entries in class list" warning.
-        The warning is non-fatal (the model still loads) and does not affect our
-        inference because we use ``assets/labels.csv`` for class ordering rather
-        than ``model.class_list``.  However, deduplicating the file once prevents
-        the warning on all subsequent runs.
+        Perch v2 ships with duplicate entries in this file, which causes a
+        noisy warning when the model loads. The warning is harmless — we use
+        ``assets/labels.csv`` for class ordering anyway — but deduplicating
+        the file once silences it on all future runs.
         """
         model_dir = self._get_model_dir()
         if model_dir is None:
@@ -131,7 +123,7 @@ class PerchModel:
             )
 
     def _ensure_model(self) -> None:
-        """Lazy-load the Perch v2 TF model (downloads from Kaggle if needed)."""
+        """Load the Perch v2 TF model on first call (downloads from Kaggle if needed)."""
         if self._model is not None:
             return
         try:
@@ -144,11 +136,9 @@ class PerchModel:
                 "See: https://www.kaggle.com/docs/api#authentication"
             ) from exc
 
-        # perch_hoplite calls tf.test.gpu_device_name() → list_local_devices()
-        # which throws RuntimeError when CUDA libraries are present but cannot
-        # fully load (broken driver, incompatible version, systemd sandbox).
-        # Setting CUDA_VISIBLE_DEVICES="" before that call prevents TF from
-        # probing CUDA at all; Perch runs fine on CPU for real-time inference.
+        # Disable CUDA before TF initialises. When CUDA libraries are present
+        # but broken (bad driver, systemd sandbox, etc.) TF raises a
+        # RuntimeError. Perch runs fine on CPU for real-time inference.
         import os
         os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 
@@ -183,9 +173,9 @@ class PerchModel:
     def _sci_names_from_csv(self) -> list[str]:
         """Read the ordered scientific-name list from ``assets/labels.csv``.
 
-        The CSV has a single column ``inat2024_fsd50k`` whose rows are
-        scientific names aligned with the model's logits vector.  This is the
-        preferred source because it does not require loading the TF model.
+        The CSV column ``inat2024_fsd50k`` lists scientific names in the same
+        order as the model's logits vector. Reading this file avoids loading
+        the full TF model just to get the class list.
         """
         model_dir = self._get_model_dir()
         if model_dir is None:
@@ -199,8 +189,7 @@ class PerchModel:
                 reader = csv_mod.DictReader(fh)
                 names: list[str] = []
                 for row in reader:
-                    # Column name is the namespace; accept any single-column CSV
-                    # by trying the known name first then falling back.
+                    # Try the known column name first, fall back to whatever is there
                     name = (
                         row.get("inat2024_fsd50k")
                         or next(iter(row.values()), "")
@@ -214,15 +203,15 @@ class PerchModel:
             return []
 
     def _sci_names_from_model(self) -> list[str]:
-        """Extract the ordered scientific-name list from the loaded model (fallback).
+        """Extract the ordered scientific-name list from the loaded TF model.
 
-        Used when ``labels.csv`` is unavailable.  Requires the TF model to be
-        loaded first via :meth:`_ensure_model`.
+        Fallback used when ``labels.csv`` is unavailable. Requires the model
+        to be loaded first via ``_ensure_model``.
         """
         self._ensure_model()
         try:
             cl = self._model.class_list  # type: ignore[union-attr]
-            # class_list is a dict; key is "labels" (not "label")
+            # The dict key is "labels" (not "label")
             cls_obj = cl.get("labels") or next(iter(cl.values()), None)
             if cls_obj is None:
                 return []
@@ -236,15 +225,14 @@ class PerchModel:
     def _build_maps(self) -> tuple[dict[str, str], dict[str, str], list[str]]:
         """Build the label map, sci→common lookup, and ordered class list.
 
-        Called once on the first invocation of :meth:`_ensure_maps`.
-        Returns ``(label_map, sci_to_common, classes)``.
+        Called once by ``_ensure_maps``. Returns
+        ``(label_map, sci_to_common, classes)``.
 
-        The class list comes from ``assets/labels.csv`` (preferred, no TF load)
-        or from ``model.class_list["labels"].classes`` (fallback).  Either way
-        the entries are **scientific names** in the same order as the logits
-        vector produced by :meth:`run_inference`.
+        Class order comes from ``assets/labels.csv`` (preferred, no TF load
+        needed) or ``model.class_list["labels"].classes`` (fallback). Either
+        way the entries are scientific names aligned with the logits vector.
         """
-        # ── Step 1: BTO scientific_name → british_common_name ─────────────────
+        # Step 1: load BTO scientific_name → british_common_name from the filter file
         bto_path = Path(__file__).parent.parent / "filters" / "uk_species_filter.json"
         sci_to_bto: dict[str, str] = {}
         if bto_path.exists():
@@ -254,7 +242,7 @@ class PerchModel:
                 if sci and name:
                     sci_to_bto[sci] = name
 
-        # ── Step 2: get the ordered scientific-name class list ────────────────
+        # Step 2: get the ordered scientific-name class list
         sci_names = self._sci_names_from_csv()
         if not sci_names:
             logger.info(
@@ -267,7 +255,7 @@ class PerchModel:
             logger.warning("Perch: could not determine class list; label map will be empty.")
             return {}, {}, []
 
-        # ── Step 3: assemble the maps ─────────────────────────────────────────
+        # Step 3: build both maps
         label_map:      dict[str, str] = {}
         sci_to_common:  dict[str, str] = {}
 
@@ -275,7 +263,7 @@ class PerchModel:
         for sci_name in sci_names:
             sci_lower = sci_name.lower()
 
-            # Priority: BTO british name > scientific name as last resort
+            # Use the BTO British name if available; fall back to the scientific name
             bto_name = sci_to_bto.get(sci_lower)
             if bto_name:
                 common = bto_name
@@ -283,8 +271,8 @@ class PerchModel:
             else:
                 common = sci_name
 
-            # label_map value: "Scientific name_Common name" — matches BirdNET
-            # format so species_filter and seasonal_filter work unchanged.
+            # Store in "Scientific name_Common name" format to match BirdNET's
+            # label map, so species_filter and seasonal_filter work unchanged.
             label_map[common]         = f"{sci_name}_{common}"
             sci_to_common[sci_name]   = common
 
@@ -297,7 +285,7 @@ class PerchModel:
         return label_map, sci_to_common, sci_names
 
     def _ensure_maps(self) -> None:
-        """Ensure label map, sci→common lookup, and class list are built (once)."""
+        """Build the label map, sci→common lookup, and class list once."""
         if self._label_map is not None:
             return
         self._label_map, self._sci_to_common, self._classes = self._build_maps()
@@ -307,39 +295,37 @@ class PerchModel:
     def load_label_map(self) -> dict[str, str]:
         """Return ``{common_name: "Scientific name_Common name"}`` for all Perch species.
 
-        Building the map reads ``assets/labels.csv`` from the Kaggle model cache
-        and the BTO species list.  The TF model itself is *not* loaded here —
-        that happens lazily on the first :meth:`run_inference` call.
+        Reads ``assets/labels.csv`` from the Kaggle model cache and the BTO
+        species list. The TF model itself is not loaded here — that happens
+        lazily on the first ``run_inference`` call.
 
-        The returned format is identical to
-        :meth:`inference.birdnet.BirdNETModel.load_label_map` so ``species_filter``
-        and ``seasonal_filter`` work without modification.
+        The format is identical to ``BirdNETModel.load_label_map`` so
+        ``species_filter`` and ``seasonal_filter`` work without modification.
         """
         self._ensure_maps()
         assert self._label_map is not None
         return self._label_map
 
     def run_inference(self, audio: np.ndarray) -> list[tuple[str, float]]:
-        """Resample *audio*, run Perch v2, and return results.
+        """Resample *audio* to 32 kHz, run Perch v2, and return results.
 
         Returns ``[(common_name, confidence), ...]`` sorted by confidence
-        descending.  Entries in ``NOISE_LABELS`` (constants.py) are removed.
-        No confidence threshold or top-N cap is applied.
+        descending. Entries in ``NOISE_LABELS`` are removed. No threshold
+        or top-N cap is applied.
 
-        The input *audio* is expected at ``cfg.audio.sample_rate`` (48 kHz by
-        default), as recorded by sounddevice.  It is resampled to 32 kHz
-        internally with ``scipy.signal.resample_poly``, then padded or
-        truncated to exactly one 5-second Perch window.
+        Input audio is expected at ``cfg.audio.sample_rate`` (48 kHz by
+        default). It is resampled to 32 kHz with ``scipy.signal.resample_poly``
+        then padded or truncated to exactly one 5-second window.
 
-        Raw logits are converted to probabilities via softmax (averaged over
-        any multiple output frames) before being returned as confidence values.
+        Raw logits are averaged over any temporal frames then converted to
+        probabilities via softmax before being returned as confidence values.
 
         Args:
             audio: PCM array (int16 or float32) at ``cfg.audio.sample_rate``.
         """
         from scipy.signal import resample_poly  # type: ignore[import]
 
-        self._ensure_maps()   # build sci→common map and class list before we need them
+        self._ensure_maps()   # build sci→common map and class list before inference
         self._ensure_model()  # load TF model (no-op after first call)
 
         if not self._classes:
@@ -348,13 +334,13 @@ class PerchModel:
 
         t0 = time.perf_counter()
 
-        # ── Convert int16 PCM → float32 in [-1, 1] ───────────────────────────
+        # Normalise int16 PCM to float32 in [-1, 1]
         if audio.dtype == np.int16:
             audio_f = audio.astype(np.float32) / 32768.0
         else:
             audio_f = audio.astype(np.float32)
 
-        # ── Resample to Perch's native 32 kHz ────────────────────────────────
+        # Resample to Perch's native 32 kHz
         src_rate = cfg.audio.sample_rate
         if src_rate != _PERCH_SAMPLE_RATE:
             g    = gcd(src_rate, _PERCH_SAMPLE_RATE)
@@ -362,14 +348,14 @@ class PerchModel:
             down = src_rate // g
             audio_f = resample_poly(audio_f, up, down).astype(np.float32)
 
-        # ── Pad or truncate to exactly one 5-second window ───────────────────
+        # Pad or truncate to exactly one 5-second window
         expected_samples = int(_PERCH_WINDOW_SECONDS * _PERCH_SAMPLE_RATE)
         if len(audio_f) < expected_samples:
             audio_f = np.pad(audio_f, (0, expected_samples - len(audio_f)))
         else:
             audio_f = audio_f[:expected_samples]
 
-        # ── Run Perch ─────────────────────────────────────────────────────────
+        # Run the model
         try:
             outputs = self._model.embed(audio_f)  # type: ignore[union-attr]
         except Exception:
@@ -380,9 +366,9 @@ class PerchModel:
         if not logits_dict:
             return []
 
-        # logits key is "label" (no 's'); class_list key is "labels" (with 's').
-        # We use self._classes (pre-built, aligned with logits) rather than
-        # re-accessing model.class_list to avoid the key mismatch at runtime.
+        # The logits key is "label" (no 's'); we use self._classes (pre-built,
+        # aligned with logits) rather than model.class_list to avoid the
+        # "label" vs "labels" key mismatch.
         primary_key = (
             "label"
             if "label" in logits_dict
@@ -402,14 +388,12 @@ class PerchModel:
             )
             return []
 
-        # ── Softmax: raw logits → probabilities ───────────────────────────────
+        # Convert logits to probabilities via softmax
         shifted = logits - logits.max()
         probs   = np.exp(shifted) / np.exp(shifted).sum()
 
-        # ── Map scientific names → common names and build results ─────────────
-        # Apply a raw probability floor (0.01) consistent with BirdNET's
-        # min_conf=0.01 to avoid returning thousands of near-zero softmax
-        # entries for species that are not present in the audio.
+        # Skip entries below 0.01 — matches BirdNET's min_conf floor and avoids
+        # returning thousands of near-zero softmax scores for absent species.
         _prob_floor = 0.01
         results: list[tuple[str, float]] = []
         for sci_name, prob in zip(self._classes, probs):
@@ -427,5 +411,3 @@ class PerchModel:
             self.window_seconds / (time.perf_counter() - t0),
         )
         return results
-
-

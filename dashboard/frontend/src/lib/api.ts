@@ -1,9 +1,9 @@
 /**
- * Typed API fetch wrappers for the bird-detector dashboard.
- * All functions throw on non-2xx responses.
+ * Typed wrappers around the dashboard API.
+ * All functions throw if the server returns a non-2xx response.
  */
 
-const BASE = ''; // proxied via vite; empty = same-origin
+const BASE = ''; // empty = same origin; Vite proxies /api/* to the backend
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 	const { headers: extraHeaders, ...rest } = init ?? {};
@@ -23,6 +23,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 export type Period = 'today' | '7d' | '30d' | '90d' | 'all';
 export type SpeciesPeriod = Period | '365d' | 'custom';
 
+// Labels shown in period-selector dropdowns
 export const PERIODS: { value: Period; label: string }[] = [
 	{ value: 'today', label: 'Today' },
 	{ value: '7d',    label: 'Last 7' },
@@ -31,6 +32,7 @@ export const PERIODS: { value: Period; label: string }[] = [
 	{ value: 'all',   label: 'All time' },
 ];
 
+// Extended period list used on the species page (adds 365d and custom range)
 export const SPECIES_PERIODS: { value: SpeciesPeriod; label: string }[] = [
 	{ value: 'today',  label: 'Today' },
 	{ value: '7d',     label: 'Last 7 days' },
@@ -82,19 +84,19 @@ export interface Detection extends SpeciesInfo {
 	timestamp: string;           // ISO 8601
 	species: string;
 	bto_name: string | null;
-	confidence: number;          // 0–1 (mean when CV agrees; primary otherwise)
-	filename: string | null;     // basename of clip_path; null if no clip saved
+	confidence: number;          // 0–1; averaged with CV score when models agree
+	filename: string | null;     // audio clip basename; null if no clip was saved
 	// ── Inference model ─────────────────────────────────────────────────────
 	model: string | null;        // "birdnet" | "perch" | null (legacy rows)
-	// ── Cross-validation ────────────────────────────────────────────────────
-	primary_confidence: number | null;  // raw primary model score
+	// ── Cross-validation fields (populated when CV is enabled) ──────────────
+	primary_confidence: number | null;  // raw score from the primary model
 	cross_validated: number | null;     // 1 if CV ran, 0/null otherwise
-	cv_secondary_model: string | null;  // secondary model that validated
-	cv_species: string | null;          // species name returned by secondary
-	cv_bto_name: string | null;         // BTO name from secondary
-	cv_confidence: number | null;       // secondary model confidence
-	cv_agree: number | null;            // 1 = agree, 0 = disagree
-	flagged: number | null;             // 1 = CV disagreed but kept (on_disagree=flag)
+	cv_secondary_model: string | null;  // which secondary model ran CV
+	cv_species: string | null;          // species identified by the secondary model
+	cv_bto_name: string | null;         // BTO name from the secondary model
+	cv_confidence: number | null;       // secondary model's confidence score
+	cv_agree: number | null;            // 1 = both models agreed, 0 = disagreed
+	flagged: number | null;             // 1 = models disagreed but detection was kept
 }
 
 // ── Shared species metadata (from species_info table) ─────────────────────
@@ -129,7 +131,7 @@ export interface AnalyticsSummary {
 	avg_confidence: number;
 	most_common_species: string | null;
 	most_common_count: number;
-	// Conservation fields (from species_info join)
+	// Conservation counts (joined from species_info)
 	red_list_species: number;
 	scarce_rare_species: number;
 	groups_represented: number;
@@ -234,12 +236,12 @@ export function getNewSpeciesTimeline(period: Period): Promise<NewSpeciesEntry[]
 
 // ── Species ────────────────────────────────────────────────────────────────
 
-/** Fetch aggregate stats + metadata for one species. */
+/** Fetch aggregate stats and metadata for a single species. */
 export function getSpeciesDetail(name: string): Promise<SpeciesStats> {
 	return apiFetch<SpeciesStats>(`/api/v1/species/${encodeURIComponent(name)}`);
 }
 
-/** Fetch paginated detection recordings for one species, newest first. */
+/** Fetch a paginated list of individual detections for one species, newest first. */
 export function getSpeciesDetections(
 	name: string,
 	params: { limit?: number; offset?: number } = {}
@@ -261,7 +263,7 @@ export function getSpeciesList(params: {
 	offset?: number;
 	bocc?: string;    // "Red" | "Amber" | "Green"
 	status?: string;  // "Common" | "Scarce" | "Rare" | "Very rare"
-	group?: string;   // group_name from species_info
+	group?: string;   // taxonomic group name from species_info
 }): Promise<SpeciesListResponse> {
 	const q = new URLSearchParams({ period: params.period, sort: params.sort });
 	if (params.date_from) q.set('date_from', params.date_from);
@@ -274,7 +276,7 @@ export function getSpeciesList(params: {
 	return apiFetch<SpeciesListResponse>(`/api/v1/species?${q}`);
 }
 
-/** URL for the cached species image endpoint. Returns null if no image is available. */
+/** Returns the URL for a species thumbnail. The image is served from the backend cache. */
 export function speciesImageUrl(species: string): string {
 	return `/api/v1/species/image?name=${encodeURIComponent(species)}`;
 }
@@ -287,10 +289,9 @@ export interface SunTimes {
 }
 
 /**
- * Fetch sunrise and sunset times for a given local date.
- * Returns null silently if the endpoint is unavailable (e.g. astral not
- * installed or date out of range) so callers can treat absent sun data as
- * a no-op rather than an error.
+ * Fetch sunrise/sunset times for a given local date.
+ * Returns null if the endpoint fails (e.g. astral not installed, date out of
+ * range) — callers should treat missing sun data as a non-fatal no-op.
  */
 export function getSunTimes(date: string): Promise<SunTimes | null> {
 	return apiFetch<SunTimes>(`/api/v1/sun?date=${encodeURIComponent(date)}`)

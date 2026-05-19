@@ -20,7 +20,7 @@
 	class="row"
 	aria-label="View recordings for {species.species}"
 >
-	<!-- Thumbnail with group badge overlay -->
+	<!-- Thumbnail; group-badge overlaid at bottom-right shows taxonomic group initials -->
 	<div class="thumb">
 		{#if imgError}
 			<div class="thumb-fallback">
@@ -46,7 +46,6 @@
 		</span>
 	</div>
 
-	<!-- Name column -->
 	<div class="name-col">
 		<div class="name-row">
 			<span class="common-name truncate">{species.species}</span>
@@ -58,6 +57,7 @@
 		{#if species.uk_bocc || statusStyle}
 			<div class="pills">
 				{#if species.uk_bocc}
+					<!-- Semi-transparent tint derived from the BoCC colour -->
 					<span
 						class="pill"
 						style="background-color: {BOCC_COLOR[species.uk_bocc]}22; color: {BOCC_COLOR[species.uk_bocc]}"
@@ -77,16 +77,9 @@
 		{/if}
 	</div>
 
-	<!-- Detections -->
 	<div class="col-det tabular">{species.detections.toLocaleString()}</div>
-
-	<!-- Peak confidence -->
 	<div class="col-peak tabular hide-sm">{formatConfidence(species.peak_confidence)}</div>
-
-	<!-- First seen -->
 	<div class="col-date hide-md">{formatFullDate(species.first_detected)}</div>
-
-	<!-- Last seen -->
 	<div class="col-date hide-md">{formatFullDate(species.last_detected)}</div>
 </a>
 
@@ -112,7 +105,6 @@
 		outline-offset: -2px;
 	}
 
-	/* Thumbnail */
 	.thumb {
 		width: 2.75rem;
 		height: 2.75rem;
@@ -141,6 +133,7 @@
 		height: 1.5rem;
 		fill: currentColor;
 	}
+	/* Badge anchored to bottom-right corner of the thumbnail */
 	.group-badge {
 		position: absolute;
 		bottom: 0;
@@ -156,7 +149,6 @@
 		line-height: 1;
 	}
 
-	/* Name column */
 	.name-col {
 		display: flex;
 		flex-direction: column;
@@ -192,7 +184,7 @@
 		border-radius: 0.25rem;
 	}
 
-	/* Right columns */
+	/* Fixed-width right columns keep the table-like layout stable -->
 	.col-det {
 		width: 6rem;
 		text-align: right;

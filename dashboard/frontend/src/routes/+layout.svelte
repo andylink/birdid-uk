@@ -11,6 +11,7 @@
 	let stationName = $state('BirdNet-UK');
 
 	onMount(async () => {
+		// Fetch station config; use the station name if provided.
 		const config = await initTimezone();
 		if (config?.station_name) stationName = config.station_name;
 		isDark = currentTheme() === 'dark';
@@ -69,10 +70,12 @@
 				title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
 			>
 				{#if isDark}
+					<!-- Moon icon (dark mode active) -->
 					<svg viewBox="0 0 24 24" class="theme-icon" aria-hidden="true">
 						<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
 					</svg>
 				{:else}
+					<!-- Sun icon (light mode active) -->
 					<svg viewBox="0 0 24 24" class="theme-icon" aria-hidden="true">
 						<circle cx="12" cy="12" r="5"/>
 						<line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -148,6 +151,7 @@
 		background: var(--color-surface-2);
 	}
 
+	/* Push theme toggle and location hint to the right */
 	.header-end {
 		margin-left: auto;
 		display: flex;
@@ -183,6 +187,7 @@
 		fill: currentColor;
 	}
 
+	/* Takes up remaining vertical space below the header */
 	.main {
 		flex: 1;
 		min-height: 0;
