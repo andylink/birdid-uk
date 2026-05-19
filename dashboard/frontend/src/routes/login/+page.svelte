@@ -21,6 +21,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Login — Bird Detector</title>
+</svelte:head>
+
 <div class="login-wrap">
 	<div class="login-card">
 		<h1 class="login-title">Admin login</h1>

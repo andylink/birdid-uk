@@ -100,8 +100,10 @@ class SeasonalFilter:
             return
 
         species_data: dict[str, list[int]] = data.get("species", {})
+        # Keys are normalised to lowercase so check() is case-insensitive,
+        # consistent with NocturnalFilter's approach.
         self._allowed = {
-            name: frozenset(weeks)
+            name.lower(): frozenset(weeks)
             for name, weeks in species_data.items()
         }
 
@@ -117,7 +119,7 @@ class SeasonalFilter:
         """Return True if the species is expected during the given week.
 
         Args:
-            species: BirdNET common name (exact case, as returned by run_inference).
+            species: BirdNET common name (case-insensitive — lookup is normalised to lowercase).
             week:    ISO week number 1–52 (use current_iso_week()).
 
         Returns:
@@ -127,7 +129,7 @@ class SeasonalFilter:
         if not self.enabled:
             return True
 
-        allowed_weeks = self._allowed.get(species)
+        allowed_weeks = self._allowed.get(species.lower())
         if allowed_weeks is None:
             # Species not listed — no restriction
             return True

@@ -24,6 +24,7 @@ is assumed to arrive at ``cfg.audio.sample_rate``; no resampling is done.
 
 from __future__ import annotations
 
+import concurrent.futures
 import csv
 import io
 import logging
@@ -40,6 +41,10 @@ from config import cfg
 from constants import NOISE_LABELS
 
 logger = logging.getLogger(__name__)
+
+# Maximum seconds to wait for BirdNET to return results. A hung analyze()
+# call holds the inference_lock indefinitely, blocking all sources.
+_INFERENCE_TIMEOUT_SECONDS: float = 30.0
 
 
 class BirdNETModel:
@@ -103,16 +108,28 @@ class BirdNETModel:
             wav_path = Path(tmpdir) / "clip.wav"
             save_wav(audio, wav_path)
 
-            # Suppress BirdNET's stdout progress output
-            with redirect_stdout(io.StringIO()):
-                analyze(
-                    str(wav_path),
-                    output=tmpdir,
-                    min_conf=0.01,
-                    rtype="csv",
-                    merge_consecutive=1,
-                    threads=1,
-                )
+            def _run_analyze() -> None:
+                # Suppress BirdNET's stdout progress output
+                with redirect_stdout(io.StringIO()):
+                    analyze(
+                        str(wav_path),
+                        output=tmpdir,
+                        min_conf=0.01,
+                        rtype="csv",
+                        merge_consecutive=1,
+                        threads=1,
+                    )
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                fut = pool.submit(_run_analyze)
+                try:
+                    fut.result(timeout=_INFERENCE_TIMEOUT_SECONDS)
+                except concurrent.futures.TimeoutError:
+                    logger.error(
+                        "BirdNET analyze() timed out after %.0f s — skipping window",
+                        _INFERENCE_TIMEOUT_SECONDS,
+                    )
+                    return []
 
             csv_path = Path(tmpdir) / "clip.BirdNET.results.csv"
             if not csv_path.exists():

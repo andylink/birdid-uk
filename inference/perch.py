@@ -389,8 +389,9 @@ class PerchModel:
             return []
 
         # Convert logits to probabilities via softmax
-        shifted = logits - logits.max()
-        probs   = np.exp(shifted) / np.exp(shifted).sum()
+        shifted     = logits - logits.max()
+        exp_shifted = np.exp(shifted)
+        probs       = exp_shifted / exp_shifted.sum()
 
         # Skip entries below 0.01 — matches BirdNET's min_conf floor and avoids
         # returning thousands of near-zero softmax scores for absent species.

@@ -171,6 +171,12 @@ def _check_dedup(species: str, source_name: str, ts: datetime) -> bool:
     window = timedelta(seconds=cfg.deduplication.window_seconds)
 
     with _dedup_lock:
+        # Evict stale entries to prevent unbounded memory growth over long uptime.
+        cutoff = ts - timedelta(seconds=cfg.deduplication.window_seconds * 2)
+        stale = [k for k, v in _dedup_recent.items() if v[1] < cutoff]
+        for k in stale:
+            del _dedup_recent[k]
+
         if species in _dedup_recent:
             prev_source, prev_ts = _dedup_recent[species]
             if prev_source != source_name and abs(ts - prev_ts) <= window:
@@ -356,6 +362,7 @@ def _deferred_save(
     
         # ── Cross-source deduplication ────────────────────────────────────────────
         # Only active in multi-source mode (source_name is not None).
+        # None = not a cross-source duplicate; True = flagged as duplicate.
         _deduplicated: bool | None = None
         if source_name is not None and _check_dedup(species, source_name, ts):
             if cfg.deduplication.on_duplicate == "skip":

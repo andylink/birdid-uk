@@ -33,7 +33,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from dashboard.auth import require_admin
-from dashboard.config import DETECTIONS_DIR, LOCAL_TZ
+from dashboard.config import DETECTIONS_DIR, DB_TYPE, LOCAL_TZ
 from dashboard.database import get_db, get_engine
 from dashboard.utils import _day_utc_bounds
 
@@ -81,11 +81,17 @@ async def export_detections(
         clauses.append("species = :species")
         params["species"] = species
     if date_from:
-        start, _ = _day_utc_bounds(date.fromisoformat(date_from), LOCAL_TZ)
+        try:
+            start, _ = _day_utc_bounds(date.fromisoformat(date_from), LOCAL_TZ)
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid date_from format: {date_from!r}")
         clauses.append("timestamp >= :date_from")
         params["date_from"] = start
     if date_to:
-        _, end = _day_utc_bounds(date.fromisoformat(date_to), LOCAL_TZ)
+        try:
+            _, end = _day_utc_bounds(date.fromisoformat(date_to), LOCAL_TZ)
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid date_to format: {date_to!r}")
         clauses.append("timestamp < :date_to")
         params["date_to"] = end
 
@@ -245,8 +251,7 @@ async def system_status(db: AsyncConnection = Depends(get_db)):
 async def run_retention():
     """Trigger the retention cleanup and return the number of clips deleted."""
     from retention import run_cleanup  # noqa: PLC0415 — imported lazily to avoid startup cost
-    loop    = asyncio.get_event_loop()
-    deleted = await loop.run_in_executor(None, run_cleanup)
+    deleted = await asyncio.to_thread(run_cleanup)
     return {"clips_deleted": deleted}
 
 
@@ -306,22 +311,42 @@ async def reseed_species():
 
     async with get_engine().begin() as conn:
         await conn.execute(text("DELETE FROM species_info"))
-        await conn.execute(
-            text(
-                "INSERT OR REPLACE INTO species_info "
-                "(name, scientific_name, british_list_status, population_estimate, "
-                " bto_2letter_code, bto_5letter_code, species_status, uk_bocc, "
-                " birdfacts_url, international_english_name, group_name, "
-                " ebird_code, avicommons_image_url, "
-                " avicommons_image_by, avicommons_image_license) "
-                "VALUES (:name, :scientific_name, :british_list_status, "
-                " :population_estimate, :bto_2letter_code, :bto_5letter_code, "
-                " :species_status, :uk_bocc, :birdfacts_url, "
-                " :international_english_name, :group_name, "
-                " :ebird_code, :avicommons_image_url, "
-                " :avicommons_image_by, :avicommons_image_license)"
-            ),
-            rows,
+        _cols = (
+            "name, scientific_name, british_list_status, population_estimate, "
+            "bto_2letter_code, bto_5letter_code, species_status, uk_bocc, "
+            "birdfacts_url, international_english_name, group_name, "
+            "ebird_code, avicommons_image_url, "
+            "avicommons_image_by, avicommons_image_license"
         )
+        _vals = (
+            ":name, :scientific_name, :british_list_status, "
+            ":population_estimate, :bto_2letter_code, :bto_5letter_code, "
+            ":species_status, :uk_bocc, :birdfacts_url, "
+            ":international_english_name, :group_name, "
+            ":ebird_code, :avicommons_image_url, "
+            ":avicommons_image_by, :avicommons_image_license"
+        )
+        if DB_TYPE == "sqlite":
+            _stmt = f"INSERT OR REPLACE INTO species_info ({_cols}) VALUES ({_vals})"
+        else:
+            _stmt = (
+                f"INSERT INTO species_info ({_cols}) VALUES ({_vals}) "
+                "ON CONFLICT (name) DO UPDATE SET "
+                "scientific_name=EXCLUDED.scientific_name, "
+                "british_list_status=EXCLUDED.british_list_status, "
+                "population_estimate=EXCLUDED.population_estimate, "
+                "bto_2letter_code=EXCLUDED.bto_2letter_code, "
+                "bto_5letter_code=EXCLUDED.bto_5letter_code, "
+                "species_status=EXCLUDED.species_status, "
+                "uk_bocc=EXCLUDED.uk_bocc, "
+                "birdfacts_url=EXCLUDED.birdfacts_url, "
+                "international_english_name=EXCLUDED.international_english_name, "
+                "group_name=EXCLUDED.group_name, "
+                "ebird_code=EXCLUDED.ebird_code, "
+                "avicommons_image_url=EXCLUDED.avicommons_image_url, "
+                "avicommons_image_by=EXCLUDED.avicommons_image_by, "
+                "avicommons_image_license=EXCLUDED.avicommons_image_license"
+            )
+        await conn.execute(text(_stmt), rows)
 
     return {"seeded": len(rows)}

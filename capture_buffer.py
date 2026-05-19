@@ -52,8 +52,11 @@ class CaptureBuffer:
         are overwritten — we only need the most recent max_seconds of audio.
 
         Args:
-            chunk: 1-D int16 numpy array from the recording thread.
+            chunk: 1-D int16 (or float32) numpy array from the recording thread.
+                   Float arrays are scaled and cast to int16 automatically.
         """
+        if chunk.dtype != np.int16:
+            chunk = np.clip(chunk * 32767, -32768, 32767).astype(np.int16)
         n = len(chunk)
         with self._lock:
             end = self._write_pos + n
@@ -91,6 +94,9 @@ class CaptureBuffer:
             A new 1-D int16 numpy array of length length_samples, or None.
         """
         with self._lock:
+            if length_samples == 0:
+                return np.array([], dtype=np.int16)
+
             end_sample = begin_sample + length_samples
 
             # Requested end must not be ahead of what's been written yet.

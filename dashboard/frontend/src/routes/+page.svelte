@@ -13,6 +13,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Detections — Bird Detector</title>
+</svelte:head>
+
 <div class="page-shell">
 	<div class="top-row">
 		<!-- Heatmap fills the remaining width; feed is a fixed-width sidebar -->

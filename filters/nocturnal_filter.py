@@ -119,6 +119,11 @@ class NocturnalFilter:
                     "Nocturnal filter: config override applied for %r", species
                 )
 
+        # Build a lowercase-keyed dict once so _get_window() is O(1) per lookup.
+        self._windows_lower: dict[str, dict] = {
+            k.lower(): v for k, v in self._windows.items()
+        }
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -135,8 +140,8 @@ class NocturnalFilter:
                 date=local_date,
                 tzinfo=self._tz,
             )
-            # Keep only today and yesterday
-            cutoff = local_date - timedelta(days=2)
+            # Keep only today and yesterday (evict anything older than yesterday)
+            cutoff = local_date - timedelta(days=1)
             for stale in [d for d in self._sun_cache if d < cutoff]:
                 del self._sun_cache[stale]
         return self._sun_cache[local_date]
@@ -144,13 +149,9 @@ class NocturnalFilter:
     def _get_window(self, species: str) -> dict | None:
         """Return the active window spec for a species, or None if unrestricted.
 
-        Case-insensitive lookup to handle minor capitalisation differences in BirdNET output.
+        Case-insensitive O(1) lookup via a pre-built lowercase dict.
         """
-        species_lower = species.lower()
-        for key, val in self._windows.items():
-            if key.lower() == species_lower:
-                return val
-        return None
+        return self._windows_lower.get(species.lower())
 
     # ------------------------------------------------------------------
     # Public API

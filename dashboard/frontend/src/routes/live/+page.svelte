@@ -117,6 +117,10 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Live — Bird Detector</title>
+</svelte:head>
+
 <div class="live-page">
 <div class="live-inner">
 

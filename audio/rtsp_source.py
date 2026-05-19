@@ -127,7 +127,7 @@ class RtspSource:
             self._proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 bufsize=0,   # unbuffered so we read chunks as they arrive
             )
         except FileNotFoundError:
@@ -139,17 +139,27 @@ class RtspSource:
             )
 
     def _kill(self) -> None:
-        """Terminate the FFmpeg subprocess if it's running."""
+        """Terminate the FFmpeg subprocess if it's running, logging any stderr output."""
         if self._proc is not None:
             try:
                 self._proc.terminate()
-                self._proc.wait(timeout=5)
+                _, stderr_bytes = self._proc.communicate(timeout=5)
             except Exception:  # noqa: BLE001
+                stderr_bytes = b""
                 try:
                     self._proc.kill()
+                    self._proc.wait(timeout=5)
                 except Exception:  # noqa: BLE001
                     pass
-            self._proc = None
+            finally:
+                if self._proc is not None and self._proc.returncode not in (None, 0, -15):
+                    stderr_text = (stderr_bytes or b"").decode(errors="replace").strip()
+                    if stderr_text:
+                        logger.warning(
+                            "[audio/rtsp '%s'] FFmpeg exited with code %d: %s",
+                            self._name, self._proc.returncode, stderr_text[-500:],
+                        )
+                self._proc = None
 
     def _reconnect(self) -> None:
         """Kill the current process and relaunch after the configured delay."""

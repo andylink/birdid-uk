@@ -8,7 +8,12 @@ dialect-aware SQL expression builders for SQLite and PostgreSQL.
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+from typing import Literal
 from zoneinfo import ZoneInfo
+
+# Valid named period values accepted by all period-filtered endpoints.
+Period = Literal["today", "7d", "30d", "90d", "365d", "all", "custom"]
+VALID_PERIODS: frozenset[str] = frozenset(Period.__args__)  # type: ignore[attr-defined]
 
 
 def _local_tz() -> ZoneInfo:
@@ -144,6 +149,12 @@ def period_clause(
     col      — the timestamp column to filter (default: "timestamp")
     date_from / date_to — YYYY-MM-DD local dates, used when period == "custom"
     """
+    if period not in VALID_PERIODS:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid period {period!r}. Must be one of: {', '.join(sorted(VALID_PERIODS))}",
+        )
     tz = _local_tz()
     today = _local_today()
 
@@ -168,3 +179,15 @@ def period_clause(
         return f"{col} >= :start AND {col} < :end", {"start": start, "end": end}
     else:  # "all" or unrecognised
         return "1=1", {}
+
+
+def normalise_bools(d: dict) -> dict:
+    """Coerce cross-validation boolean fields to integers.
+
+    SQLite returns 0/1; PostgreSQL returns Python bools. The frontend uses
+    strict equality (=== 1), so we normalise to integers for both backends.
+    """
+    for key in ("cross_validated", "cv_agree"):
+        if key in d and isinstance(d[key], bool):
+            d[key] = int(d[key])
+    return d

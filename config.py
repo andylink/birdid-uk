@@ -12,6 +12,7 @@ per-species settings with defaults already applied.
 
 from __future__ import annotations
 
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -491,6 +492,14 @@ def _load() -> Config:
         lat = float(loc.get("lat", 0.0)),
         lon = float(loc.get("lon", 0.0)),
     )
+    if not (-90 <= location_cfg.lat <= 90):
+        raise ValueError(
+            f"[location] lat must be between -90 and 90, got {location_cfg.lat}"
+        )
+    if not (-180 <= location_cfg.lon <= 180):
+        raise ValueError(
+            f"[location] lon must be between -180 and 180, got {location_cfg.lon}"
+        )
 
     p = raw["paths"]
     paths = PathsConfig(
@@ -552,8 +561,14 @@ def _load() -> Config:
                     f"[audio.sources[{i}]] type must be 'sounddevice' or 'rtsp', "
                     f"got: {_src_type!r}"
                 )
+            _src_name = str(s.get("name", f"source-{i}"))
+            if not re.match(r'^[A-Za-z0-9_\-]+$', _src_name):
+                raise ValueError(
+                    f"[audio.sources[{i}]] name {_src_name!r} contains invalid characters. "
+                    "Use only letters, digits, hyphens, and underscores."
+                )
             _audio_sources.append(AudioSourceConfig(
-                name                    = str(s.get("name", f"source-{i}")),
+                name                    = _src_name,
                 type                    = _src_type,
                 device                  = s.get("device"),
                 url                     = str(s.get("url",                     "")),
@@ -600,6 +615,10 @@ def _load() -> Config:
         min_detections              = int(d.get("min_detections",              3)),
         confirmation_window_seconds = float(d.get("confirmation_window_seconds", 9.0)),
     )
+    if defaults.min_detections < 1:
+        raise ValueError(
+            f"[defaults] min_detections must be >= 1, got {defaults.min_detections}"
+        )
     exclude = frozenset(s.lower() for s in d.get("exclude", []))
 
     f = raw.get("filter", {})
@@ -619,14 +638,14 @@ def _load() -> Config:
         spectrogram_max_age_days = int(r.get("spectrogram_max_age_days",  365)),
     )
 
-    l = raw.get("log", {})
+    log_raw = raw.get("log", {})
     log_cfg = LogConfig(
-        enabled        = bool(l.get("enabled",        False)),
-        path           = Path(l.get("path",           "data/bird_detector.log")),
-        rotation       = str(l.get("rotation",        "daily")),
-        max_size_bytes = int(l.get("max_size_bytes",  10 * 1024 * 1024)),
-        backup_count   = int(l.get("backup_count",    7)),
-        level          = str(l.get("level",           "INFO")).upper(),
+        enabled        = bool(log_raw.get("enabled",        False)),
+        path           = Path(log_raw.get("path",           "data/bird_detector.log")),
+        rotation       = str(log_raw.get("rotation",        "daily")),
+        max_size_bytes = int(log_raw.get("max_size_bytes",  10 * 1024 * 1024)),
+        backup_count   = int(log_raw.get("backup_count",    7)),
+        level          = str(log_raw.get("level",           "INFO")).upper(),
     )
 
     db = raw.get("database", {})
@@ -690,10 +709,16 @@ def _load() -> Config:
     )
 
     cv = raw.get("cross_validation", {})
+    _cv_on_disagree = str(cv.get("on_disagree", "drop"))
+    if _cv_on_disagree not in ("drop", "flag", "save"):
+        raise ValueError(
+            f"[cross_validation] on_disagree must be 'drop', 'flag', or 'save', "
+            f"got: {_cv_on_disagree!r}"
+        )
     cross_validation_cfg = CrossValidationConfig(
         enabled           = bool(cv.get("enabled",           False)),
         skip_threshold    = float(cv.get("skip_threshold",    0.90)),
-        on_disagree       = str(cv.get("on_disagree",        "drop")),
+        on_disagree       = _cv_on_disagree,
         cv_min_confidence = float(cv.get("cv_min_confidence", 0.01)),
     )
 

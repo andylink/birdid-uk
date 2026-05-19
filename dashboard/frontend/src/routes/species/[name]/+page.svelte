@@ -194,6 +194,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{speciesName} — Bird Detector</title>
+</svelte:head>
+
 <div class="page-scroll">
 	<div class="page-inner">
 

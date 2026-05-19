@@ -298,8 +298,8 @@ class TestMiscellaneous:
         v = CrossValidator(sec, {}, "perch", min_conf_threshold=0.5)
         assert v.window_seconds == pytest.approx(5.0)
 
-    def test_species_name_param_used_for_lookup(self, monkeypatch, sample_audio):
-        """The species_name kwarg (not primary_species) is passed to get_species_config."""
+    def test_primary_species_used_for_config_lookup(self, monkeypatch, sample_audio):
+        """primary_species is passed to get_species_config for per-species on_disagree lookup."""
         seen_names: list[str] = []
 
         def tracking_gsc(name: str) -> SpeciesConfig:
@@ -317,10 +317,9 @@ class TestMiscellaneous:
             "European Robin",
             "Robin",
             primary_conf=0.75,
-            species_name="Custom Override Name",
         )
 
-        assert "Custom Override Name" in seen_names
+        assert "European Robin" in seen_names
 
     def test_secondary_model_name_stored(self, sample_audio):
         """The secondary model name passed to the constructor should appear in results."""

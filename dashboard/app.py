@@ -16,7 +16,7 @@ from pathlib import Path
 
 _log = logging.getLogger(__name__)
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
@@ -169,15 +169,19 @@ app.include_router(admin_router)
 
 # ── SSE stream ────────────────────────────────────────────────────────────────
 @app.get("/stream/detections")
-async def stream_detections():
+async def stream_detections(request: Request):
     """Push new detections to the browser as Server-Sent Events.
+
+    Accepts the standard ``Last-Event-ID`` header on reconnect so no
+    detections are missed.
 
     Intentionally unauthenticated — detection data contains no personal
     information and this service is expected to run on a private LAN.
     If you expose the dashboard publicly, protect this endpoint at the
     reverse-proxy level (e.g. nginx auth_basic).
     """
-    return EventSourceResponse(detection_generator())
+    last_event_id = request.headers.get("last-event-id")
+    return EventSourceResponse(detection_generator(last_event_id))
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

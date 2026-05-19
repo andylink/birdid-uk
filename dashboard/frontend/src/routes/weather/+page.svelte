@@ -17,11 +17,13 @@
 	let status  = $state<WeatherStatus | null>(null);
 	let summary = $state<WeatherSummary | null>(null);
 	let loading = $state(true);
+	let error   = $state<string | null>(null);
 
 	// Stale-response guard: discard results from a superseded period selection.
 	$effect(() => {
 		const p = period;
 		loading = true;
+		error   = null;
 		status  = null;
 		summary = null;
 
@@ -31,7 +33,9 @@
 				status  = s;
 				summary = w;
 			})
-			.catch(() => {})
+			.catch(() => {
+				if (period === p) error = 'Failed to load weather data. Please refresh.';
+			})
 			.finally(() => { if (period === p) loading = false; });
 	});
 
@@ -44,6 +48,10 @@
 		return `${s.coverage_pct}% of ${s.total_detections.toLocaleString()} detections`;
 	}
 </script>
+
+<svelte:head>
+	<title>Weather — Bird Detector</title>
+</svelte:head>
 
 <div class="page-scroll">
 	<div class="page-inner">
@@ -64,8 +72,12 @@
 			</div>
 		</div>
 
+		<!-- Error state -->
+		{#if error}
+			<p class="fetch-error">{error}</p>
+
 		<!-- No weather data state -->
-		{#if !loading && status && status.with_weather === 0}
+		{:else if !loading && status && status.with_weather === 0}
 			<div class="info-card">
 				<div class="info-icon">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -190,6 +202,17 @@ provider = "open_meteo"   # free, no key required</pre>
 	.period-btn.active {
 		background: var(--color-accent);
 		color: #fff;
+	}
+
+	/* Error message */
+	.fetch-error {
+		margin: 0;
+		padding: 0.75rem 1rem;
+		background: color-mix(in srgb, var(--color-danger, #ef4444) 10%, transparent);
+		border: 1px solid color-mix(in srgb, var(--color-danger, #ef4444) 30%, transparent);
+		border-radius: 0.375rem;
+		color: var(--color-danger, #ef4444);
+		font-size: 0.875rem;
 	}
 
 	/* No-data info card */

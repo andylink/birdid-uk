@@ -2,14 +2,21 @@
 SSE stream that polls the database every 2 seconds and pushes new detections
 to connected clients as named 'detection' events.
 
-Only detections that arrive after the client connects are sent — no history
-is replayed on reconnect. Works with both SQLite and PostgreSQL.
+Reconnect support: if the client sends a `Last-Event-ID` header (standard SSE
+reconnect behaviour), the stream resumes from that detection ID so no events
+are missed.
+
+Keepalive: a comment-style ping is emitted when no detections arrive in a
+poll cycle, preventing proxies from closing idle connections after 30–60 s.
+
+Works with both SQLite and PostgreSQL.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from pathlib import Path
 from typing import AsyncGenerator
 
@@ -19,6 +26,8 @@ from sqlalchemy.exc import OperationalError
 from dashboard.config import SSE_POLL_SECONDS
 from dashboard.database import get_engine
 from dashboard.utils import to_utc_iso
+
+_log = logging.getLogger(__name__)
 
 
 def _row_to_dict(row: dict) -> dict:
@@ -37,23 +46,41 @@ def _row_to_dict(row: dict) -> dict:
     return d
 
 
-async def detection_generator() -> AsyncGenerator[dict, None]:
-    """Yield SSE-formatted dicts for each new detection row."""
-    last_id: int = 0
+async def detection_generator(last_event_id: str | None = None) -> AsyncGenerator[dict, None]:
+    """Yield SSE-formatted dicts for each new detection row.
 
-    async with get_engine().connect() as conn:
-        # Start from the current max ID so we don't send existing detections on connect.
-        # Silently skip if the detections table doesn't exist yet.
+    Args:
+        last_event_id: If the client reconnects with a ``Last-Event-ID`` header,
+            pass that value here so the stream resumes from that detection ID
+            rather than the current maximum.  ``None`` means start from now.
+    """
+    # Honour Last-Event-ID for reconnecting clients.
+    if last_event_id is not None:
         try:
-            row = (
-                await conn.execute(text("SELECT COALESCE(MAX(id), 0) AS m FROM detections"))
-            ).one()
-            last_id = int(row[0])
-        except OperationalError:
-            pass
+            last_id = int(last_event_id)
+        except (TypeError, ValueError):
+            last_id = 0
+    else:
+        last_id = 0
 
-        while True:
-            try:
+    if last_event_id is None:
+        # New connection — start from the current max ID so we don't replay history.
+        try:
+            async with get_engine().connect() as conn:
+                row = (
+                    await conn.execute(text("SELECT COALESCE(MAX(id), 0) AS m FROM detections"))
+                ).one()
+                last_id = int(row[0])
+        except OperationalError:
+            _log.warning("SSE stream: DB OperationalError reading max(id) (table may not exist yet)")
+
+    while True:
+        rows = []
+        try:
+            # Acquire and release the connection on every poll cycle so we never
+            # hold a connection idle between polls (prevents pool exhaustion with
+            # many simultaneous clients).
+            async with get_engine().connect() as conn:
                 rows = (
                     await conn.execute(
                         text("""
@@ -73,12 +100,18 @@ async def detection_generator() -> AsyncGenerator[dict, None]:
                         {"last_id": last_id},
                     )
                 ).mappings().all()
-            except OperationalError:
-                rows = []  # table not yet created; retry next cycle
+        except OperationalError:
+            _log.warning("SSE stream: DB OperationalError (table may not exist yet), retrying")
+            rows = []
 
+        if rows:
             for row in rows:
                 d = _row_to_dict(dict(row))
                 last_id = d["id"]
-                yield {"event": "detection", "data": json.dumps(d)}
+                yield {"event": "detection", "data": json.dumps(d), "id": str(last_id)}
+        else:
+            # No new detections — send a keepalive comment so proxies don't drop
+            # the connection after their idle timeout (typically 30–60 s).
+            yield {"event": "ping", "data": ""}
 
-            await asyncio.sleep(SSE_POLL_SECONDS)
+        await asyncio.sleep(SSE_POLL_SECONDS)

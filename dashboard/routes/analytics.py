@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import date as date_cls
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
@@ -40,7 +40,10 @@ async def species_daily(
     configured timezone so the heatmap aligns with local time.
     """
     tz = _local_tz()
-    start_utc, end_utc = _day_utc_bounds(date_cls.fromisoformat(date), tz)
+    try:
+        start_utc, end_utc = _day_utc_bounds(date_cls.fromisoformat(date), tz)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Invalid date format: {date!r}")
 
     summary_rows = (
         await db.execute(
@@ -120,7 +123,10 @@ async def by_hour(
     """
     if date:
         tz = _local_tz()
-        start_utc, end_utc = _day_utc_bounds(date_cls.fromisoformat(date), tz)
+        try:
+            start_utc, end_utc = _day_utc_bounds(date_cls.fromisoformat(date), tz)
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid date format: {date!r}")
         where, params = "timestamp >= :start AND timestamp < :end", {"start": start_utc, "end": end_utc}
     elif period:
         where, params = _period_clause(period)

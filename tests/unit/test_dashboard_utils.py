@@ -132,10 +132,12 @@ class TestPeriodClause:
         assert clause == "1=1"
         assert params == {}
 
-    def test_unknown_period_falls_back_to_all(self):
-        clause, params = period_clause("bogus_period")
-        assert clause == "1=1"
-        assert params == {}
+    def test_unknown_period_raises_422(self):
+        from fastapi import HTTPException
+        with pytest.raises(HTTPException) as exc_info:
+            period_clause("bogus_period")
+        assert exc_info.value.status_code == 422
+        assert "bogus_period" in exc_info.value.detail
 
     def test_today_has_two_params(self):
         clause, params = period_clause("today")

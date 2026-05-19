@@ -6,29 +6,16 @@ from __future__ import annotations
 
 from datetime import date as date_cls
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from dashboard.database import get_db
-from dashboard.utils import _day_utc_bounds, _local_tz, to_utc_iso
+from dashboard.utils import _day_utc_bounds, _local_tz, normalise_bools, to_utc_iso
 
 router = APIRouter()
-
-
-def _normalise_bools(d: dict) -> dict:
-    """Coerce cross-validation boolean fields to integers.
-
-    SQLite returns 0/1; PostgreSQL returns Python bools. The frontend uses
-    strict equality (=== 1), so we normalise to integers for both backends.
-    """
-    for key in ("cross_validated", "cv_agree"):
-        if key in d and isinstance(d[key], bool):
-            d[key] = int(d[key])
-    return d
-
 
 @router.get("/api/v1/detections")
 async def list_detections(
@@ -36,7 +23,7 @@ async def list_detections(
     offset: int = Query(0, ge=0),
     species: Optional[str] = None,
     date: Optional[str] = None,
-    verification_status: Optional[str] = None,
+    verification_status: Optional[Literal["unverified", "auto", "cv", "human"]] = None,
     db: AsyncConnection = Depends(get_db),
 ):
     """Return a paginated list of detections, newest first.
@@ -57,7 +44,10 @@ async def list_detections(
         params["species"] = species
     if date:
         tz = _local_tz()
-        start, end = _day_utc_bounds(date_cls.fromisoformat(date), tz)
+        try:
+            start, end = _day_utc_bounds(date_cls.fromisoformat(date), tz)
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid date format: {date!r}")
         clauses.append("timestamp >= :ts_start AND timestamp < :ts_end")
         params["ts_start"] = start
         params["ts_end"] = end
@@ -92,7 +82,7 @@ async def list_detections(
 
     result = []
     for r in rows:
-        d = _normalise_bools(dict(r))
+        d = normalise_bools(dict(r))
         d["filename"] = Path(d["clip_path"]).name if d.get("clip_path") else None
         del d["clip_path"]
         d["timestamp"] = to_utc_iso(d.get("timestamp"))

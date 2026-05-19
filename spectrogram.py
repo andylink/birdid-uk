@@ -49,15 +49,18 @@ def render_spectrogram(filepath: str) -> bytes:
     fig.patch.set_facecolor("#0f172a")  # slate-900, matches dashboard theme
     ax.set_facecolor("#0f172a")
 
-    librosa.display.specshow(S_db, sr=sr, ax=ax, cmap="viridis",
-                             x_axis=None, y_axis=None)
-    ax.set_axis_off()
-    plt.tight_layout(pad=0)
+    try:
+        librosa.display.specshow(S_db, sr=sr, ax=ax, cmap="viridis",
+                                 x_axis=None, y_axis=None)
+        ax.set_axis_off()
+        plt.tight_layout(pad=0)
 
-    buf = io.BytesIO()
-    plt.savefig(buf, format="png", dpi=100, bbox_inches="tight",
-                pad_inches=0, facecolor="#0f172a")
-    plt.close(fig)
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", dpi=100, bbox_inches="tight",
+                    pad_inches=0, facecolor="#0f172a")
+    finally:
+        plt.close(fig)
+
     buf.seek(0)
     return buf.read()
 

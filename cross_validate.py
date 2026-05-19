@@ -127,7 +127,6 @@ class CrossValidator:
         primary_species:  str,
         primary_bto_name: str | None,
         primary_conf:     float,
-        species_name:     str | None = None,
     ) -> CrossValidationResult:
         """Run the secondary model and return the validation outcome.
 
@@ -136,13 +135,12 @@ class CrossValidator:
                               secondary model's window_seconds. Shorter arrays
                               are passed through — most backends handle them.
             primary_species:  Raw common name from the primary model. Used as
-                              a fallback if BTO mapping fails on both sides.
+                               a fallback if BTO mapping fails on both sides,
+                               and as the key for per-species on_disagree overrides.
             primary_bto_name: BTO-resolved name for the primary detection.
                               If None, comparison falls back to raw names.
             primary_conf:     Primary model confidence. Checked against
                               cfg.cross_validation.skip_threshold.
-            species_name:     Name to look up for a per-species on_disagree
-                              override. Defaults to primary_species if None.
 
         Returns:
             CrossValidationResult — always returned, never raises.
@@ -225,7 +223,7 @@ class CrossValidator:
             final_confidence = primary_conf
         else:
             # Check for a per-species override before falling back to the global setting.
-            lookup_name = species_name or primary_species
+            lookup_name = primary_species
             sc          = get_species_config(lookup_name)
             on_disagree = sc.on_disagree or cfg.cross_validation.on_disagree
 

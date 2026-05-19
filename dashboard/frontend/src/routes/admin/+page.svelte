@@ -109,6 +109,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Admin — Bird Detector</title>
+</svelte:head>
+
 <div class="page-scroll">
 	<div class="page-inner">
 

@@ -55,6 +55,30 @@
       "sunset_offset_minutes": -15,
       "sunrise_offset_minutes": 30,
       "_note": "Strictly nocturnal forager; roosts hidden in dense vegetation by day. Daytime detections are almost certainly noise."
+    },
+    "Common Snipe": {
+      "type": "sunset_sunrise",
+      "sunset_offset_minutes": -30,
+      "sunrise_offset_minutes": 30,
+      "_note": "Drumming display flight is almost exclusively crepuscular and nocturnal. Chip calls from the ground are also mainly after dark."
+    },
+    "Water Rail": {
+      "type": "sunset_sunrise",
+      "sunset_offset_minutes": -30,
+      "sunrise_offset_minutes": 60,
+      "_note": "Squealing/groaning calls (the 'sharming') are primarily nocturnal and crepuscular. Daytime calling is rare outside of disturbance."
+    },
+    "Common Grasshopper Warbler": {
+      "type": "sunset_sunrise",
+      "sunset_offset_minutes": -60,
+      "sunrise_offset_minutes": 120,
+      "_note": "Reeling song is mainly nocturnal and crepuscular, peaking around dusk and through to mid-morning. Wide window used because it also sings sporadically on calm summer days."
+    },
+    "Common Quail": {
+      "type": "sunset_sunrise",
+      "sunset_offset_minutes": -60,
+      "sunrise_offset_minutes": 60,
+      "_note": "Wet-my-lips call is predominantly nocturnal and crepuscular. Daytime calling occasionally occurs but is much rarer; daytime detections are often false positives."
     }
   }
 }

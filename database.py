@@ -228,82 +228,59 @@ def _engine_url() -> str | URL:
     )
 
 
-def _migrate_detections_table(engine: sa.Engine) -> None:
-    """Add any missing cross-validation columns to an existing detections table.
+def _get_existing_columns(conn: sa.Connection, table: str) -> set[str]:
+    """Return the set of column names currently in *table*.
 
-    SQLite doesn't support ``ALTER TABLE … ADD COLUMN IF NOT EXISTS``, so we
-    check which columns exist first and only add what's missing. Safe to call
-    on a fresh database — it's a no-op when all columns already exist.
+    Uses PRAGMA table_info on SQLite and information_schema on PostgreSQL,
+    since SQLite doesn't support ALTER TABLE … ADD COLUMN IF NOT EXISTS.
     """
     db_type = cfg.database.type
-    with engine.begin() as conn:
-        if db_type == "sqlite":
-            rows = conn.execute(text("PRAGMA table_info(detections)")).fetchall()
-            existing = {row[1] for row in rows}
-        else:
-            rows = conn.execute(text(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'detections'"
-            )).fetchall()
-            existing = {row[0] for row in rows}
+    if db_type == "sqlite":
+        rows = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+        return {row[1] for row in rows}
+    else:
+        rows = conn.execute(text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = :t"
+        ), {"t": table}).fetchall()
+        return {row[0] for row in rows}
 
-        for col_name, col_type in _CV_COLUMNS.items():
+
+def _add_missing_columns(
+    engine: sa.Engine,
+    table: str,
+    columns: dict[str, str],
+) -> None:
+    """Add any columns from *columns* that are not already present in *table*.
+
+    Safe to call on a fresh database — it's a no-op when all columns exist.
+    Each ``{col_name: col_type}`` entry is added via ``ALTER TABLE … ADD COLUMN``
+    only if the column is absent, so the function is idempotent.
+    """
+    with engine.begin() as conn:
+        existing = _get_existing_columns(conn, table)
+        for col_name, col_type in columns.items():
+            assert col_name.isidentifier(), f"Unsafe column name: {col_name!r}"
             if col_name not in existing:
                 conn.execute(text(
-                    f"ALTER TABLE detections ADD COLUMN {col_name} {col_type}"
+                    f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"
                 ))
-                logger.info("DB migration: added column detections.%s", col_name)
+                logger.info("DB migration: added column %s.%s", table, col_name)
+
+
+def _migrate_detections_table(engine: sa.Engine) -> None:
+    """Add any missing cross-validation columns to an existing detections table."""
+    _add_missing_columns(engine, "detections", _CV_COLUMNS)
 
 
 def _migrate_species_info_table(engine: sa.Engine) -> None:
-    """Add any missing columns to an existing species_info table.
-
-    Same pattern as _migrate_detections_table — safe to call on a fresh database.
-    """
-    db_type = cfg.database.type
-    with engine.begin() as conn:
-        if db_type == "sqlite":
-            rows = conn.execute(text("PRAGMA table_info(species_info)")).fetchall()
-            existing = {row[1] for row in rows}
-        else:
-            rows = conn.execute(text(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'species_info'"
-            )).fetchall()
-            existing = {row[0] for row in rows}
-
-        for col_name, col_type in _SPECIES_INFO_COLUMNS.items():
-            if col_name not in existing:
-                conn.execute(text(
-                    f"ALTER TABLE species_info ADD COLUMN {col_name} {col_type}"
-                ))
-                logger.info("DB migration: added column species_info.%s", col_name)
+    """Add any missing columns to an existing species_info table."""
+    _add_missing_columns(engine, "species_info", _SPECIES_INFO_COLUMNS)
 
 
 def _migrate_weather_columns(engine: sa.Engine) -> None:
-    """Add weather columns to an existing detections table.
-
-    Safe to call on fresh databases (no-op) and on older databases that
-    predate weather support (adds only the missing columns).
-    """
-    db_type = cfg.database.type
-    with engine.begin() as conn:
-        if db_type == "sqlite":
-            rows = conn.execute(text("PRAGMA table_info(detections)")).fetchall()
-            existing = {row[1] for row in rows}
-        else:
-            rows = conn.execute(text(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'detections'"
-            )).fetchall()
-            existing = {row[0] for row in rows}
-
-        for col_name, col_type in _WEATHER_COLUMNS.items():
-            if col_name not in existing:
-                conn.execute(text(
-                    f"ALTER TABLE detections ADD COLUMN {col_name} {col_type}"
-                ))
-                logger.info("DB migration: added column detections.%s", col_name)
+    """Add weather columns to an existing detections table."""
+    _add_missing_columns(engine, "detections", _WEATHER_COLUMNS)
 
 
 def _migrate_source_name_column(engine: sa.Engine) -> None:
@@ -313,24 +290,7 @@ def _migrate_source_name_column(engine: sa.Engine) -> None:
     migration will have NULL; new rows are populated from [[audio.sources]] name.
     No-op if the column already exists.
     """
-    db_type = cfg.database.type
-    with engine.begin() as conn:
-        if db_type == "sqlite":
-            rows = conn.execute(text("PRAGMA table_info(detections)")).fetchall()
-            existing = {row[1] for row in rows}
-        else:
-            rows = conn.execute(text(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'detections'"
-            )).fetchall()
-            existing = {row[0] for row in rows}
-
-        for col_name, col_type in _SOURCE_NAME_COLUMN.items():
-            if col_name not in existing:
-                conn.execute(text(
-                    f"ALTER TABLE detections ADD COLUMN {col_name} {col_type}"
-                ))
-                logger.info("DB migration: added column detections.%s", col_name)
+    _add_missing_columns(engine, "detections", _SOURCE_NAME_COLUMN)
 
 
 def _migrate_dedup_column(engine: sa.Engine) -> None:
@@ -340,24 +300,7 @@ def _migrate_dedup_column(engine: sa.Engine) -> None:
     will have NULL. Set to TRUE when on_duplicate = "flag" and the detection
     is a cross-source duplicate. No-op if the column already exists.
     """
-    db_type = cfg.database.type
-    with engine.begin() as conn:
-        if db_type == "sqlite":
-            rows = conn.execute(text("PRAGMA table_info(detections)")).fetchall()
-            existing = {row[1] for row in rows}
-        else:
-            rows = conn.execute(text(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'detections'"
-            )).fetchall()
-            existing = {row[0] for row in rows}
-
-        for col_name, col_type in _DEDUP_COLUMN.items():
-            if col_name not in existing:
-                conn.execute(text(
-                    f"ALTER TABLE detections ADD COLUMN {col_name} {col_type}"
-                ))
-                logger.info("DB migration: added column detections.%s", col_name)
+    _add_missing_columns(engine, "detections", _DEDUP_COLUMN)
 
 
 def _migrate_verification_status_column(engine: sa.Engine) -> None:
@@ -373,18 +316,9 @@ def _migrate_verification_status_column(engine: sa.Engine) -> None:
 
     No-op if the column already exists.
     """
-    db_type = cfg.database.type
     threshold = cfg.admin.auto_verify_threshold
     with engine.begin() as conn:
-        if db_type == "sqlite":
-            rows = conn.execute(text("PRAGMA table_info(detections)")).fetchall()
-            existing = {row[1] for row in rows}
-        else:
-            rows = conn.execute(text(
-                "SELECT column_name FROM information_schema.columns "
-                "WHERE table_name = 'detections'"
-            )).fetchall()
-            existing = {row[0] for row in rows}
+        existing = _get_existing_columns(conn, "detections")
 
         if "verification_status" not in existing:
             conn.execute(text(

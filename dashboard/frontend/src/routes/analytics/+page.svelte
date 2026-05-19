@@ -11,15 +11,22 @@
 	let period = $state<Period>('today');
 	let summary = $state<AnalyticsSummary | null>(null);
 	let summaryLoading = $state(true);
+	let summaryError = $state<string | null>(null);
 
 	// Reload summary whenever the period changes; ignore stale responses.
 	$effect(() => {
 		const p = period;
 		summaryLoading = true;
+		summaryError = null;
 		summary = null;
 		getAnalyticsSummary(p)
 			.then(d => { if (period === p) { summary = d; summaryLoading = false; } })
-			.catch(() => { summaryLoading = false; });
+			.catch(() => {
+				if (period === p) {
+					summaryError = 'Failed to load analytics data. Please refresh.';
+					summaryLoading = false;
+				}
+			});
 	});
 
 	// Format a 0–1 ratio as a percentage string, or return undefined if missing.
@@ -28,9 +35,12 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Analytics — Bird Detector</title>
+</svelte:head>
+
 <div class="page-scroll">
 	<div class="page-inner">
-
 		<!-- Page header + period filter -->
 		<div class="page-header">
 			<h1 class="page-title">Analytics</h1>
@@ -46,6 +56,11 @@
 				{/each}
 			</div>
 		</div>
+
+		<!-- Error state -->
+		{#if summaryError}
+			<p class="fetch-error">{summaryError}</p>
+		{/if}
 
 		<!-- Top-level summary stats -->
 		<div class="grid-4">
@@ -134,6 +149,17 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.25rem;
+	}
+
+	/* Error message */
+	.fetch-error {
+		margin: 0;
+		padding: 0.75rem 1rem;
+		background: color-mix(in srgb, var(--color-danger, #ef4444) 10%, transparent);
+		border: 1px solid color-mix(in srgb, var(--color-danger, #ef4444) 30%, transparent);
+		border-radius: 0.375rem;
+		color: var(--color-danger, #ef4444);
+		font-size: 0.875rem;
 	}
 
 	.page-header {

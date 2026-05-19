@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from dashboard.config import DETECTIONS_DIR
 from dashboard.database import get_db
-from dashboard.utils import period_clause, to_utc_iso
+from dashboard.utils import normalise_bools, period_clause, to_utc_iso
 
 router = APIRouter()
 
@@ -530,7 +530,7 @@ async def species_detection_list(
 
     result = []
     for r in rows:
-        d = _normalise_bools(dict(r))
+        d = normalise_bools(dict(r))
         d["filename"] = Path(d["clip_path"]).name if d.get("clip_path") else None
         del d["clip_path"]
         d["timestamp"] = to_utc_iso(d.get("timestamp"))
