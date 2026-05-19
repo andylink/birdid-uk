@@ -86,9 +86,11 @@
 		return Math.min(9, Math.max(1, Math.ceil((count / maxHourlyCount) * 9)));
 	}
 
-	async function fetchData(date: string) {
-		loading = true;
-		error = null;
+	async function fetchData(date: string, { showLoading = true }: { showLoading?: boolean } = {}) {
+		if (showLoading) {
+			loading = true;
+			error = null;
+		}
 		try {
 			[summaries, sunTimes] = await Promise.all([
 				getDailySpeciesSummary(date),
@@ -118,8 +120,15 @@
 	onMount(() => {
 		sse = createSSE('/stream/detections');
 
-		// Reload on reconnect in case we missed events
-		sse.on('open', () => void fetchData(selectedDate));
+		// On reconnect, silently refresh to catch any events missed during the gap.
+		// Skip the very first 'open' — the $effect already handles the initial data load.
+		let sseEverOpened = false;
+		sse.on('open', () => {
+			if (sseEverOpened) {
+				void fetchData(selectedDate, { showLoading: false });
+			}
+			sseEverOpened = true;
+		});
 
 		sse.on('detection', (raw) => {
 			const d = raw as Detection;
