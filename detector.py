@@ -902,6 +902,11 @@ def main() -> None:
         )
 
     # ── Start recording threads (one per source, all daemon) ─────────────────
+    # Kept daemon=True so they never block an emergency exit, but we join them
+    # explicitly on shutdown (see finally block below) so that source.close()
+    # always runs before Python's atexit handlers.  sounddevice's atexit calls
+    # Pa_Terminate() which hangs if a PortAudio stream is still open.
+    record_threads: list[threading.Thread] = []
     for ctx in contexts:
         t = threading.Thread(
             target=_record_thread,
@@ -910,6 +915,7 @@ def main() -> None:
             name=f"record-{ctx.name}",
         )
         t.start()
+        record_threads.append(t)
 
     # ── Start classify loop threads ───────────────────────────────────────────
     # Run N-1 classify loops in daemon threads; the last one runs on the main
@@ -930,4 +936,9 @@ def main() -> None:
         pass
     finally:
         stop_event.set()
+        # Wait for each record thread to call source.close() before we allow
+        # Python's atexit handlers to run Pa_Terminate().  5 s is generous:
+        # sounddevice exits within ~0.5 s; RTSP (FFmpeg) within ~1 s normally.
+        for rt in record_threads:
+            rt.join(timeout=5.0)
         _executor.shutdown(wait=True)
