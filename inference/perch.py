@@ -87,7 +87,7 @@ _LOCAL_MODEL_DIR = Path(
 )
 
 # Kaggle model handle used as fallback when no local copy exists
-_KAGGLE_MODEL_HANDLE = "google/bird-vocalization-classifier/tensorFlow2/perch_v2"
+_KAGGLE_MODEL_HANDLE = "google/bird-vocalization-classifier/tensorFlow2/perch_v2_cpu"
 
 
 class PerchModel:
@@ -164,10 +164,16 @@ class PerchModel:
                 "Install it with:  pip install 'perch-hoplite[tf]'"
             ) from exc
 
-        # Disable CUDA before TF initialises. When CUDA libraries are present
-        # but broken (bad driver, systemd sandbox, etc.) TF raises a
-        # RuntimeError. Perch runs fine on CPU for real-time inference.
-        os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
+        # Hide GPUs from TF for Perch. The Perch v2 saved_model uses XLA ops
+        # compiled for CPU. When a GPU is present TF tries to dispatch XLA to
+        # CUDA, causing a platform-mismatch error. BirdNET uses its own runtime
+        # (tflite/ONNX) so hiding the GPU here doesn't affect it.
+        try:
+            import tensorflow as tf  # type: ignore[import]
+            tf.config.set_visible_devices([], "GPU")
+        except Exception:
+            # TF not yet imported or already finalised — fall back to env var.
+            os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
         self._deduplicate_ebird_csv()
 
@@ -198,7 +204,7 @@ class PerchModel:
             "(first run downloads ~400 MB — cached in ~/.cache/kagglehub/ afterwards)…"
         )
         try:
-            self._model = model_configs.load_model_by_name("perch_v2")
+            self._model = model_configs.load_model_by_name("perch_v2_cpu")
         except Exception as exc:
             raise RuntimeError(
                 f"Failed to load Perch v2 model: {exc}\n\n"
