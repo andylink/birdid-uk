@@ -190,6 +190,7 @@ def _deferred_save(
     model_name:     str,
     capture_buffer: CaptureBuffer,
     source_name:    str | None,
+    last_detected:  dict,
 ) -> None:
     """Sleep for the post-capture period, optionally cross-validate, then save the clip.
 
@@ -213,6 +214,10 @@ def _deferred_save(
         model_name:     Inference backend that produced this detection.
         capture_buffer: Ring buffer for this source.
         source_name:    Source identifier; None in legacy single-source mode.
+        last_detected:  Per-species cooldown timestamp dict from the source context.
+                        Stamped with *ts* only when the clip is actually saved so that
+                        CV-dropped, privacy-filtered, or dedup-skipped detections do
+                        not consume the cooldown window.
     """
     window_samples = int(get_model().window_seconds) * cfg.audio.sample_rate
 
@@ -366,6 +371,10 @@ def _deferred_save(
             _deduplicated = True
 
     # ── Persist ───────────────────────────────────────────────────────────────
+    # Stamp the cooldown timestamp now — after all filters have passed — so that
+    # CV-dropped, privacy-filtered, or dedup-skipped detections do not block the
+    # cooldown window for genuine future detections.
+    last_detected[species] = ts
     clip_path = save_clip(segment, ts, species, source_name=source_name)
 
     # Pre-render and save the spectrogram PNG so it survives audio clip deletion.
@@ -669,7 +678,6 @@ def _classify_loop(
                 "%-32s CONFIRMED (%d hits, best=%.2f)",
                 species, p.hit_count, p.best_confidence,
             )
-            ctx.last_detected[species] = ts
             bto_name = birdnet_to_bto.get(species)
             # In legacy single-source mode pass source_name=None so clip filenames
             # and DB rows stay in the pre-multi-source format.
@@ -680,6 +688,7 @@ def _classify_loop(
                 p.best_begin_sample, p.best_fallback,
                 bto_name, cfg.inference.model,
                 ctx.capture_buffer, _save_source_name,
+                ctx.last_detected,
             )
             del ctx.pending[species]
 
