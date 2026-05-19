@@ -57,8 +57,8 @@ TAG="$(git -C "$REPO_ROOT" describe --tags --exact-match 2>/dev/null || true)"
 
 if [[ -z "$TAG" ]]; then
     echo "ERROR: HEAD is not tagged.  Tag the release before publishing:" >&2
-    echo "         git tag v1.2.3" >&2
-    echo "         git push origin v1.2.3" >&2
+    echo "         git tag v0.1.0" >&2
+    echo "         git push origin v0.1.0" >&2
     echo "       Then re-run ./publish.sh" >&2
     exit 1
 fi
@@ -140,8 +140,9 @@ echo "    Remote : $PUBLIC_URL"
 echo "    Commit : $COMMIT_MSG"
 echo ""
 if [[ -n "$TAG" ]]; then
-    echo "    Create a GitHub release for this tag:"
-    echo "      gh release create $TAG --title '$TAG' --notes '' --repo andylink/birdid-uk"
+    echo "    Push the tag to the public repo and create a release:"
+    echo "      git push $PUBLIC_REMOTE $TAG"
+    echo "      gh release create $TAG --title '$TAG' --notes 'Initial release.' --repo andylink/birdid-uk"
 else
     echo "    Tag a release with:"
     echo "      git tag vX.Y.Z && git push origin vX.Y.Z"

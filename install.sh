@@ -228,8 +228,8 @@ info "Dependencies installed."
 
 section "Perch inference backend (optional)..."
 echo "  Perch is Google's bird vocalization model — an alternative to the default BirdNET."
-echo "  It requires ~2 GB of extra disk space (TensorFlow) plus a one-time ~400 MB"
-echo "  model download from Kaggle on first run."
+echo "  It requires ~2 GB of extra disk space (TensorFlow) and a one-time ~362 MB"
+echo "  model download (fetched automatically from GitHub, no Kaggle account needed)."
 echo ""
 
 _PERCH_INSTALLED=false
@@ -386,20 +386,21 @@ echo "  and see what other stations are hearing nearby."
 echo ""
 
 _BIRDWEATHER_ENABLED=false
-if grep -q 'enabled\s*=\s*true' "$REPO_ROOT/config.toml" 2>/dev/null &&
-   grep -A5 '\[birdweather\]' "$REPO_ROOT/config.toml" 2>/dev/null | grep -q 'enabled\s*=\s*true'; then
+if grep -A5 '\[birdweather\]' "$REPO_ROOT/config.toml" 2>/dev/null | grep -q 'enabled\s*=\s*true'; then
     _BIRDWEATHER_ENABLED=true
 fi
-_BIRDWEATHER_TOKEN=""
 _existing_token=$(grep -A5 '\[birdweather\]' "$REPO_ROOT/config.toml" 2>/dev/null \
     | grep 'token\s*=' | sed 's/.*=\s*"\(.*\)"/\1/' || true)
 
-if [[ -n "$_existing_token" && "$_existing_token" != "" ]]; then
+if [[ -n "$_existing_token" ]]; then
     info "BirdWeather token already set (${_existing_token:0:8}…)."
     info "Leave blank below to keep the existing token."
 fi
 
-if _ask_yn "Enable BirdWeather uploads?" "${_BIRDWEATHER_ENABLED:+y}n"; then
+_bw_default="n"
+[[ "$_BIRDWEATHER_ENABLED" == "true" ]] && _bw_default="y"
+
+if _ask_yn "Enable BirdWeather uploads?" "$_bw_default"; then
     _BIRDWEATHER_TOKEN="$(_ask "BirdWeather station token: " "$_existing_token")"
     if [[ -n "$_BIRDWEATHER_TOKEN" ]]; then
         BIRDID_BW_TOKEN="$_BIRDWEATHER_TOKEN" BIRDID_CONFIG="$REPO_ROOT/config.toml" \
@@ -555,4 +556,27 @@ elif [[ "$RUN_CONFIGURE" == "ask" ]]; then
         echo "  Open the dashboard:  http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo '<your-ip>'):8080"
         echo ""
     fi
+fi
+
+# ── Final tip (only when wizard was skipped / silent install) ─────────────────
+
+if [[ "$RUN_CONFIGURE" == "no" ]]; then
+    echo ""
+    echo "  ─────────────────────────────────────────────"
+    if [[ "$INSTALL_SYSTEMD" == "true" ]]; then
+        echo "  Installation complete."
+        echo ""
+        echo "  Start:  sudo systemctl start birdid-uk.target"
+        echo "  Logs:   journalctl -u birdid-uk-capture -f"
+        echo "  Dashboard:  http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo '<your-ip>'):8080"
+    else
+        echo "  Installation complete."
+        echo ""
+        echo "  Start the detector:"
+        echo "    source $VENV/bin/activate && python $REPO_ROOT/main.py"
+        echo "  Dashboard:  http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo '<your-ip>'):8080"
+        echo "  Install as a service later:  bash $REPO_ROOT/install.sh --systemd-only"
+    fi
+    echo "  ─────────────────────────────────────────────"
+    echo ""
 fi
