@@ -353,13 +353,11 @@ _admin_pass="$(_ask_secret "Admin password (leave blank to skip): ")"
 if [[ -n "$_admin_pass" ]]; then
     BIRDID_ADMIN_PASS="$_admin_pass" BIRDID_CONFIG="$REPO_ROOT/config.toml" \
         "$VENV/bin/python" - <<'PYEOF'
-import os, re, secrets
+import os, re, secrets, bcrypt
 from pathlib import Path
-from passlib.context import CryptContext
 
 config_path = Path(os.environ["BIRDID_CONFIG"])
-pwd_ctx     = CryptContext(schemes=["bcrypt"], deprecated="auto")
-pw_hash     = pwd_ctx.hash(os.environ["BIRDID_ADMIN_PASS"])
+pw_hash     = bcrypt.hashpw(os.environ["BIRDID_ADMIN_PASS"].encode(), bcrypt.gensalt()).decode()
 secret      = secrets.token_hex(32)
 
 text = config_path.read_text(encoding="utf-8")
