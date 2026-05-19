@@ -1,0 +1,258 @@
+<script lang="ts">
+	import type { SpeciesStats } from '$lib/api';
+	import { speciesImageUrl } from '$lib/api';
+	import { confidenceBadgeClass, formatConfidence } from '$lib/confidence';
+	import { formatFullDate } from '$lib/time';
+	import { BOCC_COLOR, SPECIES_STATUS_STYLE, groupBadgeColor, speciesInitials } from '$lib/bto';
+
+	let { species }: { species: SpeciesStats } = $props();
+
+	let imgError = $state(false);
+
+	const avgBadge = $derived(confidenceBadgeClass(species.avg_confidence));
+	const statusStyle = $derived(
+		species.species_status ? SPECIES_STATUS_STYLE[species.species_status] : null
+	);
+</script>
+
+<!-- .row is a <div> so the attribution <button> inside .thumb is not nested in an <a> -->
+<div class="row">
+	<!-- Thumbnail; group-badge overlaid at bottom-right shows taxonomic group initials -->
+	<div class="thumb">
+		{#if imgError}
+			<div class="thumb-fallback">
+				<svg viewBox="0 0 24 24" class="thumb-icon" aria-hidden="true">
+					<path d="M23 7c0 0-3 .5-4.5 1.5C17.1 5.1 14 3 10.5 3 5.8 3 2 6.8 2 11.5S5.8 20 10.5 20c2.5 0 4.8-1.1 6.4-2.8C18.5 18.5 23 17 23 17V7z"/>
+				</svg>
+			</div>
+		{:else}
+			<img
+				src={speciesImageUrl(species.bto_name ?? species.species)}
+				alt={species.species}
+				class="thumb-img"
+				onerror={() => (imgError = true)}
+				loading="lazy"
+			/>
+		{#if species.avicommons_attribution_url && species.avicommons_image_by}
+			<button
+				class="thumb-attribution"
+				onclick={() => { window.open(species.avicommons_attribution_url!, '_blank', 'noopener,noreferrer'); }}
+				title="© {species.avicommons_image_by}{species.avicommons_image_license ? ` / ${species.avicommons_image_license}` : ''}"
+				aria-label="Image credit: © {species.avicommons_image_by}"
+			>©</button>
+		{/if}
+		{/if}
+		<span
+			class="group-badge"
+			style="background-color: {groupBadgeColor(species.group_name)}"
+			title={species.group_name ?? undefined}
+		>
+			{speciesInitials(species.species, species.bto_5letter_code, species.bto_2letter_code)}
+		</span>
+	</div>
+
+	<div class="name-col">
+		<div class="name-row">
+			<span class="common-name truncate">{species.species}</span>
+			<span class="{avgBadge}">{formatConfidence(species.avg_confidence)}</span>
+		</div>
+		{#if species.scientific_name}
+			<span class="sci-name truncate">{species.scientific_name}</span>
+		{/if}
+		{#if species.uk_bocc || statusStyle}
+			<div class="pills">
+				{#if species.uk_bocc}
+					<!-- Semi-transparent tint derived from the BoCC colour -->
+					<span
+						class="pill"
+						style="background-color: {BOCC_COLOR[species.uk_bocc]}22; color: {BOCC_COLOR[species.uk_bocc]}"
+					>
+						BoCC {species.uk_bocc}
+					</span>
+				{/if}
+				{#if statusStyle}
+					<span
+						class="pill"
+						style="background-color: {statusStyle.bg}; color: {statusStyle.text}"
+					>
+						{species.species_status}
+					</span>
+				{/if}
+			</div>
+		{/if}
+	</div>
+
+	<div class="col-det tabular">{species.detections.toLocaleString()}</div>
+	<div class="col-peak tabular hide-sm">{formatConfidence(species.peak_confidence)}</div>
+	<div class="col-date hide-md">{formatFullDate(species.first_detected)}</div>
+	<div class="col-date hide-md">{formatFullDate(species.last_detected)}</div>
+
+	<!-- Stretched link: ::after covers the whole row so clicking anywhere navigates -->
+	<a
+		href="/species/{encodeURIComponent(species.species)}?from=species"
+		class="row-link"
+		aria-label="View recordings for {species.species}"
+	></a>
+</div>
+
+<style>
+	.row {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.625rem 0.75rem;
+		border-bottom: 1px solid var(--color-border);
+		transition: background-color 0.1s;
+	}
+	.row:hover {
+		background: var(--color-surface-2);
+	}
+
+	/* Stretched link: covers the whole row so clicking anywhere navigates */
+	.row-link {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+	}
+	.row-link:focus {
+		outline: none;
+	}
+	.row-link:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: -2px;
+	}
+
+	.thumb {
+		width: 2.75rem;
+		height: 2.75rem;
+		border-radius: 0.25rem;
+		background: var(--color-skeleton);
+		overflow: hidden;
+		flex-shrink: 0;
+		position: relative;
+	}
+	.thumb-img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+	.thumb-fallback {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--color-text-ghost);
+	}
+	.thumb-icon {
+		width: 1.5rem;
+		height: 1.5rem;
+		fill: currentColor;
+	}
+	.thumb-attribution {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		width: 1rem;
+		height: 1rem;
+		background: rgba(0, 0, 0, 0.55);
+		color: rgba(255, 255, 255, 0.85);
+		font-size: 0.4375rem;
+		font-family: inherit;
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		cursor: pointer;
+		border-radius: 0 0.25rem 0 0;
+		z-index: 2;
+		line-height: 1;
+	}
+	.thumb-attribution:hover {
+		background: rgba(0, 0, 0, 0.75);
+	}
+	/* Badge anchored to bottom-right corner of the thumbnail */
+	.group-badge {
+		position: absolute;
+		bottom: 0;
+		right: 0;
+		height: 1rem;
+		padding: 0 0.25rem;
+		border-radius: 0.25rem 0 0 0;
+		font-size: 0.5625rem;
+		font-weight: 700;
+		color: #fff;
+		display: flex;
+		align-items: center;
+		line-height: 1;
+	}
+
+	.name-col {
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+		flex: 1;
+		min-width: 0;
+	}
+	.name-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.common-name {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--color-text);
+	}
+	.sci-name {
+		font-size: 0.6875rem;
+		color: var(--color-text-muted);
+		font-style: italic;
+	}
+	.pills {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		margin-top: 0.125rem;
+	}
+	.pill {
+		font-size: 0.5625rem;
+		font-weight: 600;
+		padding: 0.0625rem 0.25rem;
+		border-radius: 0.25rem;
+	}
+
+	/* Fixed-width right columns keep the table-like layout stable */
+	.col-det {
+		width: 6rem;
+		text-align: right;
+		font-size: 0.875rem;
+		font-weight: 700;
+		color: var(--color-accent-text);
+		flex-shrink: 0;
+	}
+	.col-peak {
+		width: 4rem;
+		text-align: right;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		flex-shrink: 0;
+	}
+	.col-date {
+		width: 7rem;
+		text-align: right;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		flex-shrink: 0;
+	}
+
+	@media (max-width: 639px) {
+		.hide-sm { display: none; }
+	}
+	@media (max-width: 767px) {
+		.hide-md { display: none; }
+	}
+</style>
