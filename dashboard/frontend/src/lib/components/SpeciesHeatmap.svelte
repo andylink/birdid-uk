@@ -20,6 +20,7 @@
 	let loading    = $state(true);
 	let error      = $state<string | null>(null);
 	let sse: ReturnType<typeof createSSE> | null = null;
+	let midnightTimer: ReturnType<typeof setInterval> | null = null;
 	let boccFilter = $state<string>('all');
 	let sunTimes   = $state<SunTimes | null>(null);
 
@@ -172,9 +173,24 @@
 				}, ...summaries];
 			}
 		});
+
+		// Advance selectedDate when local midnight passes (for dashboards left open overnight).
+		// We check every 60 s; if the calendar day has rolled over and the user was on
+		// the old "today", move them forward to the new one so live SSE updates continue.
+		let knownToday = localToday();
+		midnightTimer = setInterval(() => {
+			const newToday = localToday();
+			if (newToday !== knownToday) {
+				if (selectedDate === knownToday) selectedDate = newToday;
+				knownToday = newToday;
+			}
+		}, 60_000);
 	});
 
-	onDestroy(() => sse?.close());
+	onDestroy(() => {
+		sse?.close();
+		if (midnightTimer !== null) clearInterval(midnightTimer);
+	});
 </script>
 
 <section class="heatmap" aria-label="Daily species heatmap">
