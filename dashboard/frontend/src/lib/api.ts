@@ -172,6 +172,7 @@ export interface BoccTrendEntry {
 
 export interface SpeciesStats extends SpeciesInfo {
 	species: string;
+	bto_name: string | null;
 	detections: number;
 	avg_confidence: number;
 	peak_confidence: number;

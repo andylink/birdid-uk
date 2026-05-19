@@ -107,10 +107,14 @@ def _normalise_bools(d: dict) -> dict:
 
 @router.get("/api/v1/species/image")
 async def species_image(
-    name: str = Query(..., description="BTO common species name"),
+    name: str = Query(..., description="BTO common name or eBird/BirdNET common name"),
     db: AsyncConnection = Depends(get_db),
 ):
     """Serve a cached species photo sourced from AviCommons.
+
+    Accepts either a BTO name (e.g. "Robin") or an eBird/BirdNET name (e.g.
+    "European Robin"). When the direct lookup in species_info fails, falls back
+    to resolving the name via the bto_name column in detections.
 
     Checks disk cache first. If the image is missing or stale, fetches from
     AviCommons using the URL stored in species_info. A .none sentinel prevents
@@ -127,10 +131,26 @@ async def species_image(
     if neg_path.exists() and _age_days(neg_path) < NEGATIVE_TTL_DAYS:
         raise HTTPException(status_code=404, detail="No image available")
 
-    # Look up the AviCommons URL from species_info
+    # Look up the AviCommons URL from species_info.
+    # Try the supplied name first (BTO name), then fall back to resolving the
+    # eBird/BirdNET name via the bto_name mapping stored in detections.
     rows = (
         await db.execute(
-            text("SELECT avicommons_image_url FROM species_info WHERE name = :name LIMIT 1"),
+            text("""
+                SELECT si.avicommons_image_url
+                FROM species_info si
+                WHERE si.name = :name
+                UNION
+                SELECT si2.avicommons_image_url
+                FROM species_info si2
+                WHERE si2.name = (
+                    SELECT d.bto_name
+                    FROM detections d
+                    WHERE d.species = :name AND d.bto_name IS NOT NULL
+                    LIMIT 1
+                )
+                LIMIT 1
+            """),
             {"name": name},
         )
     ).mappings().all()
@@ -195,6 +215,7 @@ async def list_species(
             text(f"""
             SELECT
                 d.species,
+                d.bto_name,
                 COUNT(*)          AS detections,
                 AVG(d.confidence) AS avg_confidence,
                 MAX(d.confidence) AS peak_confidence,
@@ -209,7 +230,7 @@ async def list_species(
             FROM detections d
             LEFT JOIN species_info si ON si.name = d.bto_name
             WHERE {where}
-            GROUP BY d.species, si.scientific_name, si.group_name, si.uk_bocc,
+            GROUP BY d.species, d.bto_name, si.scientific_name, si.group_name, si.uk_bocc,
                      si.species_status, si.bto_2letter_code, si.bto_5letter_code
             ORDER BY {order}
             LIMIT :limit OFFSET :offset
@@ -236,6 +257,7 @@ async def list_species(
         "species": [
             {
                 "species":          r["species"],
+                "bto_name":         r["bto_name"],
                 "detections":       r["detections"],
                 "avg_confidence":   round(r["avg_confidence"] or 0, 4),
                 "peak_confidence":  round(r["peak_confidence"] or 0, 4),
@@ -264,6 +286,7 @@ async def species_detail(
             text("""
             SELECT
                 d.species,
+                d.bto_name,
                 COUNT(*)          AS detections,
                 AVG(d.confidence) AS avg_confidence,
                 MAX(d.confidence) AS peak_confidence,
@@ -278,7 +301,7 @@ async def species_detail(
             FROM detections d
             LEFT JOIN species_info si ON si.name = d.bto_name
             WHERE d.species = :name
-            GROUP BY d.species, si.scientific_name, si.group_name, si.uk_bocc,
+            GROUP BY d.species, d.bto_name, si.scientific_name, si.group_name, si.uk_bocc,
                      si.species_status, si.bto_2letter_code, si.bto_5letter_code
             """),
             {"name": name},
@@ -289,6 +312,7 @@ async def species_detail(
     r = rows[0]
     return {
         "species":          r["species"],
+        "bto_name":         r["bto_name"],
         "detections":       r["detections"],
         "avg_confidence":   round(r["avg_confidence"] or 0, 4),
         "peak_confidence":  round(r["peak_confidence"] or 0, 4),

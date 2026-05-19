@@ -171,9 +171,9 @@
 			<!-- Banner image -->
 			<div class="banner">
 				{#if !headerImgError}
-					<img
-						src={speciesImageUrl(speciesName)}
-						alt={speciesName}
+				<img
+					src={speciesImageUrl(stats?.bto_name ?? speciesName)}
+					alt={speciesName}
 						class="banner-img"
 						onerror={() => (headerImgError = true)}
 					/>

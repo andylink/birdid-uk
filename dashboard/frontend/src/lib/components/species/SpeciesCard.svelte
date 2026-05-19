@@ -29,10 +29,10 @@
 					</svg>
 				</div>
 			{:else}
-				<img
-					src={speciesImageUrl(species.species)}
-					alt={species.species}
-					class="species-img"
+			<img
+				src={speciesImageUrl(species.bto_name ?? species.species)}
+				alt={species.species}
+				class="species-img"
 					onerror={() => (imgError = true)}
 					loading="lazy"
 				/>
