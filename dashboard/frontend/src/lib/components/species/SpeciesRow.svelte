@@ -29,13 +29,21 @@
 				</svg>
 			</div>
 		{:else}
-		<img
-			src={speciesImageUrl(species.bto_name ?? species.species)}
-			alt={species.species}
-			class="thumb-img"
+			<img
+				src={speciesImageUrl(species.bto_name ?? species.species)}
+				alt={species.species}
+				class="thumb-img"
 				onerror={() => (imgError = true)}
 				loading="lazy"
 			/>
+		{#if species.avicommons_attribution_url && species.avicommons_image_by}
+			<button
+				class="thumb-attribution"
+				onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(species.avicommons_attribution_url!, '_blank', 'noopener,noreferrer'); }}
+				title="© {species.avicommons_image_by}{species.avicommons_image_license ? ` / ${species.avicommons_image_license}` : ''}"
+				aria-label="Image credit: © {species.avicommons_image_by}"
+			>©</button>
+		{/if}
 		{/if}
 		<span
 			class="group-badge"
@@ -132,6 +140,29 @@
 		width: 1.5rem;
 		height: 1.5rem;
 		fill: currentColor;
+	}
+	.thumb-attribution {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		width: 1rem;
+		height: 1rem;
+		background: rgba(0, 0, 0, 0.55);
+		color: rgba(255, 255, 255, 0.85);
+		font-size: 0.4375rem;
+		font-family: inherit;
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		cursor: pointer;
+		border-radius: 0 0.25rem 0 0;
+		z-index: 2;
+		line-height: 1;
+	}
+	.thumb-attribution:hover {
+		background: rgba(0, 0, 0, 0.75);
 	}
 	/* Badge anchored to bottom-right corner of the thumbnail */
 	.group-badge {

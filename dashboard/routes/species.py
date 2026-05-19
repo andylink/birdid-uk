@@ -226,12 +226,16 @@ async def list_species(
                 si.uk_bocc,
                 si.species_status,
                 si.bto_2letter_code,
-                si.bto_5letter_code
+                si.bto_5letter_code,
+                si.ebird_code,
+                si.avicommons_image_by,
+                si.avicommons_image_license
             FROM detections d
             LEFT JOIN species_info si ON si.name = d.bto_name
             WHERE {where}
             GROUP BY d.species, d.bto_name, si.scientific_name, si.group_name, si.uk_bocc,
-                     si.species_status, si.bto_2letter_code, si.bto_5letter_code
+                     si.species_status, si.bto_2letter_code, si.bto_5letter_code,
+                     si.ebird_code, si.avicommons_image_by, si.avicommons_image_license
             ORDER BY {order}
             LIMIT :limit OFFSET :offset
             """),
@@ -256,19 +260,25 @@ async def list_species(
         "total": total_row["n"],
         "species": [
             {
-                "species":          r["species"],
-                "bto_name":         r["bto_name"],
-                "detections":       r["detections"],
-                "avg_confidence":   round(r["avg_confidence"] or 0, 4),
-                "peak_confidence":  round(r["peak_confidence"] or 0, 4),
-                "first_detected":   to_utc_iso(r["first_detected"]),
-                "last_detected":    to_utc_iso(r["last_detected"]),
-                "scientific_name":  r["scientific_name"],
-                "group_name":       r["group_name"],
-                "uk_bocc":          r["uk_bocc"],
-                "species_status":   r["species_status"],
-                "bto_2letter_code": r["bto_2letter_code"],
-                "bto_5letter_code": r["bto_5letter_code"],
+                "species":                   r["species"],
+                "bto_name":                  r["bto_name"],
+                "detections":                r["detections"],
+                "avg_confidence":            round(r["avg_confidence"] or 0, 4),
+                "peak_confidence":           round(r["peak_confidence"] or 0, 4),
+                "first_detected":            to_utc_iso(r["first_detected"]),
+                "last_detected":             to_utc_iso(r["last_detected"]),
+                "scientific_name":           r["scientific_name"],
+                "group_name":                r["group_name"],
+                "uk_bocc":                   r["uk_bocc"],
+                "species_status":            r["species_status"],
+                "bto_2letter_code":          r["bto_2letter_code"],
+                "bto_5letter_code":          r["bto_5letter_code"],
+                "avicommons_image_by":       r["avicommons_image_by"],
+                "avicommons_image_license":  r["avicommons_image_license"],
+                "avicommons_attribution_url": (
+                    f"https://avicommons.org/species/{r['ebird_code']}"
+                    if r["ebird_code"] else None
+                ),
             }
             for r in rows
         ],
@@ -297,12 +307,16 @@ async def species_detail(
                 si.uk_bocc,
                 si.species_status,
                 si.bto_2letter_code,
-                si.bto_5letter_code
+                si.bto_5letter_code,
+                si.ebird_code,
+                si.avicommons_image_by,
+                si.avicommons_image_license
             FROM detections d
             LEFT JOIN species_info si ON si.name = d.bto_name
             WHERE d.species = :name
             GROUP BY d.species, d.bto_name, si.scientific_name, si.group_name, si.uk_bocc,
-                     si.species_status, si.bto_2letter_code, si.bto_5letter_code
+                     si.species_status, si.bto_2letter_code, si.bto_5letter_code,
+                     si.ebird_code, si.avicommons_image_by, si.avicommons_image_license
             """),
             {"name": name},
         )
@@ -311,19 +325,25 @@ async def species_detail(
         raise HTTPException(status_code=404, detail="Species not found")
     r = rows[0]
     return {
-        "species":          r["species"],
-        "bto_name":         r["bto_name"],
-        "detections":       r["detections"],
-        "avg_confidence":   round(r["avg_confidence"] or 0, 4),
-        "peak_confidence":  round(r["peak_confidence"] or 0, 4),
-        "first_detected":   to_utc_iso(r["first_detected"]),
-        "last_detected":    to_utc_iso(r["last_detected"]),
-        "scientific_name":  r["scientific_name"],
-        "group_name":       r["group_name"],
-        "uk_bocc":          r["uk_bocc"],
-        "species_status":   r["species_status"],
-        "bto_2letter_code": r["bto_2letter_code"],
-        "bto_5letter_code": r["bto_5letter_code"],
+        "species":                   r["species"],
+        "bto_name":                  r["bto_name"],
+        "detections":                r["detections"],
+        "avg_confidence":            round(r["avg_confidence"] or 0, 4),
+        "peak_confidence":           round(r["peak_confidence"] or 0, 4),
+        "first_detected":            to_utc_iso(r["first_detected"]),
+        "last_detected":             to_utc_iso(r["last_detected"]),
+        "scientific_name":           r["scientific_name"],
+        "group_name":                r["group_name"],
+        "uk_bocc":                   r["uk_bocc"],
+        "species_status":            r["species_status"],
+        "bto_2letter_code":          r["bto_2letter_code"],
+        "bto_5letter_code":          r["bto_5letter_code"],
+        "avicommons_image_by":       r["avicommons_image_by"],
+        "avicommons_image_license":  r["avicommons_image_license"],
+        "avicommons_attribution_url": (
+            f"https://avicommons.org/species/{r['ebird_code']}"
+            if r["ebird_code"] else None
+        ),
     }
 
 

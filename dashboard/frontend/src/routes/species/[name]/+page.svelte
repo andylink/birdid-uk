@@ -178,6 +178,16 @@
 						onerror={() => (headerImgError = true)}
 					/>
 					<div class="banner-gradient"></div>
+					{#if stats?.avicommons_attribution_url && stats?.avicommons_image_by}
+						<a
+							href={stats.avicommons_attribution_url}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="banner-attribution"
+						>
+							© {stats.avicommons_image_by}{stats.avicommons_image_license ? ` / ${stats.avicommons_image_license}` : ''}
+						</a>
+					{/if}
 				{:else}
 					<div class="banner-fallback" style="background-color: {groupColor}"></div>
 					<div class="banner-fallback-icon">
@@ -514,6 +524,20 @@
 		position: absolute;
 		inset: 0;
 		background: linear-gradient(to top, rgba(15,23,42,0.9) 0%, rgba(15,23,42,0.3) 50%, transparent 100%);
+	}
+	.banner-attribution {
+		position: absolute;
+		bottom: 0.375rem;
+		right: 0.5rem;
+		color: rgba(255, 255, 255, 0.65);
+		font-size: 0.5625rem;
+		text-decoration: none;
+		line-height: 1;
+		z-index: 2;
+		transition: color 0.15s;
+	}
+	.banner-attribution:hover {
+		color: rgba(255, 255, 255, 0.95);
 	}
 	.banner-fallback {
 		position: absolute;

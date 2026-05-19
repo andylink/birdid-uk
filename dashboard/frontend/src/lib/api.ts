@@ -178,6 +178,10 @@ export interface SpeciesStats extends SpeciesInfo {
 	peak_confidence: number;
 	first_detected: string;  // ISO 8601
 	last_detected: string;   // ISO 8601
+	// ── Attribution ─────────────────────────────────────────────────────────
+	avicommons_image_by:          string | null;  // photographer name
+	avicommons_image_license:     string | null;  // e.g. "CC BY-NC"
+	avicommons_attribution_url:   string | null;  // https://avicommons.org/species/{code}
 }
 
 export interface SpeciesListResponse {

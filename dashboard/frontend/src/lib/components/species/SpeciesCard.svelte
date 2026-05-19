@@ -29,13 +29,23 @@
 					</svg>
 				</div>
 			{:else}
-			<img
-				src={speciesImageUrl(species.bto_name ?? species.species)}
-				alt={species.species}
-				class="species-img"
+				<img
+					src={speciesImageUrl(species.bto_name ?? species.species)}
+					alt={species.species}
+					class="species-img"
 					onerror={() => (imgError = true)}
 					loading="lazy"
 				/>
+			{#if species.avicommons_attribution_url && species.avicommons_image_by}
+				<button
+					class="img-attribution"
+					onclick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(species.avicommons_attribution_url!, '_blank', 'noopener,noreferrer'); }}
+					title="View image credit"
+					aria-label="Image credit: © {species.avicommons_image_by}"
+				>
+					© {species.avicommons_image_by}{species.avicommons_image_license ? ` / ${species.avicommons_image_license}` : ''}
+				</button>
+			{/if}
 			{/if}
 
 			<!-- BoCC badge overlaid on image; dark text (#0f172a) works on Red, Amber, and Green -->
@@ -129,7 +139,7 @@
 	}
 
 	.img-wrap {
-		aspect-ratio: 16 / 9;
+		aspect-ratio: 4 / 3;
 		background: var(--color-skeleton);
 		position: relative;
 		overflow: hidden;
@@ -153,8 +163,30 @@
 		height: 3.5rem;
 		fill: currentColor;
 	}
-	.bocc-badge {
+	.img-attribution {
 		position: absolute;
+		bottom: 0;
+		right: 0;
+		left: 0;
+		padding: 0.25rem 0.375rem;
+		background: rgba(0, 0, 0, 0.55);
+		color: rgba(255, 255, 255, 0.85);
+		font-size: 0.5rem;
+		font-family: inherit;
+		line-height: 1.2;
+		text-align: left;
+		border: none;
+		cursor: pointer;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		opacity: 0;
+		transition: opacity 0.15s;
+	}
+	.img-wrap:hover .img-attribution {
+		opacity: 1;
+	}
+	.bocc-badge {		position: absolute;
 		top: 0.5rem;
 		left: 0.5rem;
 		height: 1.25rem;

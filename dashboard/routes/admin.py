@@ -293,6 +293,8 @@ async def reseed_species():
             "group_name":                 e.get("group_name"),
             "ebird_code":                 e.get("ebird_code") or None,
             "avicommons_image_url":       e.get("avicommons_image_url") or None,
+            "avicommons_image_by":        e.get("avicommons_image_by") or None,
+            "avicommons_image_license":   e.get("avicommons_image_license") or None,
         }
         for e in entries
         if e.get("name")
@@ -306,12 +308,14 @@ async def reseed_species():
                 "(name, scientific_name, british_list_status, population_estimate, "
                 " bto_2letter_code, bto_5letter_code, species_status, uk_bocc, "
                 " birdfacts_url, international_english_name, group_name, "
-                " ebird_code, avicommons_image_url) "
+                " ebird_code, avicommons_image_url, "
+                " avicommons_image_by, avicommons_image_license) "
                 "VALUES (:name, :scientific_name, :british_list_status, "
                 " :population_estimate, :bto_2letter_code, :bto_5letter_code, "
                 " :species_status, :uk_bocc, :birdfacts_url, "
                 " :international_english_name, :group_name, "
-                " :ebird_code, :avicommons_image_url)"
+                " :ebird_code, :avicommons_image_url, "
+                " :avicommons_image_by, :avicommons_image_license)"
             ),
             rows,
         )

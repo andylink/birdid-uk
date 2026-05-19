@@ -30,9 +30,7 @@ from dashboard.database import get_engine, startup_db, shutdown_db
 
 _JSON_PATH = Path(__file__).parent.parent / "filters" / "uk_species_filter.json"
 
-# Full 13-column schema — must match the root database.py _species_info table.
-# The two extra columns (ebird_code, avicommons_image_url) were previously
-# missing from the dashboard DDL but are queried by routes/species.py.
+# Full schema — must match the root database.py _species_info table.
 _CREATE_SPECIES_INFO = """
 CREATE TABLE IF NOT EXISTS species_info (
     name                        TEXT PRIMARY KEY,
@@ -47,7 +45,9 @@ CREATE TABLE IF NOT EXISTS species_info (
     international_english_name  TEXT,
     group_name                  TEXT,
     ebird_code                  TEXT,
-    avicommons_image_url        TEXT
+    avicommons_image_url        TEXT,
+    avicommons_image_by         TEXT,
+    avicommons_image_license    TEXT
 )
 """
 
@@ -67,10 +67,6 @@ async def _ensure_species_info() -> None:
     async with get_engine().begin() as conn:
         await conn.execute(text(_CREATE_SPECIES_INFO))
 
-        row = (await conn.execute(text("SELECT COUNT(*) FROM species_info"))).one()
-        if row[0]:
-            return  # already seeded
-
         entries = json.loads(_JSON_PATH.read_text(encoding="utf-8"))
         rows = [
             {
@@ -87,26 +83,57 @@ async def _ensure_species_info() -> None:
                 "group_name":                 e.get("group_name"),
                 "ebird_code":                 e.get("ebird_code") or None,
                 "avicommons_image_url":       e.get("avicommons_image_url") or None,
+                "avicommons_image_by":        e.get("avicommons_image_by") or None,
+                "avicommons_image_license":   e.get("avicommons_image_license") or None,
             }
             for e in entries
             if e.get("name")
         ]
 
+        # Add any species that don't exist yet; never overwrite existing rows.
         await conn.execute(
             text(
-                "INSERT OR REPLACE INTO species_info "
+                "INSERT OR IGNORE INTO species_info "
                 "(name, scientific_name, british_list_status, population_estimate, "
                 " bto_2letter_code, bto_5letter_code, species_status, uk_bocc, "
                 " birdfacts_url, international_english_name, group_name, "
-                " ebird_code, avicommons_image_url) "
+                " ebird_code, avicommons_image_url, "
+                " avicommons_image_by, avicommons_image_license) "
                 "VALUES (:name, :scientific_name, :british_list_status, "
                 " :population_estimate, :bto_2letter_code, :bto_5letter_code, "
                 " :species_status, :uk_bocc, :birdfacts_url, "
                 " :international_english_name, :group_name, "
-                " :ebird_code, :avicommons_image_url)"
+                " :ebird_code, :avicommons_image_url, "
+                " :avicommons_image_by, :avicommons_image_license)"
             ),
             rows,
         )
+
+        # Backfill attribution columns for any rows that are missing them
+        # (safe to run on every startup — only touches NULL cells).
+        attr_rows = [
+            {
+                "name":    r["name"],
+                "by":      r["avicommons_image_by"],
+                "lic":     r["avicommons_image_license"],
+                "ec":      r["ebird_code"],
+                "img_url": r["avicommons_image_url"],
+            }
+            for r in rows
+            if r["avicommons_image_by"]
+        ]
+        if attr_rows:
+            await conn.execute(
+                text(
+                    "UPDATE species_info SET "
+                    "  avicommons_image_by      = :by, "
+                    "  avicommons_image_license  = :lic, "
+                    "  ebird_code               = COALESCE(ebird_code, :ec), "
+                    "  avicommons_image_url      = COALESCE(avicommons_image_url, :img_url) "
+                    "WHERE name = :name AND avicommons_image_by IS NULL"
+                ),
+                attr_rows,
+            )
 
 
 @asynccontextmanager

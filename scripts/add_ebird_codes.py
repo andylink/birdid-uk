@@ -3,8 +3,9 @@
 add_ebird_codes.py — Enrich uk_species_filter.json with eBird species codes.
 
 Downloads the AviCommons species catalogue (https://avicommons.org/latest.json),
-matches each BTO species to an AviCommons entry, and writes the ebird_code and
-avicommons_image_url fields back into the JSON in-place.
+matches each BTO species to an AviCommons entry, and writes the ebird_code,
+avicommons_image_url, avicommons_image_by, and avicommons_image_license fields
+back into the JSON in-place.
 
 Matching stages (first match wins):
   1. Scientific name   — exact, case-insensitive
@@ -94,6 +95,12 @@ def _image_url(avi_entry: dict) -> str | None:
     return None
 
 
+def _attribution_url(avi_entry: dict) -> str | None:
+    """Return the AviCommons species page URL, used as the attribution link."""
+    code = avi_entry.get("code")
+    return f"https://avicommons.org/species/{code}" if code else None
+
+
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -134,7 +141,9 @@ def main() -> None:
             code = MANUAL_OVERRIDES[bto_name]
             entry["ebird_code"] = code
             avi = by_code.get(code)
-            entry["avicommons_image_url"] = _image_url(avi) if avi else None
+            entry["avicommons_image_url"]     = _image_url(avi) if avi else None
+            entry["avicommons_image_by"]      = avi.get("by") if avi else None
+            entry["avicommons_image_license"] = avi.get("license") if avi else None
             matched_manual += 1
             continue
 
@@ -142,7 +151,9 @@ def main() -> None:
         avi = by_sci.get(sci_name)
         if avi:
             entry["ebird_code"] = avi["code"]
-            entry["avicommons_image_url"] = _image_url(avi)
+            entry["avicommons_image_url"]     = _image_url(avi)
+            entry["avicommons_image_by"]      = avi.get("by")
+            entry["avicommons_image_license"] = avi.get("license")
             matched_auto += 1
             continue
 
@@ -151,7 +162,9 @@ def main() -> None:
             avi = by_name.get(int_name)
             if avi:
                 entry["ebird_code"] = avi["code"]
-                entry["avicommons_image_url"] = _image_url(avi)
+                entry["avicommons_image_url"]     = _image_url(avi)
+                entry["avicommons_image_by"]      = avi.get("by")
+                entry["avicommons_image_license"] = avi.get("license")
                 matched_auto += 1
                 continue
 
@@ -159,13 +172,17 @@ def main() -> None:
         avi = by_name.get(norm_bto)
         if avi:
             entry["ebird_code"] = avi["code"]
-            entry["avicommons_image_url"] = _image_url(avi)
+            entry["avicommons_image_url"]     = _image_url(avi)
+            entry["avicommons_image_by"]      = avi.get("by")
+            entry["avicommons_image_license"] = avi.get("license")
             matched_auto += 1
             continue
 
         # No match found
-        entry["ebird_code"] = None
-        entry["avicommons_image_url"] = None
+        entry["ebird_code"]               = None
+        entry["avicommons_image_url"]     = None
+        entry["avicommons_image_by"]      = None
+        entry["avicommons_image_license"] = None
         unmatched.append(bto_name)
 
     total = len(entries)

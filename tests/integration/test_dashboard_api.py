@@ -60,7 +60,9 @@ CREATE TABLE IF NOT EXISTS species_info (
     international_english_name TEXT,
     group_name TEXT,
     ebird_code TEXT,
-    avicommons_image_url TEXT
+    avicommons_image_url TEXT,
+    avicommons_image_by TEXT,
+    avicommons_image_license TEXT
 )
 """
 
