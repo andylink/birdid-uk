@@ -16,7 +16,7 @@
 	let sse: ReturnType<typeof createSSE> | null = null;
 	let connected   = $state(false);
 	let flashing    = $state(false);
-	let soundOn     = $state(false);
+	let soundOn     = $state(true);
 
 	// Notable species seen this session, deduplicated by name
 	let notableMap  = $state<Map<string, Detection>>(new Map());
@@ -84,11 +84,17 @@
 		await tick(); // force Svelte to remove the class so the animation restarts
 		flashing = true;
 		if (flashTimer) clearTimeout(flashTimer);
-		flashTimer = setTimeout(() => { flashing = false; }, 950);
+		flashTimer = setTimeout(() => { flashing = false; }, 5000);
 	}
 
 	// ── SSE ───────────────────────────────────────────────────────────────────
 	onMount(() => {
+		// Unlock the AudioContext on the first user gesture so chimes work
+		// immediately when the first detection arrives.
+		const unlock = () => { getAudioCtx(); };
+		document.addEventListener('click',      unlock, { once: true, passive: true });
+		document.addEventListener('touchstart', unlock, { once: true, passive: true });
+
 		sse = createSSE('/stream/detections');
 		sse.on('detection', (raw) => {
 			const d = raw as Detection;
@@ -390,24 +396,30 @@
 	/* ── Hero card flash animations ── */
 	@keyframes flash-normal {
 		0%   {
-			box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5);
-			background-color: rgba(52, 211, 153, 0.1);
+			box-shadow: inset 0 0 0 3px rgba(52, 211, 153, 1), 0 0 24px rgba(52, 211, 153, 0.25);
+			background-color: rgba(52, 211, 153, 0.18);
 		}
-		65%  { box-shadow: 0 0 0 10px rgba(52, 211, 153, 0); }
+		30%  {
+			box-shadow: inset 0 0 0 3px rgba(52, 211, 153, 1), 0 0 24px rgba(52, 211, 153, 0.25);
+			background-color: rgba(52, 211, 153, 0.18);
+		}
 		100% {
-			box-shadow: none;
+			box-shadow: inset 0 0 0 3px rgba(52, 211, 153, 0), 0 0 0 rgba(52, 211, 153, 0);
 			background-color: var(--color-surface);
 		}
 	}
 	@keyframes flash-notable {
 		0%   {
-			box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
-			background-color: rgba(239, 68, 68, 0.12);
+			box-shadow: inset 0 0 0 3px rgba(239, 68, 68, 1), 0 0 24px rgba(239, 68, 68, 0.25);
+			background-color: rgba(239, 68, 68, 0.18);
 		}
-		65%  { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+		30%  {
+			box-shadow: inset 0 0 0 3px rgba(239, 68, 68, 1), 0 0 24px rgba(239, 68, 68, 0.25);
+			background-color: rgba(239, 68, 68, 0.18);
+		}
 		100% {
-			box-shadow: none;
-			background-color: rgba(239, 68, 68, 0.04);
+			box-shadow: inset 0 0 0 3px rgba(239, 68, 68, 0), 0 0 0 rgba(239, 68, 68, 0);
+			background-color: var(--color-surface);
 		}
 	}
 
@@ -419,14 +431,10 @@
 		background: var(--color-surface);
 	}
 	.hero-card.flash {
-		animation: flash-normal 0.95s ease-out forwards;
-	}
-	.hero-card.notable-hero {
-		border-left: 3px solid #ef4444;
-		background: rgba(239, 68, 68, 0.04);
+		animation: flash-normal 5s linear forwards;
 	}
 	.hero-card.notable-hero.flash {
-		animation: flash-notable 0.95s ease-out forwards;
+		animation: flash-notable 5s linear forwards;
 	}
 	/* When no detection yet, let the card grow to fill space */
 	.hero-card.hero-empty {
