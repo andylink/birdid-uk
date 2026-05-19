@@ -228,53 +228,54 @@ info "Dependencies installed."
 
 section "Perch inference backend (optional)..."
 echo "  Perch is Google's bird vocalization model — an alternative to the default BirdNET."
-echo "  It requires ~2 GB of extra disk space (TensorFlow) and a one-time ~362 MB"
-echo "  model download (fetched automatically from GitHub, no Kaggle account needed)."
+echo "  It uses ONNX Runtime (CPU) and requires a one-time ~409 MB model download"
+echo "  from HuggingFace (no account needed). No TensorFlow required."
 echo ""
 
 _PERCH_INSTALLED=false
-if "$VENV/bin/python" -c "import perch_hoplite" 2>/dev/null; then
+if "$VENV/bin/python" -c "import onnxruntime" 2>/dev/null && \
+   [[ -f "$HOME/.cache/birdid-uk/perch_v2_onnx/perch_v2.onnx" ]]; then
     _PERCH_INSTALLED=true
     info "Perch is already installed."
 fi
 
 if [[ "$_PERCH_INSTALLED" == "false" ]]; then
     if _ask_yn "Install Perch now?" "n"; then
-        # Detect CUDA availability to choose the right extra
-        if "$VENV/bin/python" -c "import subprocess,sys; r=subprocess.run(['nvidia-smi'],capture_output=True); sys.exit(0 if r.returncode==0 else 1)" 2>/dev/null; then
-            _PERCH_EXTRA="tf-cuda"
-            info "NVIDIA GPU detected — installing perch-hoplite[tf-cuda] (GPU support)"
-        else
-            _PERCH_EXTRA="tf"
-            info "No NVIDIA GPU detected — installing perch-hoplite[tf] (CPU)"
-        fi
-
-        pip install "perch-hoplite[$_PERCH_EXTRA]" --quiet
-        info "Perch installed."
+        pip install onnxruntime --quiet
+        info "onnxruntime installed."
         _PERCH_INSTALLED=true
 
         # ── Model download ──────────────────────────────────────────────
-        # The Perch v2 CPU model (~362 MB compressed) is hosted as a GitHub
-        # Release asset so users don't need a Kaggle account.
-        # We always use the CPU variant: the GPU (XLA) saved_model has a
-        # DEVICE_TYPE_INVALID bug in its embedded cuDNN backend config that
-        # prevents execution on sm_86+ hardware with cuDNN 9. BirdNET runs on
-        # GPU; Perch runs on CPU with acceptable latency for secondary validation.
-        PERCH_MODEL_DIR="$HOME/.cache/birdid-uk/perch_v2"
-        _GH_RELEASE_BASE="https://github.com/andylink/birdid-uk/releases/download/models%2Fperch-v2"
-        _PERCH_TARBALL_URL="$_GH_RELEASE_BASE/perch_v2_cpu.tar.gz"
+        # The Perch v2 ONNX model and label file are hosted on HuggingFace
+        # by tphakala (the BirdNET-Go author), converted from Google's
+        # original TF SavedModel by justinchuby. ~409 MB.
+        PERCH_MODEL_DIR="$HOME/.cache/birdid-uk/perch_v2_onnx"
+        _HF_BASE="https://huggingface.co/tphakala/Perch-v2/resolve/main"
 
-        if [[ -f "$PERCH_MODEL_DIR/saved_model.pb" || \
-              -f "$PERCH_MODEL_DIR/savedmodel/saved_model.pb" ]]; then
-            info "Perch model already cached at $PERCH_MODEL_DIR"
+        mkdir -p "$PERCH_MODEL_DIR"
+
+        if [[ -f "$PERCH_MODEL_DIR/perch_v2.onnx" ]]; then
+            info "Perch ONNX model already cached at $PERCH_MODEL_DIR"
         else
-            info "Downloading Perch v2 model (CPU, ~362 MB)..."
-            mkdir -p "$PERCH_MODEL_DIR"
-            if curl -fsSL --retry 3 "$_PERCH_TARBALL_URL" | tar -xz -C "$PERCH_MODEL_DIR"; then
+            info "Downloading Perch v2 ONNX model (~409 MB)..."
+            if curl -fsSL --retry 3 "$_HF_BASE/perch_v2.onnx" \
+                    -o "$PERCH_MODEL_DIR/perch_v2.onnx"; then
                 info "Perch model downloaded to $PERCH_MODEL_DIR"
             else
                 warn "Download failed — Perch will attempt to download on first run."
                 warn "If that also fails, re-run:  bash $REPO_ROOT/install.sh"
+                rm -f "$PERCH_MODEL_DIR/perch_v2.onnx"
+            fi
+        fi
+
+        if [[ -f "$PERCH_MODEL_DIR/labels.txt" ]]; then
+            info "Perch labels already cached."
+        else
+            info "Downloading Perch labels..."
+            if ! curl -fsSL --retry 3 "$_HF_BASE/labels.txt" \
+                      -o "$PERCH_MODEL_DIR/labels.txt"; then
+                warn "Labels download failed — will retry on first run."
+                rm -f "$PERCH_MODEL_DIR/labels.txt"
             fi
         fi
 
