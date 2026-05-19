@@ -7,9 +7,11 @@
 	let {
 		filename,
 		species,
+		height = '3rem',
 	}: {
 		filename: string | null;
 		species: string;
+		height?: string;
 	} = $props();
 
 	let imgLoaded = $state(false);
@@ -23,7 +25,7 @@
 	<div class="spectrogram-wrap">
 		<!-- Show a skeleton placeholder until the image loads; hide entirely on error -->
 		{#if !imgError}
-			<div class="spec-img-box">
+			<div class="spec-img-box" style:height>
 				{#if !imgLoaded}
 					<div class="spec-skeleton skeleton-pulse" aria-hidden="true"></div>
 				{/if}
@@ -59,7 +61,6 @@
 
 	.spec-img-box {
 		position: relative;
-		height: 3rem;
 		border-radius: 0.25rem;
 		overflow: hidden;
 		background: var(--color-skeleton);

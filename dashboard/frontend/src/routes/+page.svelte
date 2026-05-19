@@ -1,7 +1,16 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import SpeciesHeatmap from '$lib/components/SpeciesHeatmap.svelte';
 	import DetectionFeed from '$lib/components/DetectionFeed.svelte';
 	import ActivityChart from '$lib/components/ActivityChart.svelte';
+
+	// On small screens the dashboard layout breaks — redirect to the dedicated Live Feed page
+	onMount(() => {
+		if (window.matchMedia('(max-width: 900px)').matches) {
+			goto('/live', { replaceState: true });
+		}
+	});
 </script>
 
 <div class="page-shell">
