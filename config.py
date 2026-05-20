@@ -18,7 +18,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Find config.toml relative to this file, so the app can be run from any directory.
-_CONFIG_PATH = Path(__file__).parent / "config.toml"
+# Fall back to config.toml.example when config.toml is absent (e.g. CI environments).
+_CONFIG_PATH = (
+    Path(__file__).parent / "config.toml"
+    if (Path(__file__).parent / "config.toml").exists()
+    else Path(__file__).parent / "config.toml.example"
+)
 
 
 @dataclass(frozen=True)

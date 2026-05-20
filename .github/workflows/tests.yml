@@ -3,6 +3,8 @@ name: Tests
 on:
   push:
     branches: ["**"]
+    tags-ignore:
+      - 'v*'
   pull_request:
     branches: ["**"]
   workflow_call:   # allows publish.yml to call this as a reusable workflow
