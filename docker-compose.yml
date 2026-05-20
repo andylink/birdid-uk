@@ -1,0 +1,131 @@
+# ── BirdID-UK Docker Compose ──────────────────────────────────────────────────
+#
+# Quick start (pre-built image from GitHub Container Registry — no source needed):
+#   1. curl -O https://raw.githubusercontent.com/andylink/birdid-uk/main/docker-compose.yml
+#   2. curl -O https://raw.githubusercontent.com/andylink/birdid-uk/main/docker/config.docker.toml
+#   3. mv config.docker.toml config.toml   # edit lat/lon, audio source, etc.
+#   4. docker compose up -d
+#   5. Open http://localhost:8080
+#
+# To build the image locally instead of pulling from GHCR, run:
+#   docker compose up -d --build
+#
+# Audio input
+# ───────────
+#   RTSP (recommended for containers — no device passthrough required):
+#     Set [audio] source = "rtsp" and fill in [audio.rtsp] url in config.toml.
+#
+#   USB microphone (requires host sound device access):
+#     Uncomment the `devices` and `group_add` blocks under the birdid service,
+#     and set [audio] source = "sounddevice" in config.toml.
+#
+# Optional services
+# ─────────────────
+#   MQTT broker  — uncomment the `mosquitto` service block.
+#   PostgreSQL   — uncomment the `postgres` service block and update config.toml.
+#
+# Data persistence
+# ────────────────
+#   Audio clips, spectrograms, the SQLite database, and logs are stored in a
+#   named volume `birdid_data` mounted at /app/data inside the container.
+#   To use a host directory instead, replace:
+#       - birdid_data:/app/data
+#   with e.g.:
+#       - /opt/birdid-uk/data:/app/data
+
+services:
+
+  birdid:
+    # Pull the pre-built image from GitHub Container Registry.
+    # Pin to a specific release tag (e.g. v1.2.3) for production stability.
+    # Use `docker compose up -d --build` to build locally from source instead.
+    image: ghcr.io/andylink/birdid-uk:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: birdid-uk
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"         # dashboard web UI and API
+
+    volumes:
+      # Runtime config — edit config.toml before first run
+      - ./config.toml:/app/config.toml:ro
+      # Persistent data: SQLite DB, audio clips, spectrograms, logs
+      - birdid_data:/app/data
+      # Optional: Perch model cache (large, ~409 MB) — avoids re-download on container recreate
+      # - perch_cache:/root/.cache/birdid-uk
+
+    environment:
+      # TZ is read by Python's astral / datetime for correct sunrise/sunset.
+      # Must match [general] timezone in config.toml.
+      TZ: Europe/London
+
+    # ── USB microphone passthrough (sounddevice source only) ──────────────────
+    # Uncomment if using [audio] source = "sounddevice" in config.toml.
+    # devices:
+    #   - /dev/snd:/dev/snd
+    # group_add:
+    #   - audio
+
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/detections?limit=1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s      # allow time for model loading on first start
+      retries: 3
+
+    # ── PostgreSQL dependency (uncomment postgres service below to use) ────────
+    # depends_on:
+    #   postgres:
+    #     condition: service_healthy
+
+    # ── MQTT dependency (uncomment mosquitto service below to use) ────────────
+    # depends_on:
+    #   mosquitto:
+    #     condition: service_started
+
+
+  # ── Optional: Mosquitto MQTT broker ─────────────────────────────────────────
+  # Uncomment this service and set [mqtt] broker = "mosquitto" in config.toml.
+  #
+  # mosquitto:
+  #   image: eclipse-mosquitto:2
+  #   container_name: birdid-mosquitto
+  #   restart: unless-stopped
+  #   ports:
+  #     - "1883:1883"
+  #   volumes:
+  #     - mosquitto_data:/mosquitto/data
+  #     - mosquitto_logs:/mosquitto/log
+  #     - ./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+
+  # ── Optional: PostgreSQL / TimescaleDB ───────────────────────────────────────
+  # Uncomment and set [database] type = "postgresql" in config.toml.
+  # For TimescaleDB also set timescaledb = true.
+  #
+  # postgres:
+  #   image: timescale/timescaledb:latest-pg16   # or postgres:16-alpine for plain PG
+  #   container_name: birdid-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: birds
+  #     POSTGRES_USER: birdid
+  #     POSTGRES_PASSWORD: changeme
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U birdid -d birds"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+
+volumes:
+  birdid_data:
+  # perch_cache:
+  # mosquitto_data:
+  # mosquitto_logs:
+  # postgres_data:
