@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import threading
 import urllib.error
 import urllib.request
@@ -145,6 +146,41 @@ def post_detection(
 
 
 # ---------------------------------------------------------------------------
+# Location helpers
+# ---------------------------------------------------------------------------
+
+def _apply_location_offset(lat: float, lon: float, bearing_deg: float, metres: float) -> tuple[float, float]:
+    """Return a new (lat, lon) displaced from the origin by *metres* along *bearing_deg*.
+
+    Uses the spherical-Earth forward-bearing formula (accurate to well under
+    1 m at the distances used for privacy offsets).
+
+    Args:
+        lat:         Origin latitude in decimal degrees.
+        lon:         Origin longitude in decimal degrees.
+        bearing_deg: Compass bearing (0 = North, 90 = East, 180 = South, 270 = West).
+        metres:      Displacement distance in metres.
+
+    Returns:
+        (displaced_lat, displaced_lon) in decimal degrees.
+    """
+    R = 6_371_000.0  # mean Earth radius in metres
+    d = metres / R
+    bearing = math.radians(bearing_deg)
+    lat1 = math.radians(lat)
+    lon1 = math.radians(lon)
+    lat2 = math.asin(
+        math.sin(lat1) * math.cos(d)
+        + math.cos(lat1) * math.sin(d) * math.cos(bearing)
+    )
+    lon2 = lon1 + math.atan2(
+        math.sin(bearing) * math.sin(d) * math.cos(lat1),
+        math.cos(d) - math.sin(lat1) * math.sin(lat2),
+    )
+    return math.degrees(lat2), math.degrees(lon2)
+
+
+# ---------------------------------------------------------------------------
 # Internal worker
 # ---------------------------------------------------------------------------
 
@@ -209,12 +245,21 @@ def _send(
         if bw.upload_audio and clip_path and clip_path.exists():
             soundscape_id = _upload_soundscape(token, ts, clip_path)
 
+        # Resolve reported location — apply fixed offset if configured.
+        if bw.location_offset_bearing is not None and bw.location_offset_metres is not None:
+            reported_lat, reported_lon = _apply_location_offset(
+                cfg.location.lat, cfg.location.lon,
+                bw.location_offset_bearing, bw.location_offset_metres,
+            )
+        else:
+            reported_lat, reported_lon = cfg.location.lat, cfg.location.lon
+
         # Step 2: post detection metadata.
         payload: dict = {
             "timestamp":  _iso8601(ts),
             "commonName": species,
-            "lat":        cfg.location.lat,
-            "lon":        cfg.location.lon,
+            "lat":        reported_lat,
+            "lon":        reported_lon,
             "confidence": round(float(confidence), 6),
         }
         if scientific_name:
