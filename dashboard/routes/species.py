@@ -517,12 +517,13 @@ async def species_detection_list(
     count_params: dict = {"name": name}
     if verification_status:
         count_params["vs"] = verification_status
+    vs_clause = "AND COALESCE(verification_status, 'unverified') = :vs" if verification_status else ""
     total_row = (
         await db.execute(
             text(
                 f"SELECT COUNT(*) AS n FROM detections "
                 f"WHERE species = :name "
-                f"{'AND COALESCE(verification_status, \'unverified\') = :vs' if verification_status else ''}"
+                f"{vs_clause}"
             ),
             count_params,
         )

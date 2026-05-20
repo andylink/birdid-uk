@@ -10,13 +10,12 @@ require_admin     — FastAPI dependency; raises 401 when no valid session cooki
 
 from __future__ import annotations
 
+import bcrypt
 from fastapi import Cookie, HTTPException, status
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
-from passlib.context import CryptContext
 
 from dashboard.config import ADMIN_PASSWORD_HASH, SESSION_SECRET, SESSION_TTL
 
-_pwd_ctx    = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _serializer = URLSafeTimedSerializer(SESSION_SECRET)
 
 COOKIE_NAME = "admin_session"
@@ -29,7 +28,7 @@ def verify_password(plain: str) -> bool:
     """
     if not ADMIN_PASSWORD_HASH:
         return False
-    return _pwd_ctx.verify(plain, ADMIN_PASSWORD_HASH)
+    return bcrypt.checkpw(plain.encode(), ADMIN_PASSWORD_HASH.encode())
 
 
 def create_session_cookie_value() -> str:

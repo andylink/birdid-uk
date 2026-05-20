@@ -87,7 +87,9 @@ class SounddeviceSource:
     ) -> None:
         """PortAudio callback — called from the sounddevice audio thread."""
         if status:
-            logger.warning("[audio/sounddevice] stream status: %s", status)
+            # input overflow is handled by the queue — drop oldest and continue.
+            # Log at DEBUG to avoid flooding the console in CPU-constrained environments.
+            logger.debug("[audio/sounddevice] stream status: %s", status)
         try:
             # Copy is required; indata is only valid for the duration of the callback.
             self._queue.put_nowait(indata[:, 0].copy())

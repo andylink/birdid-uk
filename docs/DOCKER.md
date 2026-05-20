@@ -1,6 +1,8 @@
 # Docker Compose Installation
 
 This guide covers running BirdID-UK as a Docker container using Docker Compose.
+No local copy of the source code is required — the pre-built image is pulled
+automatically from GitHub Container Registry (GHCR).
 
 ## Prerequisites
 
@@ -11,49 +13,65 @@ This guide covers running BirdID-UK as a Docker container using Docker Compose.
 
 ---
 
-## Quick start
+## Installation
 
-### 1. Configure
+### 1. Download the two required files
 
-Copy the Docker config template and edit it:
+You only need `docker-compose.yml` and the config template — no source checkout needed.
 
 ```bash
-cp docker/config.docker.toml config.toml
+curl -O https://raw.githubusercontent.com/andylink/birdid-uk/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/andylink/birdid-uk/main/docker/config.docker.toml
+mv config.docker.toml config.toml
 ```
 
-At minimum set:
+### 2. Edit config.toml
+
+Open `config.toml` and set at minimum:
 
 | Section | Key | Description |
 |---|---|---|
 | `[general]` | `timezone` | IANA timezone, e.g. `Europe/London` |
-| `[location]` | `lat`, `lon` | Your WGS-84 coordinates |
-| `[audio]` | `source` | `"rtsp"` or `"sounddevice"` |
+| `[location]` | `lat`, `lon` | Your WGS-84 coordinates ([find yours](https://www.latlong.net)) |
+| `[audio]` | `source` | `"rtsp"` (recommended) or `"sounddevice"` |
 | `[audio.rtsp]` | `url` | Your RTSP stream URL |
 | `[admin]` | `password_hash`, `session_secret` | See below |
 
-Generate the admin credentials:
+**Generate admin credentials** — requires Python 3 with `bcrypt` installed, or
+you can leave both fields empty to disable auth entirely:
 
 ```bash
 # bcrypt password hash
-python3 -c "from passlib.hash import bcrypt; print(bcrypt.hash('your-password'))"
+python3 -c "import bcrypt; print(bcrypt.hashpw(b'your-password', bcrypt.gensalt()).decode())"
 
 # random session secret
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-### 2. Build and start
+Paste the output values into `config.toml`:
 
-```bash
-docker compose up -d --build
+```toml
+[admin]
+password_hash  = "$2b$12$..."
+session_secret = "abc123..."
 ```
 
-First build takes a few minutes (installs Python dependencies and builds the frontend). Subsequent starts are fast.
+### 3. Start the container
 
-### 3. Open the dashboard
+```bash
+docker compose up -d
+```
+
+Docker pulls the image from GHCR automatically on first run (~1–2 GB download).
+Subsequent starts are instant.
+
+### 4. Open the dashboard
 
 ```
 http://localhost:8080
 ```
+
+The BirdNET model loads on startup — allow ~60 seconds before expecting detections.
 
 ---
 
@@ -87,7 +105,7 @@ Set in `config.toml`:
 ```toml
 [audio]
 source = "sounddevice"
-device = 0   # run `python -m sounddevice` on the host to find the right index
+device = 0   # run `python -m sounddevice` on the host to find the correct index
 ```
 
 ---
@@ -96,19 +114,29 @@ device = 0   # run `python -m sounddevice` on the host to find the right index
 
 ### MQTT broker (Mosquitto)
 
-Uncomment the `mosquitto` service block in `docker-compose.yml` and the `depends_on` entry under `birdid`. In `config.toml`:
+Uncomment the `mosquitto` service block in `docker-compose.yml` and the
+`depends_on` entry under `birdid`. Download the bundled Mosquitto config:
+
+```bash
+mkdir -p docker
+curl -o docker/mosquitto.conf \
+  https://raw.githubusercontent.com/andylink/birdid-uk/main/docker/mosquitto.conf
+```
+
+In `config.toml`:
 
 ```toml
 [mqtt]
 enabled = true
-broker  = "mosquitto"   # container service name resolves automatically
+broker  = "mosquitto"   # Docker Compose service name — resolves automatically
 port    = 1883
 topic   = "birds/detections"
 ```
 
 ### PostgreSQL / TimescaleDB
 
-Uncomment the `postgres` service block and its `depends_on` entry. In `config.toml`:
+Uncomment the `postgres` service block and its `depends_on` entry in
+`docker-compose.yml`. In `config.toml`:
 
 ```toml
 [database]
@@ -117,14 +145,16 @@ host     = "postgres"      # Docker Compose service name
 port     = 5432
 name     = "birds"
 username = "birdid"
-password = "changeme"      # match POSTGRES_PASSWORD in docker-compose.yml
+password = "changeme"      # must match POSTGRES_PASSWORD in docker-compose.yml
 ```
 
 ---
 
 ## Data persistence
 
-All runtime data (SQLite database, audio clips, spectrograms, logs) is stored in the `birdid_data` named Docker volume, mounted at `/app/data` inside the container.
+All runtime data (SQLite database, audio clips, spectrograms, logs) is stored
+in the `birdid_data` named Docker volume, mounted at `/app/data` inside the
+container. Data is preserved across container restarts and upgrades.
 
 To use a host directory instead, replace the volume entry in `docker-compose.yml`:
 
@@ -144,40 +174,53 @@ docker compose logs -f birdid
 # Restart after editing config.toml
 docker compose restart birdid
 
-# Stop everything
+# Stop everything (data preserved)
 docker compose down
 
-# Stop and remove data volumes (destructive!)
+# Stop and delete all data (destructive!)
 docker compose down -v
-
-# Rebuild after code changes
-docker compose up -d --build
 ```
 
 ---
 
 ## Upgrading
 
+Pull the latest image and restart:
+
 ```bash
-git pull
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-The `birdid_data` volume is preserved across rebuilds; no data is lost.
+The `birdid_data` volume is preserved; no data is lost.
+
+To pin to a specific release instead of `latest`, edit the `image:` line in
+`docker-compose.yml`:
+
+```yaml
+image: ghcr.io/andylink/birdid-uk:v0.1.0
+```
 
 ---
 
 ## Troubleshooting
 
 **Container exits immediately**
-Check logs: `docker compose logs birdid`. The most common cause is a missing or invalid `config.toml`.
+Check logs: `docker compose logs birdid`. The most common cause is a missing
+or invalid `config.toml`.
+
+**Image pull fails (`unauthorized` or `not found`)**
+The GHCR package may not be public yet. Check:
+`https://github.com/andylink?tab=packages` — the `birdid-uk` package visibility
+should be set to **Public**.
 
 **No detections / audio errors**
-- RTSP: verify the stream URL is reachable from the host (`ffplay rtsp://...`).
-- sounddevice: confirm the correct device index and that `/dev/snd` is passed through.
+- RTSP: verify the stream URL is reachable from the host with `ffplay rtsp://...`
+- sounddevice: confirm the correct device index and that `/dev/snd` is passed through
 
-**Dashboard shows "no data"**
-The BirdNET model loads on startup. Wait ~60 seconds after first start before expecting detections.
+**Dashboard loads but shows no data**
+The BirdNET model loads on startup. Wait ~60 seconds after first start.
 
 **Permission denied on `/dev/snd`**
-Ensure the container has the `audio` group (`group_add: [audio]`) and the device is mounted.
+Ensure the container has the `audio` group (`group_add: [audio]`) and the
+device is mounted (`devices: [/dev/snd:/dev/snd]`).

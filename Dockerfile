@@ -21,7 +21,7 @@ RUN npm run build
 
 
 # ── Stage 2: Python runtime ────────────────────────────────────────────────────
-FROM python:3.11-slim AS app
+FROM python:3.12-slim AS app
 
 # System packages:
 #   portaudio19-dev  — PortAudio headers for sounddevice (USB mic support)
@@ -40,6 +40,14 @@ WORKDIR /app
 # Install Python dependencies before copying source (better layer caching)
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Pre-download BirdNET model checkpoints into the image so they are available
+# at startup (birdnet_analyzer downloads them lazily otherwise, which means the
+# label map is empty during the first boot and the BOU filter suppresses everything).
+RUN python - <<'EOF'
+from birdnet_analyzer.utils import ensure_model_exists
+ensure_model_exists()
+EOF
 
 # Copy application source
 COPY . .
