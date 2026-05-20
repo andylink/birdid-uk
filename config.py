@@ -181,6 +181,7 @@ class MqttConfig:
     username: str
     password: str
     retain:   bool
+    min_confidence: float | None = None  # per-publisher confidence gate (None = use global)
 
 
 @dataclass(frozen=True)
@@ -676,6 +677,7 @@ def _load() -> Config:
         username = str(m.get("username", "")),
         password = str(m.get("password", "")),
         retain   = bool(m.get("retain",  False)),
+        min_confidence = float(m["min_confidence"]) if "min_confidence" in m else None,
     )
 
     bm = raw.get("birdmap", {})
