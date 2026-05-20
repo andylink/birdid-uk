@@ -200,6 +200,9 @@ topic    = "birds/detections"
 username = ""
 password = ""
 retain   = false
+# Minimum confidence for MQTT publishes. If set, overrides [defaults].min_confidence
+# for this publisher only. Leave commented out to use the global threshold.
+# min_confidence = 0.7
 
 
 [birdweather]

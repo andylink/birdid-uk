@@ -426,8 +426,15 @@ def _deferred_save(
             **cv_kwargs,
             **weather_kwargs,
         )
-        publish_detection(ts, species, effective_conf, clip_path, [],
-                          bto_name=bto_name, source_name=source_name)
+        publish_detection(
+            ts, species, effective_conf, clip_path,
+            bto_name=bto_name,
+            source_name=source_name,
+            model_name=model_name,
+            station_name=cfg.general.station_name,
+            weather=_wx,
+            cv_result=cv_result,
+        )
         birdmap.post_detection(ts, species, effective_conf, clip_path)
         birdweather.post_detection(ts, species, effective_conf, clip_path)
     except Exception:
