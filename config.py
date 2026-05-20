@@ -18,7 +18,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Find config.toml relative to this file, so the app can be run from any directory.
-_CONFIG_PATH = Path(__file__).parent / "config.toml"
+# Fall back to config.toml.example when config.toml is absent (e.g. CI environments).
+_CONFIG_PATH = (
+    Path(__file__).parent / "config.toml"
+    if (Path(__file__).parent / "config.toml").exists()
+    else Path(__file__).parent / "config.toml.example"
+)
 
 
 @dataclass(frozen=True)
@@ -198,6 +203,9 @@ class BirdweatherConfig:
     enabled:      bool
     token:        str   # station authentication token
     upload_audio: bool  # upload the FLAC clip before posting the detection
+    min_confidence: float | None = None
+    location_offset_bearing: float | None = None  # compass bearing (0=N, 90=E …)
+    location_offset_metres:  float | None = None  # displacement distance in metres
 
 
 @dataclass(frozen=True)
@@ -680,10 +688,20 @@ def _load() -> Config:
     )
 
     bw = raw.get("birdweather", {})
+    _bw_bearing = bw.get("location_offset_bearing", None)
+    _bw_metres  = bw.get("location_offset_metres",  None)
+    if (_bw_bearing is None) != (_bw_metres is None):
+        raise ValueError(
+            "[birdweather] location_offset_bearing and location_offset_metres "
+            "must both be set or both be absent"
+        )
     birdweather_cfg = BirdweatherConfig(
         enabled      = bool(bw.get("enabled",      False)),
         token        = str(bw.get("token",         "")),
         upload_audio = bool(bw.get("upload_audio", True)),
+        min_confidence           = bw.get("min_confidence", None),
+        location_offset_bearing  = float(_bw_bearing) if _bw_bearing is not None else None,
+        location_offset_metres   = float(_bw_metres)  if _bw_metres  is not None else None,
     )
 
     sf = raw.get("seasonal_filter", {})

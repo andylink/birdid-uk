@@ -209,6 +209,20 @@ enabled      = false
 token        = ""
 upload_audio = true
 
+# Minimum confidence for BirdWeather uploads. If set, overrides [defaults].min_confidence
+# for this publisher only. Leave commented out to use the global threshold.
+# min_confidence = 0.7
+
+# Displace the reported detection location by a fixed offset so your exact microphone
+# position is not exposed on the BirdWeather map.  The same offset is applied every
+# time, so your station always appears at the same displaced position.
+# Both keys must be set together, or neither.
+#   location_offset_bearing — compass bearing to offset towards (0 = N, 90 = E, 180 = S, 270 = W)
+#   location_offset_metres  — distance in metres to displace in that direction
+# location_offset_bearing = 45    # e.g. 45 = north-east
+# location_offset_metres  = 150
+min_confidence = 0.9
+
 
 [birdmap]
 # Forward detections to birdmap.co.uk.
