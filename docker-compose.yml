@@ -54,8 +54,9 @@ services:
       - ./config.toml:/app/config.toml:ro
       # Persistent data: SQLite DB, audio clips, spectrograms, logs
       - birdid_data:/app/data
-      # Optional: Perch model cache (large, ~409 MB) — avoids re-download on container recreate
-      # - perch_cache:/root/.cache/birdid-uk
+      # Perch model cache (~409 MB) — persists across container restarts/upgrades.
+      # Remove this line if you are not using cross-validation or Perch inference.
+      - perch_cache:/root/.cache/birdid-uk
 
     environment:
       # TZ is read by Python's astral / datetime for correct sunrise/sunset.
@@ -125,7 +126,7 @@ services:
 
 volumes:
   birdid_data:
-  # perch_cache:
+  perch_cache:
   # mosquitto_data:
   # mosquitto_logs:
   # postgres_data:
