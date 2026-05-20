@@ -21,7 +21,7 @@ RUN npm run build
 
 
 # ── Stage 2: Python runtime ────────────────────────────────────────────────────
-FROM python:3.11-slim AS app
+FROM python:3.12-slim AS app
 
 # System packages:
 #   portaudio19-dev  — PortAudio headers for sounddevice (USB mic support)

@@ -172,7 +172,7 @@ cache_seconds = 300
 
 # ── Admin dashboard authentication ────────────────────────────────────────────
 # Generate a bcrypt hash with:
-#   python -c "from passlib.hash import bcrypt; print(bcrypt.hash('your-password'))"
+#   python3 -c "import bcrypt; print(bcrypt.hashpw(b'your-password', bcrypt.gensalt()).decode())"
 # Generate a session secret with:
 #   python -c "import secrets; print(secrets.token_hex(32))"
 #
