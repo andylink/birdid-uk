@@ -198,7 +198,7 @@
 		transition: opacity 0.15s;
 		z-index: 2;
 	}
-	.img-wrap:hover .img-attribution {
+	.card:hover .img-attribution {
 		opacity: 1;
 	}
 	.bocc-badge {		position: absolute;
