@@ -1,0 +1,185 @@
+# ── BirdID-UK — Docker config template ───────────────────────────────────────
+#
+# Copy this file to config.toml in the project root before starting the
+# container:
+#
+#   cp docker/config.docker.toml config.toml
+#
+# Then edit at minimum:
+#   [general]  timezone
+#   [location] lat / lon
+#   [audio]    source and [audio.rtsp] url  (or sounddevice device index)
+#   [admin]    password_hash / session_secret  (run install.sh or generate manually)
+#
+# The file is bind-mounted read-only into the container at /app/config.toml.
+# All data paths below resolve to /app/data inside the container, which is
+# a named Docker volume.  Do not change the [paths] values unless you also
+# update the volume mounts in docker-compose.yml.
+
+[general]
+timezone     = "Europe/London"   # IANA tz — must match TZ env var in docker-compose.yml
+station_name = "My Garden"
+
+
+[location]
+# WGS-84 decimal degrees — find yours at https://www.latlong.net
+lat = 52.5
+lon = -1.5
+
+
+[paths]
+# These paths are inside the container.  They resolve to the birdid_data volume.
+detections_dir   = "data/detections"
+spectrograms_dir = "data/spectrograms"
+db_path          = "data/birds.db"
+
+
+[audio]
+sample_rate = 48000
+hop_seconds = 1
+
+# ── RTSP is the recommended audio source for Docker ──────────────────────────
+# No host device passthrough is needed; just point at your IP camera/mic URL.
+# Set source = "sounddevice" and uncomment the `devices` block in
+# docker-compose.yml if you want to use a USB microphone instead.
+source = "rtsp"
+
+clip_mode           = "window"
+window_pad_seconds  = 0.5
+
+# Microphone device index — only used when source = "sounddevice"
+device = 0
+
+
+[audio.rtsp]
+# Full RTSP URL of your audio stream, e.g.:
+#   rtsp://192.168.1.100:554/audio          (dedicated IP microphone)
+#   rtsp://admin:password@192.168.1.50/av0  (IP camera with audio)
+url                     = "rtsp://192.168.1.100:554/audio"
+transport               = "tcp"
+reconnect_delay_seconds = 5
+ffmpeg_path             = "ffmpeg"
+
+
+[inference]
+model = "birdnet"
+
+
+[defaults]
+min_confidence              = 0.5
+cooldown_seconds            = 60
+min_detections              = 2
+confirmation_window_seconds = 9
+exclude                     = []
+
+
+[filter]
+enabled   = true
+cutoff_hz = 200
+order     = 5
+
+
+[seasonal_filter]
+enabled     = true
+filter_json = "filters/uk_seasonal_filter.json"
+
+
+[nocturnal_filter]
+enabled     = true
+filter_json = "filters/uk_nocturnal_filter.json"
+
+
+[species_filter]
+exclude_status = ["Accidental"]
+
+
+[retention]
+enabled                  = true
+max_age_days             = 30
+max_usage_percent        = 90.0
+min_clips_per_species    = 5
+run_interval_seconds     = 3600
+spectrogram_max_age_days = 365
+
+
+[log]
+enabled        = true
+path           = "data/bird_detector.log"
+level          = "INFO"
+rotation       = "daily"
+backup_count   = 7
+
+
+[database]
+# SQLite (default) — zero config; data stored in the birdid_data volume.
+type = "sqlite"
+
+# ── PostgreSQL (optional) ─────────────────────────────────────────────────────
+# Uncomment the postgres service in docker-compose.yml and update these values.
+# type        = "postgresql"
+# host        = "postgres"        # service name in docker-compose.yml
+# port        = 5432
+# name        = "birds"
+# username    = "birdid"
+# password    = "changeme"
+# timescaledb = false
+
+
+[mqtt]
+# Set broker = "mosquitto" and uncomment the mosquitto service in docker-compose.yml.
+enabled  = false
+broker   = "mosquitto"           # service name in docker-compose.yml
+port     = 1883
+topic    = "birds/detections"
+username = ""
+password = ""
+retain   = false
+
+
+[birdweather]
+enabled      = false
+token        = ""
+upload_audio = true
+
+
+[birdmap]
+enabled      = false
+api_url      = "https://birdmap.co.uk"
+api_key      = ""
+station_id   = 0
+upload_audio = true
+
+
+[cross_validation]
+enabled           = false
+skip_threshold    = 0.90
+on_disagree       = "drop"
+cv_min_confidence = 0.01
+
+
+[privacy_filter]
+enabled             = true
+threshold           = 0.5
+min_voiced_fraction = 0.10
+
+
+[weather]
+enabled       = true
+provider      = "open_meteo"   # free, no API key required
+api_key       = ""
+cache_seconds = 300
+
+
+# ── Admin dashboard authentication ────────────────────────────────────────────
+# Generate a bcrypt hash with:
+#   python -c "from passlib.hash import bcrypt; print(bcrypt.hash('your-password'))"
+# Generate a session secret with:
+#   python -c "import secrets; print(secrets.token_hex(32))"
+#
+# Leave both empty to disable auth entirely (not recommended for exposed deployments).
+
+[admin]
+password_hash  = ""
+session_secret = ""
+session_ttl    = 86400
+auto_verify_threshold = 0.8

@@ -1,0 +1,45 @@
+# ── Git / Docker metadata ──────────────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+
+# ── Editor / OS clutter ────────────────────────────────────────────────────────
+.DS_Store
+*.swp
+*.swo
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ── Python environment ─────────────────────────────────────────────────────────
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# ── Node / frontend build artefacts (rebuilt inside container) ────────────────
+dashboard/frontend/node_modules/
+# NOTE: dashboard/frontend/dist/ is intentionally NOT excluded here.
+# If you have a pre-built dist/ you want to ship, keep it.
+# The multi-stage Dockerfile re-builds it anyway.
+
+# ── Runtime data (mounted as a volume at runtime) ─────────────────────────────
+data/
+
+# ── Test artefacts ────────────────────────────────────────────────────────────
+tests/
+.github/
+
+# ── Docs (not needed in the image) ────────────────────────────────────────────
+docs/
+*.md
+LICENSE
+
+# ── Local config overrides (never bake credentials into the image) ────────────
+config.toml

@@ -60,12 +60,24 @@ git push origin main
 ### Step 2 — Tag the release
 
 ```sh
-git tag v1.2.3
+git tag -a v1.2.3 -m "Release v1.2.3"
 git push origin v1.2.3
 ```
 
 > The tag must be on HEAD before running `publish.sh`.  If you forget,
 > `publish.sh` will tell you exactly what to run and exit cleanly.
+
+Pushing the tag to `origin` automatically triggers two GitHub Actions workflows
+in parallel:
+
+- **`docker.yml`** — builds a multi-platform Docker image (`linux/amd64` +
+  `linux/arm64`) and pushes it to GitHub Container Registry as
+  `ghcr.io/andylink/birdid-uk:v1.2.3` and `:latest`.  No extra secrets are
+  needed — it uses the built-in `GITHUB_TOKEN`.
+- **`tests.yml`** — runs the test suite (also a prerequisite of `publish.yml`).
+
+You can watch progress at:
+`https://github.com/andylink/birdid-uk-dev/actions`
 
 ### Step 3 — Publish
 
@@ -98,6 +110,20 @@ gh release create v1.2.3 \
 Or open `https://github.com/andylink/birdid-uk/releases/new` in a browser
 and fill in the form.
 
+### Step 5 — Verify the Docker image
+
+The `docker.yml` workflow runs in parallel with `publish.sh` (triggered by the
+tag push in step 2).  By the time you finish steps 3 and 4 it should be done.
+Check at `https://github.com/andylink/birdid-uk-dev/actions`.
+
+On the first ever release, make the package public:
+
+1. Go to `https://github.com/andylink?tab=packages`
+2. Click **birdid-uk** → **Package settings**
+3. Change visibility to **Public**
+
+This only needs to be done once.  Subsequent releases update the same package.
+
 ---
 
 ## What ends up in the public repo
@@ -107,6 +133,9 @@ and fill in the form.
 | Python source (`*.py`) | Yes | All tracked files via `git archive` |
 | Svelte source (`src/`) | Yes | Open source — full code included |
 | Built frontend (`dist/`) | Yes | Injected after local build |
+| `Dockerfile` | Yes | Used by the Docker Actions workflow |
+| `docker-compose.yml` | Yes | References `ghcr.io/andylink/birdid-uk:latest` |
+| `docker/` | Yes | Config template and Mosquitto config |
 | `config.toml` | **No** | Gitignored; personal settings never published |
 | `config.toml.example` | Yes | Template for new installs |
 | `node_modules/` | **No** | Never tracked |
