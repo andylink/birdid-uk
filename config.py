@@ -198,6 +198,7 @@ class BirdweatherConfig:
     enabled:      bool
     token:        str   # station authentication token
     upload_audio: bool  # upload the FLAC clip before posting the detection
+    min_confidence: float | None = None
 
 
 @dataclass(frozen=True)
@@ -684,6 +685,7 @@ def _load() -> Config:
         enabled      = bool(bw.get("enabled",      False)),
         token        = str(bw.get("token",         "")),
         upload_audio = bool(bw.get("upload_audio", True)),
+        min_confidence = bw.get("min_confidence", None),
     )
 
     sf = raw.get("seasonal_filter", {})

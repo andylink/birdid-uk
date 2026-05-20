@@ -134,6 +134,9 @@ def post_detection(
     """
     if not cfg.birdweather.enabled:
         return
+    if cfg.birdweather.min_confidence is not None and confidence < cfg.birdweather.min_confidence:
+        logger.debug("[birdweather] detection below min_confidence — skipping post")
+        return
     threading.Thread(
         target=_send,
         args=(ts, species, confidence, clip_path),

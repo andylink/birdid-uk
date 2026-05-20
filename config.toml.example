@@ -208,6 +208,7 @@ retain   = false
 enabled      = false
 token        = ""
 upload_audio = true
+min_confidence = 0.9
 
 
 [birdmap]
