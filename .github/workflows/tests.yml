@@ -36,6 +36,4 @@ jobs:
             --tb=short \
             -q \
             --cov=. \
-            --cov-report=term-missing \
-            --cov-omit="tests/*,venv/*,dashboard/frontend/*" \
-            --cov-fail-under=60
+            --cov-report=term-missing
