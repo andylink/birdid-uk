@@ -8,9 +8,12 @@
 		adminDeleteDetection,
 		adminSetVerification,
 		adminBulkDelete,
+		adminGetAllSpecies,
+		adminEditDetectionSpecies,
 		type SpeciesStats,
 		type SpeciesSummary,
 		type Detection,
+		type AdminSpeciesEntry,
 	} from '$lib/api';
 	import { auth } from '$lib/auth';
 	import { BOCC_COLOR, SPECIES_STATUS_STYLE, groupBadgeColor } from '$lib/bto';
@@ -144,6 +147,14 @@
 	let bulkDeleting = $state(false);
 	let bulkMsg      = $state<string | null>(null);
 
+	// Admin: edit-species state
+	let editingId      = $state<number | null>(null);
+	let editingSpecies = $state('');
+	let editSaving     = $state(false);
+	let editError      = $state<string | null>(null);
+	let allSpecies     = $state<AdminSpeciesEntry[] | null>(null);
+	let allSpeciesLoading = $state(false);
+
 	function verificationStatusLocal(det: Detection): string {
 		return verificationOverrides.has(det.id)
 			? (verificationOverrides.get(det.id) as string)
@@ -190,6 +201,44 @@
 			bulkConfirm = false;
 		} finally {
 			bulkDeleting = false;
+		}
+	}
+
+	/** Lazily load the full species list for the edit-species dropdown. */
+	async function loadAllSpecies() {
+		if (allSpecies !== null || allSpeciesLoading) return;
+		allSpeciesLoading = true;
+		try {
+			allSpecies = await adminGetAllSpecies();
+		} finally {
+			allSpeciesLoading = false;
+		}
+	}
+
+	function startEditSpecies(det: Detection) {
+		editingId      = det.id;
+		editingSpecies = det.bto_name ?? '';
+		editError      = null;
+		loadAllSpecies();
+	}
+
+	async function handleEditSpecies(det: Detection) {
+		if (!editingSpecies || editingSpecies === (det.bto_name ?? '')) {
+			editingId = null;
+			return;
+		}
+		editSaving = true;
+		editError  = null;
+		try {
+			await adminEditDetectionSpecies(det.id, editingSpecies);
+			// The detection now belongs to a different species — remove it from this view.
+			detections = detections.filter(d => d.id !== det.id);
+			total = Math.max(0, total - 1);
+			editingId = null;
+		} catch (e) {
+			editError = (e as Error).message;
+		} finally {
+			editSaving = false;
 		}
 	}
 </script>
@@ -502,11 +551,43 @@
 									{/if}
 								</div>
 							{/if}
-						<!-- Admin controls: shown when logged in.
-						     Verify   → mark as human-verified.
-						     Unverify → reset to unverified (shown for auto, cv, human). -->
-						{#if $auth.authenticated}
-							<div class="row-admin-row">
+					<!-- Admin controls: shown when logged in.
+					     Verify   → mark as human-verified.
+					     Unverify → reset to unverified (shown for auto, cv, human).
+					     Edit     → correct the identified species (false-positive fix). -->
+					{#if $auth.authenticated}
+						<div class="row-admin-row">
+							{#if editingId === det.id}
+								<!-- Edit-species inline UI -->
+								{#if allSpeciesLoading}
+									<span class="edit-loading">Loading…</span>
+								{:else if allSpecies}
+									<select
+										class="species-select"
+										bind:value={editingSpecies}
+										disabled={editSaving}
+										aria-label="Select corrected species"
+									>
+										{#each allSpecies as sp}
+											<option value={sp.name}>{sp.name}</option>
+										{/each}
+									</select>
+									<button
+										class="row-admin-btn row-edit-confirm-btn"
+										disabled={editSaving || editingSpecies === (det.bto_name ?? '')}
+										onclick={() => handleEditSpecies(det)}
+									>{editSaving ? '…' : 'Save'}</button>
+									<button
+										class="row-admin-btn"
+										disabled={editSaving}
+										onclick={() => { editingId = null; editError = null; }}
+									>Cancel</button>
+								{/if}
+								{#if editError}
+									<span class="edit-error">{editError}</span>
+								{/if}
+							{:else}
+								<!-- Normal admin buttons -->
 								{#if rowStatus !== 'human'}
 									<button
 										class="row-admin-btn row-verify-btn"
@@ -514,23 +595,29 @@
 										title="Mark as human-verified"
 									>Verify</button>
 								{/if}
-									{#if rowStatus !== 'unverified'}
-										<button
-											class="row-admin-btn row-unverify-btn"
-											onclick={() => handleSetVerificationRow(det, 'unverified')}
-											title="Reset to unverified"
-										>Unverify</button>
-									{/if}
+								{#if rowStatus !== 'unverified'}
 									<button
-										class="row-admin-btn row-delete-btn"
-										disabled={deletingId === det.id}
-										onclick={() => handleDeleteRow(det.id)}
-										title="Delete this detection and its audio clip"
-									>
-										{deletingId === det.id ? '…' : 'Delete'}
-									</button>
-								</div>
+										class="row-admin-btn row-unverify-btn"
+										onclick={() => handleSetVerificationRow(det, 'unverified')}
+										title="Reset to unverified"
+									>Unverify</button>
+								{/if}
+								<button
+									class="row-admin-btn row-edit-btn"
+									onclick={() => startEditSpecies(det)}
+									title="Correct a false-positive — change to a different species"
+								>Edit species</button>
+								<button
+									class="row-admin-btn row-delete-btn"
+									disabled={deletingId === det.id}
+									onclick={() => handleDeleteRow(det.id)}
+									title="Delete this detection and its audio clip"
+								>
+									{deletingId === det.id ? '…' : 'Delete'}
+								</button>
 							{/if}
+						</div>
+					{/if}
 						</div>
 					</div>
 				{/each}
@@ -1122,5 +1209,46 @@
 		background: rgba(239, 68, 68, 0.12);
 		color: #ef4444;
 		border-color: #ef4444;
+	}
+
+	/* Edit-species button */
+	.row-edit-btn:hover {
+		background: rgba(139, 92, 246, 0.12);
+		color: #8b5cf6;
+		border-color: #8b5cf6;
+	}
+
+	/* Confirm save button in edit mode */
+	.row-edit-confirm-btn:hover:not(:disabled) {
+		background: rgba(16, 163, 74, 0.12);
+		color: #16a34a;
+		border-color: #16a34a;
+	}
+
+	/* Inline species dropdown */
+	.species-select {
+		font-size: 0.625rem;
+		padding: 0.1875rem 0.375rem;
+		border-radius: 0.25rem;
+		border: 1px solid var(--color-border-strong);
+		background: var(--color-surface-2);
+		color: var(--color-text);
+		cursor: pointer;
+		max-width: 14rem;
+	}
+	.species-select:focus {
+		outline: none;
+		box-shadow: 0 0 0 2px var(--color-accent-ring);
+	}
+	.species-select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+	/* Edit mode helpers */
+	.edit-loading {
+		font-size: 0.625rem;
+		color: var(--color-text-dim);
+	}
+	.edit-error {
+		font-size: 0.625rem;
+		color: #f87171;
 	}
 </style>

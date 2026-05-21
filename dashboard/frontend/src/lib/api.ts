@@ -399,6 +399,31 @@ export function getWeatherWindRose(period: Period): Promise<WeatherWindRoseEntry
 	return apiFetch<WeatherWindRoseEntry[]>(`/api/v1/weather/wind-rose?period=${period}`);
 }
 
+export interface AdminSpeciesEntry {
+	name: string;
+	international_english_name: string | null;
+}
+
+export interface AdminEditSpeciesResult {
+	id: number;
+	species: string;
+	bto_name: string;
+}
+
+/** Return all species from species_info, sorted alphabetically. Used for the edit-species dropdown. */
+export function adminGetAllSpecies(): Promise<AdminSpeciesEntry[]> {
+	return apiFetch<AdminSpeciesEntry[]>('/api/v1/admin/species');
+}
+
+/** Change the species on a detection (corrects false positives).
+ *  Updates species, bto_name, cv_species, cv_bto_name, clip_path and sets verification to 'human'. */
+export function adminEditDetectionSpecies(id: number, btoName: string): Promise<AdminEditSpeciesResult> {
+	return apiFetch<AdminEditSpeciesResult>(`/api/v1/admin/detections/${id}/species`, {
+		method: 'PATCH',
+		body: JSON.stringify({ bto_name: btoName }),
+	});
+}
+
 // ── Auth ───────────────────────────────────────────────────────────────────
 
 export interface AuthStatus {
