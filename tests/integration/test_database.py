@@ -74,13 +74,6 @@ class TestInitDb:
             rows = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()
         assert "species_info" in {r[0] for r in rows}
 
-    def test_creates_detection_results_table(self, db_cfg):
-        init_db()
-        engine = database._engine
-        with engine.connect() as conn:
-            rows = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()
-        assert "detection_results" in {r[0] for r in rows}
-
     def test_idempotent_second_call(self, db_cfg):
         """Calling init_db() twice should not raise."""
         init_db()
@@ -116,7 +109,7 @@ class TestRecordDetection:
         ts = datetime(2026, 5, 13, 10, 0, 0, tzinfo=timezone.utc)
         record_detection(
             ts, "European Robin", 0.85,
-            Path("/detections/clip.flac"), [],
+            Path("/detections/clip.flac"),
             bto_name="Robin", model_name="birdnet",
         )
         engine = database._engine
@@ -130,35 +123,12 @@ class TestRecordDetection:
         assert row["model"] == "birdnet"
         assert "clip.flac" in row["clip_path"]
 
-    def test_inserts_secondary_candidates(self, db_cfg):
-        ts = datetime(2026, 5, 13, 10, 0, 0, tzinfo=timezone.utc)
-        record_detection(
-            ts, "European Robin", 0.85,
-            Path("/detections/clip.flac"),
-            [("Common Blackbird", 0.62), ("Song Thrush", 0.41)],
-        )
-        engine = database._engine
-        with engine.connect() as conn:
-            results = conn.execute(text("SELECT * FROM detection_results")).fetchall()
-        assert len(results) == 2
-        species_names = {r[2] for r in results}
-        assert "Common Blackbird" in species_names
-        assert "Song Thrush" in species_names
-
-    def test_no_secondary_leaves_detection_results_empty(self, db_cfg):
-        ts = datetime(2026, 5, 13, 10, 0, 0, tzinfo=timezone.utc)
-        record_detection(ts, "European Robin", 0.85, Path("clip.flac"), [])
-        engine = database._engine
-        with engine.connect() as conn:
-            results = conn.execute(text("SELECT * FROM detection_results")).fetchall()
-        assert len(results) == 0
-
     def test_cv_fields_stored(self, db_cfg):
         """Cross-validation columns should be persisted correctly."""
         ts = datetime(2026, 5, 13, 10, 0, 0, tzinfo=timezone.utc)
         record_detection(
             ts, "European Robin", 0.85,
-            Path("clip.flac"), [],
+            Path("clip.flac"),
             bto_name="Robin",
             primary_confidence=0.85,
             cross_validated=True,
@@ -181,7 +151,7 @@ class TestRecordDetection:
         ts = datetime(2026, 5, 13, 10, 0, 0, tzinfo=timezone.utc)
         record_detection(
             ts, "European Robin", 0.75,
-            Path("clip.flac"), [],
+            Path("clip.flac"),
             cross_validated=True,
             cv_agree=False,
         )
@@ -194,12 +164,12 @@ class TestRecordDetection:
         """record_detection should return silently when the engine is not initialised."""
         monkeypatch.setattr(database, "_engine", None)
         ts = datetime(2026, 5, 13, 10, 0, 0, tzinfo=timezone.utc)
-        record_detection(ts, "European Robin", 0.85, Path("clip.flac"), [])
+        record_detection(ts, "European Robin", 0.85, Path("clip.flac"))
 
     def test_multiple_detections_auto_increment(self, db_cfg):
         ts = datetime(2026, 5, 13, 10, 0, 0, tzinfo=timezone.utc)
-        record_detection(ts, "Robin",     0.8, Path("a.flac"), [])
-        record_detection(ts, "Blackbird", 0.9, Path("b.flac"), [])
+        record_detection(ts, "Robin",     0.8, Path("a.flac"))
+        record_detection(ts, "Blackbird", 0.9, Path("b.flac"))
         engine = database._engine
         with engine.connect() as conn:
             rows = conn.execute(text("SELECT id FROM detections ORDER BY id")).fetchall()

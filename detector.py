@@ -418,7 +418,7 @@ def _deferred_save(
             )
     
         record_detection(
-            ts, species, effective_conf, clip_path, [],
+            ts, species, effective_conf, clip_path,
             bto_name, model_name,
             source_name  = source_name,
             deduplicated = _deduplicated,

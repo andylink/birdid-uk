@@ -9,6 +9,8 @@ GET    /api/v1/admin/detections/export           — download all detections as 
 DELETE /api/v1/admin/detections/{id}             — delete one detection + its audio clip
 DELETE /api/v1/admin/detections                  — bulk delete (optional species filter)
 PATCH  /api/v1/admin/detections/{id}/verification — set verification_status
+PATCH  /api/v1/admin/detections/{id}/species     — change species (corrects false positives)
+GET    /api/v1/admin/species                     — list all species from species_info
 GET    /api/v1/admin/system/status               — disk usage, detection counts
 POST   /api/v1/admin/system/retention            — trigger a retention run immediately
 POST   /api/v1/admin/system/clear-image-cache    — delete cached species images
@@ -33,7 +35,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from dashboard.auth import require_admin
-from dashboard.config import DETECTIONS_DIR, DB_TYPE, LOCAL_TZ
+from dashboard.config import DETECTIONS_DIR, SPECTROGRAMS_DIR, DB_TYPE, LOCAL_TZ
 from dashboard.database import get_db, get_engine
 from dashboard.utils import _day_utc_bounds
 
@@ -220,6 +222,141 @@ async def set_verification(det_id: int, body: VerificationBody):
     if result.rowcount == 0:
         raise HTTPException(status_code=404, detail=f"Detection {det_id} not found")
     return {"id": det_id, "verification_status": body.verification_status}
+
+
+# ── Edit species (correct false positives) ────────────────────────────────────
+
+class EditSpeciesBody(BaseModel):
+    bto_name: str
+
+
+@router.patch(
+    "/api/v1/admin/detections/{det_id}/species",
+    dependencies=[Depends(require_admin)],
+)
+async def edit_detection_species(det_id: int, body: EditSpeciesBody):
+    """Change the species on a detection to correct a false positive.
+
+    Updates species, bto_name, cv_species, cv_bto_name, clip_path, and sets
+    verification_status to 'human'.  The audio clip file and its spectrogram
+    PNG are renamed on disk to match the new species label.
+    """
+    # ── 1. Validate new species exists in species_info ─────────────────────────
+    async with get_engine().connect() as conn:
+        sp_row = (await conn.execute(
+            text("SELECT name, international_english_name FROM species_info WHERE name = :name"),
+            {"name": body.bto_name},
+        )).one_or_none()
+
+    if sp_row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Species '{body.bto_name}' not found in species_info",
+        )
+    new_bto_name = sp_row[0]
+    # Use the international (BirdNET/eBird) label when available, else BTO name.
+    new_species  = sp_row[1] or sp_row[0]
+
+    # ── 2. Read the current detection's clip_path ──────────────────────────────
+    async with get_engine().connect() as conn:
+        det_row = (await conn.execute(
+            text("SELECT id, clip_path FROM detections WHERE id = :id"),
+            {"id": det_id},
+        )).one_or_none()
+
+    if det_row is None:
+        raise HTTPException(status_code=404, detail=f"Detection {det_id} not found")
+
+    old_clip_path: str | None = det_row[1]
+    new_clip_path = old_clip_path  # updated below if rename succeeds
+
+    # ── 3. Rename audio clip and spectrogram PNG (best-effort) ─────────────────
+    if old_clip_path:
+        p = Path(old_clip_path)
+        abs_p = p if p.is_absolute() else DETECTIONS_DIR / p
+
+        # Derive the datetime prefix and new stem from the stored path string,
+        # regardless of whether the audio file still exists on disk.
+        # Filename format: YYYYMMDD_HHMMSS_Species_Name.ext
+        stem = abs_p.stem   # e.g. "20260519_160531_Common_Moorhen"
+        ext  = abs_p.suffix  # e.g. ".flac"
+        parts = stem.split('_')
+        dt_prefix = f"{parts[0]}_{parts[1]}" if len(parts) >= 2 else stem
+        new_stem  = f"{dt_prefix}_{new_species.replace(' ', '_')}"
+
+        # Rename the audio clip if it still exists on disk.
+        if abs_p.is_file():
+            new_abs_p = abs_p.parent / f"{new_stem}{ext}"
+            try:
+                abs_p.rename(new_abs_p)
+                # Preserve whatever prefix (relative dir, or none) was stored.
+                new_clip_path = (
+                    str(new_abs_p) if p.is_absolute()
+                    else str(p.parent / new_abs_p.name)
+                )
+            except OSError:
+                pass  # Non-fatal: keep old path in DB if rename fails
+
+        # Rename the spectrogram PNG independently — it may still exist even if
+        # the audio clip was already removed by the retention policy.
+        old_png = SPECTROGRAMS_DIR / f"{stem}.png"
+        if old_png.is_file():
+            try:
+                old_png.rename(SPECTROGRAMS_DIR / f"{new_stem}.png")
+            except OSError:
+                pass
+
+    # ── 4. Persist all changes in a single transaction ─────────────────────────
+    async with get_engine().begin() as conn:
+        result = await conn.execute(
+            text("""
+                UPDATE detections SET
+                    species             = :species,
+                    bto_name            = :bto_name,
+                    clip_path           = :clip_path,
+                    cv_species          = :cv_species,
+                    cv_bto_name         = :cv_bto_name,
+                    verification_status = 'human'
+                WHERE id = :id
+            """),
+            {
+                "species":    new_species,
+                "bto_name":   new_bto_name,
+                "clip_path":  new_clip_path,
+                "cv_species":  new_species,
+                "cv_bto_name": new_bto_name,
+                "id":          det_id,
+            },
+        )
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail=f"Detection {det_id} not found")
+
+    return {
+        "id":       det_id,
+        "species":  new_species,
+        "bto_name": new_bto_name,
+    }
+
+
+# ── List all species (for the edit-species dropdown) ──────────────────────────
+
+@router.get("/api/v1/admin/species", dependencies=[Depends(require_admin)])
+async def list_all_species(db: AsyncConnection = Depends(get_db)):
+    """Return every species in species_info, sorted alphabetically by BTO name.
+
+    Used to populate the 'edit species' dropdown on the species detail page so
+    admins can correct false-positive detections.
+    """
+    rows = (await db.execute(
+        text("SELECT name, international_english_name FROM species_info ORDER BY name ASC")
+    )).mappings().all()
+    return [
+        {
+            "name":                       r["name"],
+            "international_english_name": r["international_english_name"],
+        }
+        for r in rows
+    ]
 
 
 # ── System status ──────────────────────────────────────────────────────────────
