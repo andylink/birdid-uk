@@ -175,6 +175,33 @@ class PerchModel:
                 if sci and name:
                     sci_to_bto[sci] = name
 
+        # Load BirdNET label file to build sci→BirdNET-common-name lookup so
+        # that Perch stores the same species name as BirdNET (e.g.
+        # "Eurasian Blackbird" rather than the BTO short form "Blackbird").
+        sci_to_birdnet: dict[str, str] = {}
+        try:
+            import birdnet_analyzer as _bna
+            import pathlib as _pl
+            _labels = (
+                _pl.Path(_bna.__file__).parent
+                / "checkpoints" / "V2.4"
+                / "BirdNET_GLOBAL_6K_V2.4_Labels.txt"
+            )
+            if _labels.exists():
+                for _line in _labels.read_text(encoding="utf-8").splitlines():
+                    _label = _line.strip()
+                    if not _label:
+                        continue
+                    _sci_part, _, _common = _label.partition("_")
+                    if _sci_part and _common:
+                        sci_to_birdnet[_sci_part.strip().lower()] = _common
+                logger.debug(
+                    "Perch: loaded %d BirdNET name mappings for consistent species names.",
+                    len(sci_to_birdnet),
+                )
+        except ImportError:
+            logger.debug("Perch: birdnet_analyzer not installed; using BTO names as fallback.")
+
         sci_names = self._load_classes()
         if not sci_names:
             logger.warning("Perch: empty class list; label map will be empty.")
@@ -185,8 +212,15 @@ class PerchModel:
         bto_hits = 0
 
         for sci_name in sci_names:
-            bto_name = sci_to_bto.get(sci_name.lower())
-            if bto_name:
+            sci_lower = sci_name.lower()
+            # Prefer BirdNET name so species strings are identical across models,
+            # then fall back to BTO British name, then raw scientific name.
+            birdnet_name = sci_to_birdnet.get(sci_lower)
+            bto_name     = sci_to_bto.get(sci_lower)
+            if birdnet_name:
+                common = birdnet_name
+                bto_hits += 1
+            elif bto_name:
                 common = bto_name
                 bto_hits += 1
             else:
@@ -196,7 +230,7 @@ class PerchModel:
             sci_to_common[sci_name] = common
 
         logger.info(
-            "Perch label map: %d species (%d matched to BTO names, %d unmatched).",
+            "Perch label map: %d species (%d matched to BirdNET/BTO names, %d unmatched).",
             len(label_map), bto_hits, len(sci_names) - bto_hits,
         )
         return label_map, sci_to_common, sci_names
