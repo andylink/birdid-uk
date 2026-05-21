@@ -67,22 +67,12 @@ CREATE TABLE IF NOT EXISTS species_info (
 )
 """
 
-_DDL_DETECTION_RESULTS = """
-CREATE TABLE IF NOT EXISTS detection_results (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    detection_id INTEGER NOT NULL,
-    species TEXT NOT NULL,
-    confidence REAL NOT NULL
-)
-"""
-
 
 async def _setup_db(db_path: Path) -> None:
     """Create schema and seed test rows."""
     async with aiosqlite.connect(str(db_path)) as conn:
         await conn.execute(_DDL_DETECTIONS)
         await conn.execute(_DDL_SPECIES_INFO)
-        await conn.execute(_DDL_DETECTION_RESULTS)
 
         await conn.executemany(
             "INSERT INTO species_info (name, scientific_name, uk_bocc, group_name, species_status) "

@@ -40,12 +40,6 @@ detections
     weather_precipitation  FLOAT              (mm)
     weather_provider       TEXT               (e.g. "open_meteo", "yr_no", "meteobridge")
 
-detection_results
-    id           INTEGER  PK AUTOINCREMENT
-    detection_id INTEGER  FK → detections.id  NOT NULL
-    species      TEXT     NOT NULL
-    confidence   FLOAT    NOT NULL
-
 species_info
     name                     TEXT  PK  (British common name)
     scientific_name          TEXT
@@ -74,7 +68,6 @@ from sqlalchemy import (
     Boolean,
     Column,
     Float,
-    ForeignKey,
     Integer,
     MetaData,
     String,
@@ -127,14 +120,6 @@ _detections = Table(
     Column("source_name",            String),
     # NULL when dedup is disabled or this is the primary detection
     Column("deduplicated",           Boolean),
-)
-
-_detection_results = Table(
-    "detection_results", _metadata,
-    Column("id",           Integer, primary_key=True, autoincrement=True),
-    Column("detection_id", Integer, ForeignKey("detections.id"), nullable=False),
-    Column("species",      String,  nullable=False),
-    Column("confidence",   Float,   nullable=False),
 )
 
 _species_info = Table(
@@ -385,7 +370,6 @@ def record_detection(
     species:    str,
     confidence: float,
     clip_path:  Path,
-    secondary:  list[tuple[str, float]],
     bto_name:   str | None = None,
     model_name: str | None = None,
     # Cross-validation fields — omit (leave None) when CV is disabled
@@ -414,9 +398,7 @@ def record_detection(
 ) -> None:
     """Write one detection to the database.
 
-    Inserts a row into ``detections`` for the top species, then one row per
-    entry in ``secondary`` into ``detection_results``. Both inserts share a
-    single transaction.
+    Inserts a row into ``detections`` for the top species.
 
     verification_status is computed automatically:
       - 'cv'          when cross_validated=True and cv_agree=True
@@ -428,8 +410,6 @@ def record_detection(
         species:             Primary model common name (e.g. "European Robin").
         confidence:          Primary model confidence score.
         clip_path:           Path to the saved audio clip.
-        secondary:           Other candidate species from the same window,
-                             written to ``detection_results``.
         bto_name:            BTO British name (e.g. "Robin"); None if unmapped.
         model_name:          Primary inference backend (e.g. "birdnet").
         primary_confidence:  Raw primary score before any ensemble averaging.
@@ -495,16 +475,6 @@ def record_detection(
                 flagged                = flagged,
             )
         )
-        detection_id = result.inserted_primary_key[0]
-        if secondary:
-            conn.execute(
-                _detection_results.insert(),
-                [
-                    {"detection_id": detection_id, "species": s, "confidence": c}
-                    for s, c in secondary
-                ],
-            )
-
 
 
 def seed_species_info(json_path: Path) -> None:
