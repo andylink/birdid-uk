@@ -69,29 +69,36 @@ class TestDayUtcBounds:
     def test_utc_day_starts_at_midnight_utc(self):
         d = date(2026, 5, 13)
         start, end = _day_utc_bounds(d, UTC)
-        assert start == "2026-05-13 00:00:00"
-        assert end   == "2026-05-14 00:00:00"
+        assert start == datetime(2026, 5, 13, 0, 0, 0)
+        assert end   == datetime(2026, 5, 14, 0, 0, 0)
 
     def test_bst_day_shifted_by_one_hour(self):
         """In BST (+01:00), local midnight is 23:00 UTC the previous day."""
         d = date(2026, 6, 21)
         start, end = _day_utc_bounds(d, LONDON)
-        assert start == "2026-06-20 23:00:00"
-        assert end   == "2026-06-21 23:00:00"
+        assert start == datetime(2026, 6, 20, 23, 0, 0)
+        assert end   == datetime(2026, 6, 21, 23, 0, 0)
 
     def test_kolkata_day_shifted_by_5h30(self):
         """In IST (+05:30), local midnight 2026-05-13 = 2026-05-12 18:30 UTC."""
         d = date(2026, 5, 13)
         start, end = _day_utc_bounds(d, KOLKATA)
-        assert start == "2026-05-12 18:30:00"
-        assert end   == "2026-05-13 18:30:00"
+        assert start == datetime(2026, 5, 12, 18, 30, 0)
+        assert end   == datetime(2026, 5, 13, 18, 30, 0)
 
     def test_gmt_winter_london_no_offset(self):
         """In winter, London is GMT (no offset), so bounds match UTC."""
         d = date(2026, 1, 15)
         start, end = _day_utc_bounds(d, LONDON)
-        assert start == "2026-01-15 00:00:00"
-        assert end   == "2026-01-16 00:00:00"
+        assert start == datetime(2026, 1, 15, 0, 0, 0)
+        assert end   == datetime(2026, 1, 16, 0, 0, 0)
+
+    def test_returns_datetime_instances(self):
+        """Bounds must be datetime objects, not strings (asyncpg requirement)."""
+        d = date(2026, 5, 13)
+        start, end = _day_utc_bounds(d, UTC)
+        assert isinstance(start, datetime)
+        assert isinstance(end, datetime)
 
 
 # ── utc_offset_str ────────────────────────────────────────────────────────────
@@ -172,8 +179,8 @@ class TestPeriodClause:
         assert "timestamp < :end" in clause
         assert len(params) == 2
         # end should be the start of the day after date_to
-        assert params["start"] == "2026-01-01 00:00:00"
-        assert params["end"] == "2026-01-08 00:00:00"
+        assert params["start"] == datetime(2026, 1, 1, 0, 0, 0)
+        assert params["end"] == datetime(2026, 1, 8, 0, 0, 0)
 
     def test_custom_missing_dates_falls_back_to_all(self):
         clause, params = period_clause("custom")
@@ -194,7 +201,8 @@ class TestPeriodClause:
         fixed_today = date(2026, 5, 19)
         monkeypatch.setattr(dashboard.utils, "_local_today", lambda: fixed_today)
         clause, params = period_clause("7d")
-        start_dt = datetime.fromisoformat(params["start"])
+        start_dt = params["start"]
+        assert isinstance(start_dt, datetime)
         delta_days = (fixed_today - start_dt.date()).days
         assert delta_days == 6
 
@@ -202,7 +210,8 @@ class TestPeriodClause:
         fixed_today = date(2026, 5, 19)
         monkeypatch.setattr(dashboard.utils, "_local_today", lambda: fixed_today)
         clause, params = period_clause("30d")
-        start_dt = datetime.fromisoformat(params["start"])
+        start_dt = params["start"]
+        assert isinstance(start_dt, datetime)
         delta_days = (fixed_today - start_dt.date()).days
         assert delta_days == 29
 
@@ -210,6 +219,8 @@ class TestPeriodClause:
         """In UTC, today's start should be midnight of the current date."""
         clause, params = period_clause("today")
         start, end = params["start"], params["end"]
-        today_str = datetime.now(UTC).strftime("%Y-%m-%d")
-        assert start.startswith(today_str)
-        assert start.endswith("00:00:00")
+        assert isinstance(start, datetime)
+        assert isinstance(end, datetime)
+        today = datetime.now(UTC).date()
+        assert start.date() == today
+        assert start.hour == 0 and start.minute == 0 and start.second == 0

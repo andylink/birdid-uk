@@ -62,7 +62,9 @@ async def species_daily(
             FROM detections d
             LEFT JOIN species_info si ON si.name = d.bto_name
             WHERE d.timestamp >= :start AND d.timestamp < :end
-            GROUP BY d.species
+            GROUP BY d.species, si.scientific_name, si.group_name,
+                     si.uk_bocc, si.species_status,
+                     si.bto_2letter_code, si.bto_5letter_code
             ORDER BY count DESC
             LIMIT :limit
             """),

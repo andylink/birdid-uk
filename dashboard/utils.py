@@ -26,18 +26,21 @@ def _local_today() -> date:
     return datetime.now(_local_tz()).date()
 
 
-def _day_utc_bounds(d: date, tz: ZoneInfo) -> tuple[str, str]:
-    """Return the UTC start and end of a local calendar day as naive ISO strings.
+def _day_utc_bounds(d: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
+    """Return the UTC start and end of a local calendar day as naive datetime objects.
 
     Converts local midnight-to-midnight to UTC so that queries like
     `timestamp >= start AND timestamp < end` correctly select all detections
     for that local date, accounting for DST shifts.
+
+    Returns naive datetime objects (no tzinfo) as asyncpg and aiosqlite both
+    expect datetime instances, not strings, for bound query parameters.
     """
     start_local = datetime(d.year, d.month, d.day, tzinfo=tz)
     end_local = start_local + timedelta(days=1)
     start_utc = start_local.astimezone(timezone.utc).replace(tzinfo=None)
     end_utc = end_local.astimezone(timezone.utc).replace(tzinfo=None)
-    return start_utc.isoformat(sep=" "), end_utc.isoformat(sep=" ")
+    return start_utc, end_utc
 
 
 def utc_offset_str() -> str:
